@@ -25,7 +25,23 @@
                 <input type="email" id="email-login" placeholder="Seu e-mail">
                 <input type="password" id="senha-login" placeholder="Sua senha">
                 <button onclick="fazerLogin()">Entrar</button>
+                
+                <p style="text-align:center; margin:12px 0;">
+                    <a href="#" onclick="mostrarEsqueciSenha(); return false;" style="color:#1e40af; text-decoration:underline;">Esqueci minha senha</a>
+                </p>
+                
+                <div id="area-esqueci-senha" style="display:none; border-top:1px solid #ddd; padding-top:16px; margin-top:8px;">
+                    <h3 style="font-size:1rem; color:#333; margin-bottom:10px;">Recuperar Senha</h3>
+                    <p style="font-size:0.9rem; color:#666; margin-bottom:10px;">Digite seu e-mail abaixo e enviaremos um link para redefinir sua senha.</p>
+                    <input type="email" id="email-recupera" placeholder="Seu e-mail">
+                    <button onclick="enviarLinkSenha()" style="background:#059669; width:100%; margin-top:10px;">Enviar Link</button>
+                    <p style="text-align:center; margin-top:10px;">
+                        <a href="#" onclick="esconderEsqueciSenha(); return false;" style="color:#666; font-size:0.9rem;">Voltar ao login</a>
+                    </p>
+                </div>
+                
                 <p id="msg-erro" class="erro"></p>
+                <p id="msg-sucesso" style="color:#059669; margin-top:10px; display:none;"></p>
             </div>
         </div>
     </div>
@@ -232,6 +248,5 @@
 
     <script src="config.js"></script>
     <script src="app.js"></script>
-    <script src="style.js"></script>
 </body>
 </html>
