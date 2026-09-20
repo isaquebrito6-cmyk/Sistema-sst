@@ -12,63 +12,342 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-        body { background: #f0f4f8; color: #1f2937; min-height: 100vh; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        html, body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #eef2f7 0%, #d9e2ef 100%);
+        }
+        
+        body {
+            padding: 12px;
+        }
+        
+        /* === TELAS === */
         .tela { display: none; }
         .tela.ativa { display: block; }
         
-        /* Login */
-        #tela-login { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-        .login-container { width: 100%; max-width: 400px; }
-        .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { font-size: 1.8rem; color: #1e40af; margin-bottom: 5px; }
-        .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 16px; }
-        .card h2 { font-size: 1.3rem; margin-bottom: 20px; text-align: center; color: #1f2937; }
-        input, textarea, select { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
-        input:focus, textarea:focus, select:focus { outline: none; border-color: #1e40af; box-shadow: 0 0 0 3px rgba(30,64,175,0.1); }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
-        button:not(.btn-sair) { background: #1e40af; color: white; }
-        button:hover:not(.btn-sair) { background: #1c3ed0; }
-        .btn-excluir { background: #ef4444; width: auto; padding: 8px 12px; font-size: 0.9rem; }
-        .erro { color: #dc2626; margin-top: 10px; text-align: center; min-height: 20px; }
-        .sucesso { color: #059669; margin-top: 10px; text-align: center; }
+        /* === TELA DE LOGIN — Centralizada === */
+        #tela-login.ativa {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 95vh;
+        }
         
-        /* Cabeçalho e Menu */
-        header { background: #1e40af; color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
-        .header-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-        .header-content h1 { font-size: 1.2rem; }
-        .btn-sair { background: rgba(255,255,255,0.2); color: white; width: auto; padding: 8px 16px; font-size: 0.9rem; }
-        .menu-principal { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px; max-width: 1200px; margin: 0 auto; }
-        .btn-menu { background: white; color: #374151; width: auto; padding: 10px 14px; font-size: 0.9rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-        .btn-menu.ativa { background: #1e40af; color: white; }
-        main { max-width: 1200px; margin: 0 auto; padding: 0 16px 30px; }
-        .secao { display: none; }
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .logo h1 {
+            font-size: 1.7rem;
+            color: #1e40af;
+            margin-bottom: 4px;
+        }
+        
+        .logo p {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 14px;
+            padding: 22px;
+            box-shadow: 0 4px 20px rgba(30, 64, 175, 0.12);
+            margin-bottom: 14px;
+        }
+        
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 18px;
+            text-align: center;
+            color: #1e293b;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 13px;
+            margin-bottom: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #1e40af;
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:active { transform: scale(0.98); }
+        
+        button:not(.btn-sair):not(.btn-menu):not(.btn-excluir) {
+            background: #1e40af;
+            color: white;
+        }
+        
+        button:not(.btn-sair):not(.btn-menu):not(.btn-excluir):hover {
+            background: #1c3ed0;
+        }
+        
+        .btn-excluir {
+            background: #ef4444;
+            width: auto;
+            padding: 8px 14px;
+            font-size: 0.9rem;
+        }
+        
+        .erro {
+            color: #dc2626;
+            margin-top: 10px;
+            text-align: center;
+            min-height: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .sucesso {
+            color: #059669;
+            margin-top: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .link-esqueci {
+            text-align: center;
+            margin: 12px 0;
+        }
+        
+        .link-esqueci a {
+            color: #1e40af;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .area-esqueci {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 16px;
+            margin-top: 8px;
+            display: none;
+        }
+        
+        /* === TELA PRINCIPAL === */
+        header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 14px;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-content h1 {
+            font-size: 1.1rem;
+        }
+        
+        .btn-sair {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            width: auto;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+        
+        /* Menu compacto em 2 colunas */
+        .menu-principal {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        
+        .btn-menu {
+            background: white;
+            color: #374151;
+            width: 100%;
+            padding: 10px 8px;
+            font-size: 0.9rem;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        
+        .btn-menu.ativa {
+            background: #1e40af;
+            color: white;
+        }
+        
+        main {
+            max-width: 768px;
+            margin: 0 auto;
+        }
+        
+        .secao {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+        }
+        
         .secao.ativa { display: block; }
-        .secao h2 { font-size: 1.4rem; margin: 20px 0; color: #1f2937; }
+        
+        .secao h2 {
+            font-size: 1.25rem;
+            margin-bottom: 16px;
+            color: #1e40af;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .secao h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: #374151;
+        }
         
         /* Painel */
-        .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
-        .card-status { background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
-        .card-status h3 { font-size: 1rem; color: #6b7280; margin-bottom: 8px; }
-        .card-status .numero { font-size: 2rem; font-weight: 700; color: #1e40af; }
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        
+        .card-status {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+        
+        .card-status h3 {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        
+        .card-status .numero {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #1e40af;
+        }
+        
         .card-status.alerta .numero { color: #d97706; }
         .card-status.ok .numero { color: #059669; }
-        .botoes-acesso { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
-        .botoes-acesso button { background: #f3f4f6; color: #1f2937; }
-        .botoes-acesso button:hover { background: #e5e7eb; }
+        
+        .botoes-acesso {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .botoes-acesso button {
+            background: #f3f4f6;
+            color: #1f2937;
+            font-size: 0.9rem;
+            padding: 10px;
+        }
+        
+        .botoes-acesso button:hover {
+            background: #e5e7eb;
+        }
         
         /* Itens de Lista */
-        .item-lista { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
-        .item-lista:last-child { border-bottom: none; }
-        .form-card label { display: block; margin-bottom: 6px; font-weight: 500; color: #374151; }
-        .riscos-tipo { display: grid; gap: 8px; margin: 12px 0; }
-        .riscos-tipo label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-        .destaque { background: #eff6ff; border-left: 4px solid #1e40af; padding: 12px; margin: 12px 0; border-radius: 0 8px 8px 0; }
-        .dica { margin-top: 12px; padding: 10px; background: #fef3c7; border-radius: 6px; font-size: 0.9rem; }
-        .documento { background: #fff; padding: 20px; border: 1px solid #ddd; margin-top: 15px; }
+        .item-lista {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .form-card label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #374151;
+            font-size: 0.9rem;
+        }
+        
+        .riscos-tipo {
+            display: grid;
+            gap: 6px;
+            margin: 10px 0;
+        }
+        
+        .riscos-tipo label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        
+        .destaque {
+            background: #eff6ff;
+            border-left: 4px solid #1e40af;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+        
+        .documento {
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            margin-top: 15px;
+            border-radius: 8px;
+            display: none;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        /* Ajuste para telas pequenas */
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            .logo h1 { font-size: 1.5rem; }
+            .card { padding: 18px 16px; }
+            .menu-principal { gap: 6px; }
+            .btn-menu { padding: 10px 6px; font-size: 0.85rem; }
+            .grid-cards { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .card-status .numero { font-size: 1.4rem; }
+            .secao { padding: 14px; }
+        }
+        
         @media print {
-            header, .menu-principal, .card > button, .dica, .btn-excluir, form { display: none !important; }
+            header, .menu-principal, .card > button, .btn-excluir, form { display: none !important; }
             .secao, .documento { display: block !important; }
         }
     </style>
@@ -87,22 +366,22 @@
                 <input type="password" id="senha-login" placeholder="Sua senha">
                 <button onclick="fazerLogin()">Entrar</button>
                 
-                <p style="text-align:center; margin:12px 0;">
-                    <a href="#" onclick="mostrarEsqueciSenha(); return false;" style="color:#1e40af; text-decoration:underline;">Esqueci minha senha</a>
-                </p>
+                <div class="link-esqueci">
+                    <a href="#" onclick="mostrarEsqueciSenha(); return false;">Esqueci minha senha</a>
+                </div>
                 
-                <div id="area-esqueci-senha" style="display:none; border-top:1px solid #ddd; padding-top:16px; margin-top:8px;">
+                <div id="area-esqueci-senha" class="area-esqueci">
                     <h3>Recuperar Senha</h3>
-                    <p style="font-size:0.9rem; color:#666; margin-bottom:10px;">Digite seu e-mail abaixo e enviaremos um link para redefinir sua senha.</p>
+                    <p style="font-size:0.85rem; color:#666; margin-bottom:10px;">Digite seu e-mail abaixo e enviaremos um link para redefinir sua senha.</p>
                     <input type="email" id="email-recupera" placeholder="Seu e-mail">
-                    <button onclick="enviarLinkSenha()" style="background:#059669; width:100%; margin-top:10px;">Enviar Link</button>
+                    <button onclick="enviarLinkSenha()" style="background:#059669; margin-top:8px;">Enviar Link</button>
                     <p style="text-align:center; margin-top:10px;">
-                        <a href="#" onclick="esconderEsqueciSenha(); return false;" style="color:#666; font-size:0.9rem;">Voltar ao login</a>
+                        <a href="#" onclick="esconderEsqueciSenha(); return false;" style="color:#666; font-size:0.85rem;">Voltar ao login</a>
                     </p>
                 </div>
                 
                 <p id="msg-erro" class="erro"></p>
-                <p id="msg-sucesso" class="sucesso" style="display:none;"></p>
+                <p id="msg-sucesso" class="sucesso">✅ Link enviado! Verifique seu e-mail</p>
             </div>
         </div>
     </div>
@@ -119,12 +398,12 @@
         <nav class="menu-principal">
             <button class="btn-menu ativo" data-tela="painel">📊 Painel</button>
             <button class="btn-menu" data-tela="empresa">🏢 Empresa</button>
-            <button class="btn-menu" data-tela="colaboradores">👥 Colaboradores</button>
+            <button class="btn-menu" data-tela="colaboradores">👥 Colab.</button>
             <button class="btn-menu" data-tela="clinicas">🏥 Clínicas</button>
             <button class="btn-menu" data-tela="pgr">⚠️ PGR</button>
             <button class="btn-menu" data-tela="pcmso">🏥 PCMSO</button>
             <button class="btn-menu" data-tela="nr09">📋 NR-09</button>
-            <button class="btn-menu" data-tela="documentos">📄 Documentos</button>
+            <button class="btn-menu" data-tela="documentos">📄 Docs</button>
         </nav>
 
         <main>
@@ -133,11 +412,11 @@
                 <h2>Painel de Controle</h2>
                 <div class="grid-cards">
                     <div class="card-status">
-                        <h3>Colaboradores</h3>
+                        <h3>Colab.</h3>
                         <p class="numero" id="qtd-colab">0</p>
                     </div>
                     <div class="card-status alerta">
-                        <h3>Exames Pendentes</h3>
+                        <h3>Pendentes</h3>
                         <p class="numero" id="qtd-pendentes">0</p>
                     </div>
                     <div class="card-status ok">
@@ -151,7 +430,7 @@
                         <button onclick="abrirSecao('pgr')">Gerar PGR</button>
                         <button onclick="abrirSecao('pcmso')">Gerar PCMSO</button>
                         <button onclick="abrirSecao('nr09')">NR-09</button>
-                        <button onclick="abrirSecao('documentos')">Ver Documentos</button>
+                        <button onclick="abrirSecao('documentos')">Docs</button>
                     </div>
                 </div>
             </section>
@@ -172,7 +451,7 @@
                     <input type="text" id="emp-tel">
                     <label>Responsável Legal</label>
                     <input type="text" id="emp-resp">
-                    <button onclick="salvarEmpresa()">💾 Salvar Dados</button>
+                    <button onclick="salvarEmpresa()" style="margin-top:8px;">💾 Salvar Dados</button>
                 </div>
             </section>
 
@@ -191,7 +470,7 @@
                     <input type="text" id="col-setor">
                     <label>Data de Admissão</label>
                     <input type="date" id="col-admissao">
-                    <button onclick="cadastrarColaborador()">✅ Cadastrar</button>
+                    <button onclick="cadastrarColaborador()" style="margin-top:8px;">✅ Cadastrar</button>
                 </div>
                 <div class="card">
                     <h3>Lista</h3>
@@ -212,7 +491,7 @@
                     <input type="text" id="clin-endereco">
                     <label>Telefone / Contato</label>
                     <input type="text" id="clin-tel">
-                    <button onclick="cadastrarClinica()">✅ Cadastrar</button>
+                    <button onclick="cadastrarClinica()" style="margin-top:8px;">✅ Cadastrar</button>
                 </div>
                 <div class="card">
                     <h3>Lista</h3>
@@ -230,7 +509,7 @@
                     <label>Função / Cargo</label>
                     <input type="text" id="risco-funcao">
                     
-                    <h4>Riscos Identificados</h4>
+                    <h4 style="margin-top:10px;">Riscos Identificados</h4>
                     <div class="riscos-tipo">
                         <label><input type="checkbox" class="chk-risco" value="Físico — Ruído, Calor, Vibração"> Físico</label>
                         <label><input type="checkbox" class="chk-risco" value="Químico — Poeiras, Produtos"> Químico</label>
@@ -243,16 +522,16 @@
                     <label>Medidas de Controle</label>
                     <textarea id="risco-medidas" rows="3"></textarea>
                     
-                    <button onclick="adicionarRisco()">➕ Adicionar Risco</button>
+                    <button onclick="adicionarRisco()" style="margin-top:8px;">➕ Adicionar Risco</button>
                 </div>
                 
                 <div class="card">
                     <h3>Matriz de Riscos</h3>
                     <div id="lista-riscos"></div>
-                    <button onclick="gerarPGR()" style="margin-top:15px;">📄 Gerar PGR</button>
+                    <button onclick="gerarPGR()" style="margin-top:12px;">📄 Gerar PGR</button>
                 </div>
                 
-                <div id="visual-pgr" class="documento" style="display:none;"></div>
+                <div id="visual-pgr" class="documento"></div>
             </section>
 
             <!-- PCMSO -->
@@ -279,7 +558,7 @@
                     <select id="exame-clinica"><option value="">Selecione...</option></select>
                     <label>Data Prevista</label>
                     <input type="date" id="exame-data">
-                    <button onclick="registrarExame()" style="margin-top:10px;">✅ Registrar</button>
+                    <button onclick="registrarExame()" style="margin-top:8px;">✅ Registrar</button>
                 </div>
                 
                 <div class="card">
@@ -287,7 +566,7 @@
                     <div id="lista-exames"></div>
                 </div>
                 
-                <div id="visual-pcmso" class="documento" style="display:none;"></div>
+                <div id="visual-pcmso" class="documento"></div>
             </section>
 
             <!-- NR-09 -->
@@ -313,12 +592,12 @@
                     <button onclick="adicionarAcaoNR09()" style="background:#f59e0b; margin:10px 0;">+ Adicionar Medida</button>
                 </div>
                 
-                <div style="display:flex; gap:10px; margin:15px 0;">
-                    <button onclick="gerarDocumentoNR09()">📄 Gerar NR-09</button>
-                    <button onclick="imprimirNR09()" style="background:#f59e0b;">🖨️ Imprimir / PDF</button>
+                <div style="display:flex; gap:8px; margin:12px 0;">
+                    <button onclick="gerarDocumentoNR09()" style="flex:1;">📄 Gerar NR-09</button>
+                    <button onclick="imprimirNR09()" style="flex:1; background:#f59e0b;">🖨️ Imprimir</button>
                 </div>
                 
-                <div id="nr09-documento-final" class="documento" style="display:none;"></div>
+                <div id="nr09-documento-final" class="documento"></div>
             </section>
 
             <!-- DOCUMENTOS -->
@@ -326,7 +605,7 @@
                 <h2>📄 Documentos Gerados</h2>
                 <div class="card">
                     <h3>Salvar em PDF</h3>
-                    <p>Abra o documento e use Imprimir → Salvar como PDF.</p>
+                    <p style="font-size:0.9rem; color:#666; margin:8px 0;">Abra o documento e use Imprimir → Salvar como PDF.</p>
                     <div class="botoes-acesso">
                         <button onclick="abrirSecao('pgr')">Ver PGR</button>
                         <button onclick="abrirSecao('pcmso')">Ver PCMSO</button>
