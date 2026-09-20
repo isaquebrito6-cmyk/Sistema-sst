@@ -50,6 +50,54 @@ async function fazerLogin() {
 
 function sair() { auth.signOut(); }
 
+// === RECUPERAÇÃO DE SENHA ===
+function mostrarEsqueciSenha() {
+  const area = document.getElementById('area-esqueci-senha');
+  if (area) area.style.display = 'block';
+  const msgSucesso = document.getElementById('msg-sucesso');
+  if (msgSucesso) msgSucesso.style.display = 'none';
+  const msgErro = document.getElementById('msg-erro');
+  if (msgErro) msgErro.textContent = '';
+}
+
+function esconderEsqueciSenha() {
+  const area = document.getElementById('area-esqueci-senha');
+  if (area) area.style.display = 'none';
+  const emailRecupera = document.getElementById('email-recupera');
+  if (emailRecupera) emailRecupera.value = '';
+}
+
+async function enviarLinkSenha() {
+  const email = document.getElementById('email-recupera').value.trim();
+  const msgErro = document.getElementById('msg-erro');
+  const msgSucesso = document.getElementById('msg-sucesso');
+  
+  if (!email) {
+    if (msgErro) msgErro.textContent = 'Digite seu e-mail!';
+    return;
+  }
+  
+  try {
+    await auth.sendPasswordResetEmail(email);
+    if (msgSucesso) {
+      msgSucesso.textContent = '✅ Link enviado! Verifique sua caixa de entrada (e spam)';
+      msgSucesso.style.display = 'block';
+    }
+    if (msgErro) msgErro.textContent = '';
+    document.getElementById('email-recupera').value = '';
+  } catch (erro) {
+    if (msgSucesso) msgSucesso.style.display = 'none';
+    if (!msgErro) return;
+    if (erro.code === 'auth/user-not-found') {
+      msgErro.textContent = 'E-mail não cadastrado. Verifique o endereço.';
+    } else if (erro.code === 'auth/invalid-email') {
+      msgErro.textContent = 'E-mail inválido.';
+    } else {
+      msgErro.textContent = 'Erro: ' + erro.message;
+    }
+  }
+}
+
 // === NAVEGAÇÃO ===
 document.querySelectorAll('.btn-menu').forEach(botao => {
   botao.addEventListener('click', () => {
