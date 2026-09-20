@@ -1,0 +1,29 @@
+// ======================================================
+// SST Pro — Configuração do Firebase
+// ======================================================
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCnXCyC3SMqoF4Sps6W8n-a32RMM-eVC5s",
+  authDomain: "sistema-gestao-dd8a2.firebaseapp.com",
+  projectId: "sistema-gestao-dd8a2",
+  storageBucket: "sistema-gestao-dd8a2.firebasestorage.app",
+  messagingSenderId: "447733680715",
+  appId: "1:447733680715:web:b031fd11134e9864be9bce"
+};
+
+// ======================================================
+// NÃO ALTERAR ABAIXO DESTA LINHA
+// ======================================================
+
+// Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// E-mail do Administrador (você)
+const USUARIO_ADMIN = "ipbisaque@gmail.com";
+
+// Verificar se é administrador
+function isAdmin(email) {
+  return email && email.toLowerCase() === USUARIO_ADMIN.toLowerCase();
+}
