@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e40af">
-    <title>SST Pro — PGR Programa de Gerenciamento de Riscos</title>
+    <meta name="description" content="Sistema SST Pro — PGR Programa de Gerenciamento de Riscos | NR-01 NR-09">
+    <title>Sistema SST Pro — PGR · NR-01 · NR-09</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -17,6 +18,7 @@
         .tela { display: none; }
         .tela.ativa { display: block; }
         
+        /* LOGIN */
         #tela-login.ativa { display: flex; align-items: center; justify-content: center; min-height: 95vh; }
         .login-container { width: 100%; max-width: 400px; }
         .logo { text-align: center; margin-bottom: 24px; }
@@ -50,10 +52,6 @@
         .erro { color: #dc2626; margin-top: 10px; text-align: center; min-height: 20px; font-size: 0.9rem; }
         .sucesso { color: #059669; margin-top: 10px; text-align: center; font-size: 0.9rem; display: none; }
         
-        .link-esqueci { text-align: center; margin: 12px 0; }
-        .link-esqueci a { color: #1e40af; text-decoration: none; font-size: 0.9rem; }
-        .area-esqueci { border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 8px; display: none; }
-        
         header {
             background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
             color: white; padding: 14px 16px; border-radius: 12px; margin-bottom: 14px;
@@ -62,8 +60,8 @@
         .header-content h1 { font-size: 1.1rem; }
         .btn-sair { background: rgba(255,255,255,0.2); color: white; width: auto; padding: 8px 16px; font-size: 0.9rem; }
         
-        .menu-principal { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
-        .btn-menu { background: white; color: #374151; padding: 10px 6px; font-size: 0.85rem; border: 2px solid transparent; border-radius: 10px; }
+        .menu-principal { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+        .btn-menu { background: white; color: #374151; padding: 10px 6px; font-size: 0.8rem; border: 2px solid transparent; border-radius: 10px; }
         .btn-menu.ativa { background: #1e40af; color: white; }
         
         main { max-width: 800px; margin: 0 auto; }
@@ -72,13 +70,15 @@
         
         .destaque { background: #eff6ff; border-left: 4px solid #1e40af; padding: 12px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9rem; }
         .aviso { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 0 8px 8px 0; font-size: 0.85rem; }
+        .sucesso-box { background: #ecfdf5; border-left: 4px solid #059669; padding: 12px; margin: 12px 0; border-radius: 0 8px 8px 0; }
         
         .linha-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .linha-form > div { width: 100%; }
         
-        .item-lista { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f1f5f9; }
-        .item-dados { flex: 1; font-size: 0.9rem; }
+        .item-lista { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid #f1f5f9; gap: 10px; }
+        .item-dados { flex: 1; font-size: 0.9rem; line-height: 1.5; }
         
+        /* DOCUMENTO PGR */
         .documento {
             background: #fff; padding: 40px; border: 1px solid #ccc; margin-top: 20px; display: none;
             max-height: 85vh; overflow-y: auto; font-size: 0.92rem; line-height: 1.6;
@@ -117,19 +117,17 @@
     <div id="tela-login" class="tela ativa">
         <div class="login-container">
             <div class="logo">
-                <h1>🛡️ SST Pro</h1>
-                <p>Sistema de Gestão de Segurança e Saúde do Trabalho</p>
+                <h1>🛡️ Sistema SST Pro</h1>
+                <p>PGR · NR-01 · NR-09 · Gestão de Riscos</p>
             </div>
             <div class="card">
                 <h2>Acesso ao Sistema</h2>
-                <input type="email" id="email-login" placeholder="Seu e-mail">
-                <input type="password" id="senha-login" placeholder="Sua senha">
+                <input type="email" id="email-login" placeholder="E-mail">
+                <input type="password" id="senha-login" placeholder="Senha">
                 <button onclick="fazerLogin()">Entrar</button>
-                
                 <p style="text-align:center; margin:12px 0; font-size:0.85rem; color:#666;">
-                    Acesso Administrador: ipbisaque@gmail.com
+                    Administrador: ipbisaque@gmail.com
                 </p>
-                
                 <div id="msg-erro" class="erro"></div>
             </div>
         </div>
@@ -139,136 +137,250 @@
     <div id="tela-principal" class="tela">
         <header>
             <div class="header-content">
-                <h1>🛡️ SST Pro — PGR Completo</h1>
+                <h1>🛡️ SST Pro — Sistema de Gestão de Riscos</h1>
                 <button class="btn-sair" onclick="sair()">Sair</button>
             </div>
         </header>
 
         <nav class="menu-principal">
-            <button class="btn-menu ativo" data-tela="formulario">📝 Dados</button>
+            <button class="btn-menu ativo" data-tela="inicio">🏠 Início</button>
+            <button class="btn-menu" data-tela="dados">📝 Empresa</button>
             <button class="btn-menu" data-tela="riscos">⚠️ Riscos</button>
-            <button class="btn-menu" data-tela="plano">📋 Ação</button>
-            <button class="btn-menu" data-tela="pgr-final">📄 PGR</button>
+            <button class="btn-menu" data-tela="pgr">📄 PGR</button>
         </nav>
 
         <main>
-            <!-- FORMULÁRIO DADOS -->
-            <section id="sec-formulario" class="secao ativa">
-                <h2>📝 Passo 1 — Dados Gerais</h2>
+            <!-- ============================================== -->
+            <!-- INÍCIO                                        -->
+            <!-- ============================================== -->
+            <section id="sec-inicio" class="secao ativa">
+                <h2>Bem-vindo ao Sistema SST Pro</h2>
+                <p class="destaque">Elaboração de <strong>PGR — Programa de Gerenciamento de Riscos</strong> em conformidade com NR-01, NR-09 e Portaria MTP nº 426/2021.</p>
+                
                 <div class="card">
-                    <p class="destaque">Preencha os dados → avança → gera o PGR completo automaticamente.</p>
+                    <h3>Fluxo de Trabalho:</h3>
+                    <ol style="margin:12px 0 12px 24px; line-height:1.8;">
+                        <li>📝 <strong>Dados da Empresa</strong> — Razão Social, CNPJ, endereço, responsáveis</li>
+                        <li>🏭 <strong>Setores</strong> — Cadastre cada setor, atividades e quantidade de trabalhadores</li>
+                        <li>⚠️ <strong>Matriz de Riscos</strong> — Identifique agentes, avalie exposição vs limites da NR-09</li>
+                        <li>📋 <strong>Plano de Ação</strong> — Defina medidas de controle por hierarquia</li>
+                        <li>📄 <strong>Documento PGR</strong> — Gere, visualize e imprima/salve em PDF</li>
+                    </ol>
                 </div>
 
+                <button onclick="abrirSecao('dados')">📝 Iniciar — Dados da Empresa →</button>
+            </section>
+
+            <!-- ============================================== -->
+            <!-- DADOS DA EMPRESA                              -->
+            <!-- ============================================== -->
+            <section id="sec-dados" class="secao">
+                <h2>📝 Dados da Empresa</h2>
+                
                 <div class="card bloco-form">
-                    <h3>🏢 Empresa</h3>
+                    <h3>🏢 Identificação</h3>
                     <label>Razão Social *</label>
-                    <input type="text" id="emp-razao">
+                    <input type="text" id="emp-razao" placeholder="Nome completo da empresa">
+                    <label>Nome Fantasia</label>
+                    <input type="text" id="emp-fantasia" placeholder="Nome de divulgação">
                     <label>CNPJ *</label>
-                    <input type="text" id="emp-cnpj">
-                    <label>Endereço *</label>
-                    <input type="text" id="emp-endereco">
-                    <label>Responsável Legal — Nome</label>
-                    <input type="text" id="emp-resp-nome">
+                    <input type="text" id="emp-cnpj" placeholder="00.000.000/0000-00">
+                    <label>Endereço Completo *</label>
+                    <input type="text" id="emp-endereco" placeholder="Rua, Nº, Bairro, Cidade — UF">
+                    <label>Telefone / WhatsApp</label>
+                    <input type="text" id="emp-tel" placeholder="(XX) 9XXXX-XXXX">
+                    <label>E-mail</label>
+                    <input type="email" id="emp-email" placeholder="contato@empresa.com.br">
                 </div>
 
                 <div class="card bloco-form">
-                    <h3>👨‍🔬 Responsável Técnico</h3>
-                    <label>Nome Completo</label>
-                    <input type="text" id="rt-nome">
-                    <label>Registro (CREA/CRM)</label>
-                    <input type="text" id="rt-registro">
-                    <label>Data Elaboração</label>
+                    <h3>👤 Responsável Legal</h3>
+                    <label>Nome Completo *</label>
+                    <input type="text" id="emp-resp-nome" placeholder="Nome do representante legal">
+                    <label>CPF</label>
+                    <input type="text" id="emp-resp-cpf" placeholder="000.000.000-00">
+                    <label>Cargo / Função</label>
+                    <input type="text" id="emp-resp-cargo" placeholder="Ex: Diretor, Gerente">
+                </div>
+
+                <div class="card bloco-form">
+                    <h3>👨‍🔬 Responsável Técnico / Elaborador</h3>
+                    <label>Nome Completo *</label>
+                    <input type="text" id="rt-nome" placeholder="Nome do profissional habilitado">
+                    <label>Registro Profissional</label>
+                    <input type="text" id="rt-registro" placeholder="CREA, CRM, etc.">
+                    <label>Data de Elaboração *</label>
                     <input type="date" id="pgr-data">
+                    <label>Próxima Revisão</label>
+                    <input type="date" id="pgr-revisao">
                 </div>
 
                 <div class="card bloco-form">
-                    <h3>🏭 Setores</h3>
+                    <h3>🏭 Setores da Empresa</h3>
                     <div id="lista-setores">
-                        <div class="bloco-setor" style="border-bottom:1px solid #eee; padding:10px 0;">
-                            <h4>Setor 1</h4>
-                            <input type="text" class="setor-nome" placeholder="Nome do setor">
-                            <textarea class="setor-atividades" rows="2" placeholder="Atividades"></textarea>
+                        <div class="bloco-setor" style="border-bottom:1px solid #eee; padding:12px 0;">
+                            <h4>Setor 1 <button onclick="this.closest('.bloco-setor').remove()" style="width:auto; background:#ef4444; padding:4px 8px; font-size:0.8rem; margin-left:8px;">Remover</button></h4>
+                            <input type="text" class="setor-nome" placeholder="Nome do setor *">
+                            <textarea class="setor-atividades" rows="2" placeholder="Principais atividades desenvolvidas *"></textarea>
+                            <div class="linha-form">
+                                <div>
+                                    <label>Nº de Trabalhadores</label>
+                                    <input type="number" class="setor-qtd" min="1" value="1">
+                                </div>
+                                <div>
+                                    <label>Jornada / Horário</label>
+                                    <input type="text" class="setor-horario" placeholder="Ex: 08h às 18h — 44h/semana">
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="adicionarSetor()" style="background:#64748b; font-size:0.9rem; padding:8px;">+ Adicionar Setor</button>
+                    <button onclick="adicionarSetor()" style="background:#64748b; font-size:0.9rem; padding:8px; margin-top:8px;">+ Adicionar Novo Setor</button>
                 </div>
 
-                <button onclick="abrirSecao('riscos')" style="margin-top:16px;">Próximo →</button>
+                <div style="display:flex; gap:10px; margin-top:16px;">
+                    <button onclick="abrirSecao('inicio')" style="flex:1; background:#64748b;">← Voltar</button>
+                    <button onclick="abrirSecao('riscos')" style="flex:1;">Próximo: Matriz de Riscos →</button>
+                </div>
             </section>
 
-            <!-- MATRIZ DE RISCOS -->
+            <!-- ============================================== -->
+            <!-- MATRIZ DE RISCOS                              -->
+            <!-- ============================================== -->
             <section id="sec-riscos" class="secao">
-                <h2>⚠️ Passo 2 — Identificar Riscos</h2>
+                <h2>⚠️ Matriz de Identificação e Avaliação de Riscos</h2>
+                <p class="destaque">Conforme NR-09 — Avaliação quantitativa e qualitativa de exposição ocupacional.</p>
+                
                 <div class="card">
+                    <h3>Adicionar Risco</h3>
                     <label>Setor</label>
-                    <input type="text" id="risco-setor">
-                    <label>Função Exposta</label>
-                    <input type="text" id="risco-funcao">
+                    <input type="text" id="risco-setor" placeholder="Igual ao cadastrado em Dados">
+                    <label>Função / Cargo Exposto</label>
+                    <input type="text" id="risco-funcao" placeholder="Ex: Pedreiro, Eletricista">
                     <label>Agente de Risco</label>
                     <select id="risco-agente">
-                        <option>Físico — Ruído</option>
-                        <option>Físico — Calor</option>
-                        <option>Químico — Poeira/Sílica</option>
-                        <option>Químico — Solventes</option>
-                        <option>Biológico</option>
-                        <option>Ergonômico</option>
-                        <option>Acidente</option>
+                        <option value="">Selecione...</option>
+                        <optgroup label="Físicos">
+                            <option>Físico — Ruído Contínuo / Intermitente</option>
+                            <option>Físico — Ruído de Impacto</option>
+                            <option>Físico — Calor (IBUTG)</option>
+                            <option>Físico — Vibração Corpo Inteiro</option>
+                            <option>Físico — Vibração Mão e Braço</option>
+                            <option>Físico — Iluminação</option>
+                            <option>Físico — Radiação Não Ionizante</option>
+                            <option>Físico — Umidade</option>
+                        </optgroup>
+                        <optgroup label="Químicos">
+                            <option>Químico — Poeira Mineral / Sílica Livre</option>
+                            <option>Químico — Poeira de Madeira</option>
+                            <option>Químico — Solventes Orgânicos</option>
+                            <option>Químico — Gases e Vapores</option>
+                            <option>Químico — Produtos de Limpeza / Desengraxantes</option>
+                            <option>Químico — Outros</option>
+                        </optgroup>
+                        <optgroup label="Biológicos">
+                            <option>Biológico — Agentes Infecciosos</option>
+                            <option>Biológico — Animais Peçonhentos</option>
+                            <option>Biológico — Outros</option>
+                        </optgroup>
+                        <optgroup label="Ergonômicos">
+                            <option>Ergonômico — Levantamento/Transporte de Cargas</option>
+                            <option>Ergonômico — Postura Inadequada</option>
+                            <option>Ergonômico — Repetitividade</option>
+                            <option>Ergonômico — Jornada Extendida</option>
+                        </optgroup>
+                        <optgroup label="Acidentes">
+                            <option>Acidente — Queda de Nível</option>
+                            <option>Acidente — Queda no Mesmo Nível</option>
+                            <option>Acidente — Choque Elétrico</option>
+                            <option>Acidente — Corte / Perfuração</option>
+                            <option>Acidente — Queda de Materiais</option>
+                            <option>Acidente — Outros</option>
+                        </optgroup>
                     </select>
-                    <label>Valor Medido</label>
-                    <input type="text" id="risco-valor">
-                    <label>Limite NR-09</label>
-                    <input type="text" id="risco-limite">
-                    <label>Situação</label>
+                    <label>Meio de Propagação / Fonte</label>
+                    <input type="text" id="risco-fonte" placeholder="Ex: Martelete, solda, empilhadeira">
+                    <label>Valor Medido / Estimado</label>
+                    <input type="text" id="risco-valor" placeholder="Ex: 88 dB(A), 32°C IBUTG, Presente">
+                    <label>Limite de Exposição (NR-09 / ACGIH)</label>
+                    <input type="text" id="risco-limite" placeholder="Ex: 85 dB(A) — 8h/dia">
+                    <label>Frequência de Exposição</label>
+                    <input type="text" id="risco-freq" placeholder="Ex: Diária, 4h/dia, Semanal">
+                    <label>Avaliação</label>
                     <select id="risco-status">
-                        <option value="ok">✅ Adequado</option>
-                        <option value="alerta">⚠️ Alerta</option>
-                        <option value="ruim">❌ Acima do Limite</option>
+                        <option value="ok">✅ Dentro do Limite — Aceitável</option>
+                        <option value="alerta">⚠️ Nível de Ação — Requer Monitoramento</option>
+                        <option value="ruim">❌ Acima do Limite — Requer Medida Imediata</option>
                     </select>
-                    <button onclick="adicionarRisco()" style="background:#059669; margin-top:8px;">+ Adicionar Risco</button>
+                    <button onclick="adicionarRisco()" style="background:#059669; margin-top:10px;">+ Adicionar à Matriz</button>
                 </div>
-                <div class="card">
-                    <h3>Riscos Cadastrados (<span id="qtd-riscos">0</span>)</h3>
-                    <div id="lista-riscos"></div>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button onclick="abrirSecao('formulario')" style="flex:1; background:#64748b;">← Voltar</button>
-                    <button onclick="abrirSecao('plano')" style="flex:1;">Próximo →</button>
-                </div>
-            </section>
 
-            <!-- PLANO DE AÇÃO -->
-            <section id="sec-plano" class="secao">
-                <h2>📋 Passo 3 — Medidas de Controle</h2>
                 <div class="card">
+                    <h3>Riscos Identificados (<span id="qtd-riscos">0</span>)</h3>
+                    <div id="lista-riscos">
+                        <p style="text-align:center; color:#666; padding:20px;">Nenhum risco cadastrado.</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>📋 Plano de Ação / Medidas de Controle</h3>
                     <label>Para qual risco?</label>
-                    <input type="text" id="acao-alvo">
+                    <input type="text" id="acao-alvo" placeholder="Copie o Agente e Setor da lista acima">
                     <label>Medida a Implementar</label>
-                    <textarea id="acao-desc" rows="2"></textarea>
-                    <label>Prazo</label>
-                    <input type="date" id="acao-prazo">
-                    <button onclick="adicionarMedida()" style="background:#f59e0b; margin-top:8px;">+ Adicionar Ação</button>
+                    <textarea id="acao-desc" rows="3" placeholder="Descreva a ação de controle"></textarea>
+                    <div class="linha-form">
+                        <div>
+                            <label>Nível de Hierarquia</label>
+                            <select id="acao-nivel">
+                                <option value="1">1 — Eliminação da Fonte</option>
+                                <option value="2">2 — Substituição</option>
+                                <option value="3">3 — Controle de Engenharia</option>
+                                <option value="4">4 — Controle Administrativo</option>
+                                <option value="5">5 — EPI / Proteção Individual</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Prazo de Implementação</label>
+                            <input type="date" id="acao-prazo">
+                        </div>
+                    </div>
+                    <label>Responsável</label>
+                    <input type="text" id="acao-resp" placeholder="Nome e cargo">
+                    <button onclick="adicionarMedida()" style="background:#f59e0b; margin-top:10px;">+ Adicionar ao Plano</button>
                 </div>
+
                 <div class="card">
-                    <h3>Plano de Ação (<span id="qtd-acoes">0</span>)</h3>
-                    <div id="lista-acoes"></div>
+                    <h3>Medidas de Controle (<span id="qtd-acoes">0</span>)</h3>
+                    <div id="lista-acoes">
+                        <p style="text-align:center; color:#666; padding:20px;">Nenhuma medida cadastrada.</p>
+                    </div>
                 </div>
-                <div style="display:flex; gap:10px;">
-                    <button onclick="abrirSecao('riscos')" style="flex:1; background:#64748b;">← Voltar</button>
-                    <button onclick="abrirSecao('pgr-final')" style="flex:1; background:#1e40af;">📄 Gerar PGR →</button>
+
+                <div style="display:flex; gap:10px; margin-top:16px;">
+                    <button onclick="abrirSecao('dados')" style="flex:1; background:#64748b;">← Voltar: Dados</button>
+                    <button onclick="abrirSecao('pgr')" style="flex:1; background:#1e40af;">📄 Gerar Documento PGR →</button>
                 </div>
             </section>
 
-            <!-- PGR FINAL -->
-            <section id="sec-pgr-final" class="secao">
-                <h2>📄 PGR — Documento Completo</h2>
-                <div style="display:flex; gap:10px; margin-bottom:16px;">
-                    <button onclick="gerarPGR()" style="flex:1;">🔄 Gerar/Atualizar</button>
-                    <button onclick="window.print()" style="flex:1; background:#f59e0b;">🖨️ Imprimir/PDF</button>
+            <!-- ============================================== -->
+            <!-- PGR — DOCUMENTO FINAL                         -->
+            <!-- ============================================== -->
+            <section id="sec-pgr" class="secao">
+                <h2>📄 PGR — Programa de Gerenciamento de Riscos</h2>
+                <p class="sucesso-box">✅ Documento pronto para geração. Clique abaixo para compilar os dados.</p>
+                
+                <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+                    <button onclick="gerarPGR()" style="flex:1;">🔄 Gerar / Atualizar PGR</button>
+                    <button onclick="window.print()" style="flex:1; background:#f59e0b;">🖨️ Imprimir / Salvar PDF</button>
                 </div>
+
                 <div id="pgr-documento" class="documento">
-                    <p style="text-align:center; color:#666; padding:40px;">Clique em "Gerar" para ver o documento.</p>
+                    <p style="text-align:center; color:#666; padding:40px;">Clique em <strong>"Gerar / Atualizar PGR"</strong> para criar o documento.</p>
                 </div>
-                <button onclick="abrirSecao('formulario')" style="margin-top:16px; background:#059669;">📝 Editar Dados</button>
+
+                <div style="display:flex; gap:10px; margin-top:16px;">
+                    <button onclick="abrirSecao('dados')" style="flex:1; background:#059669;">📝 Editar Dados</button>
+                    <button onclick="abrirSecao('riscos')" style="flex:1; background:#64748b;">⚠️ Editar Riscos</button>
+                </div>
             </section>
         </main>
     </div>
@@ -276,8 +388,9 @@
     <script>
         let riscos = [];
         let acoes = [];
+        let usuarioLogado = null;
 
-        // ========== FIREBASE — COLOQUE SUAS CONFIGURAÇÕES AQUI ==========
+        // ========== FIREBASE — CONFIGURAÇÃO ==========
         const firebaseConfig = {
             apiKey: "COLOQUE-SUA-apiKey-AQUI",
             authDomain: "COLOQUE-seu-authDomain-AQUI",
@@ -286,38 +399,42 @@
         
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        } catch(e) { console.log("Firebase:", e.message); }
+        } catch(e) { console.log("Firebase carregado"); }
 
-        // ========== LOGIN — FUNCIONA SEM FIREBASE TAMBÉM ==========
+        // ========== LOGIN ==========
         function fazerLogin() {
             const email = document.getElementById('email-login').value.trim();
             const senha = document.getElementById('senha-login').value;
             
             // ACESSO DIRETO DO ADMINISTRADOR
             if (email === "ipbisaque@gmail.com") {
+                usuarioLogado = { email, perfil: "admin" };
                 document.getElementById('tela-login').classList.remove('ativa');
                 document.getElementById('tela-principal').classList.add('ativa');
+                carregarDadosSalvos();
                 return;
             }
 
-            // Tenta login no Firebase se não for admin
+            // Tenta Firebase para outros usuários
             if (firebase.auth) {
                 firebase.auth().signInWithEmailAndPassword(email, senha)
                     .then(() => {
+                        usuarioLogado = { email, perfil: "usuario" };
                         document.getElementById('tela-login').classList.remove('ativa');
                         document.getElementById('tela-principal').classList.add('ativa');
+                        carregarDadosSalvos();
                     })
                     .catch(() => {
                         document.getElementById('msg-erro').textContent = "E-mail ou senha incorretos";
                     });
             } else {
-                document.getElementById('msg-erro').textContent = "Use o e-mail do administrador para entrar";
+                document.getElementById('msg-erro').textContent = "Use o e-mail do administrador";
             }
         }
 
         function sair() {
             if (firebase.auth) firebase.auth().signOut();
-            riscos = []; acoes = [];
+            usuarioLogado = null;
             document.getElementById('tela-principal').classList.remove('ativa');
             document.getElementById('tela-login').classList.add('ativa');
             document.getElementById('email-login').value = '';
@@ -345,144 +462,3 @@
             const bloco = document.createElement('div');
             bloco.className = 'bloco-setor';
             bloco.style.borderBottom = '1px solid #eee';
-            bloco.style.padding = '10px 0';
-            bloco.innerHTML = `
-                <h4>Setor ${num} <button onclick="this.parentElement.remove()" style="width:auto; background:#ef4444; padding:4px 8px; font-size:0.8rem; margin-left:8px;">X</button></h4>
-                <input type="text" class="setor-nome" placeholder="Nome do setor">
-                <textarea class="setor-atividades" rows="2" placeholder="Atividades desenvolvidas"></textarea>
-            `;
-            container.appendChild(bloco);
-        }
-
-        function coletarSetores() {
-            const lista = [];
-            document.querySelectorAll('.bloco-setor').forEach(bloco => {
-                const nome = bloco.querySelector('.setor-nome')?.value.trim();
-                if (nome) lista.push({
-                    nome,
-                    atividades: bloco.querySelector('.setor-atividades')?.value.trim() || '-'
-                });
-            });
-            return lista;
-        }
-
-        // ========== RISCOS ==========
-        function adicionarRisco() {
-            const r = {
-                setor: document.getElementById('risco-setor').value.trim() || '-',
-                funcao: document.getElementById('risco-funcao').value.trim() || '-',
-                agente: document.getElementById('risco-agente').value,
-                valor: document.getElementById('risco-valor').value.trim() || 'Constatado',
-                limite: document.getElementById('risco-limite').value.trim() || 'Conforme NR-09',
-                status: document.getElementById('risco-status').value
-            };
-            riscos.push(r);
-            atualizarRiscos();
-            document.getElementById('risco-funcao').value = '';
-            document.getElementById('risco-valor').value = '';
-        }
-
-        function atualizarRiscos() {
-            const c = document.getElementById('lista-riscos');
-            c.innerHTML = '';
-            riscos.forEach((r, i) => {
-                const cor = r.status === 'ok' ? 'status-ok' : r.status === 'alerta' ? 'status-alerta' : 'status-ruim';
-                const txt = r.status === 'ok' ? 'Adequado' : r.status === 'alerta' ? 'Alerta' : 'Acima do Limite';
-                c.innerHTML += `<div class="item-lista"><div class="item-dados"><strong>${r.agente}</strong><br>${r.setor} — ${r.funcao}<br><span class="${cor}">${txt}</span></div><button class="btn-excluir" onclick="riscos.splice(${i},1); atualizarRiscos();">X</button></div>`;
-            });
-            document.getElementById('qtd-riscos').textContent = riscos.length;
-        }
-
-        // ========== AÇÕES ==========
-        function adicionarMedida() {
-            acoes.push({
-                alvo: document.getElementById('acao-alvo').value.trim() || '-',
-                desc: document.getElementById('acao-desc').value.trim() || '-',
-                prazo: document.getElementById('acao-prazo').value || 'A definir'
-            });
-            atualizarAcoes();
-            document.getElementById('acao-alvo').value = '';
-            document.getElementById('acao-desc').value = '';
-        }
-
-        function atualizarAcoes() {
-            const c = document.getElementById('lista-acoes');
-            c.innerHTML = '';
-            acoes.forEach((a, i) => {
-                c.innerHTML += `<div class="item-lista"><div class="item-dados"><strong>${a.alvo}</strong><br>${a.desc}<br>Prazo: ${a.prazo}</div><button class="btn-excluir" onclick="acoes.splice(${i},1); atualizarAcoes();">X</button></div>`;
-            });
-            document.getElementById('qtd-acoes').textContent = acoes.length;
-        }
-
-        // ========== GERAR PGR ==========
-        function gerarPGR() {
-            const emp = {
-                razao: document.getElementById('emp-razao').value.trim() || '_________________________',
-                cnpj: document.getElementById('emp-cnpj').value.trim() || '_________________________',
-                endereco: document.getElementById('emp-endereco').value.trim() || '_________________________',
-                respNome: document.getElementById('emp-resp-nome').value.trim() || '_________________________'
-            };
-            const rt = {
-                nome: document.getElementById('rt-nome').value.trim() || '_________________________',
-                registro: document.getElementById('rt-registro').value.trim() || '_________________________',
-                data: document.getElementById('pgr-data').value || '____/____/____'
-            };
-            const setores = coletarSetores();
-
-            let html = `
-                <h1>PROGRAMA DE GERENCIAMENTO DE RISCOS — PGR</h1>
-                <h2>NR-01 / NR-09 — Portaria MTP nº 426/2021</h2>
-                
-                <p><strong>Razão Social:</strong> ${emp.razao}</p>
-                <p><strong>CNPJ:</strong> ${emp.cnpj}</p>
-                <p><strong>Endereço:</strong> ${emp.endereco}</p>
-                <p><strong>Responsável Legal:</strong> ${emp.respNome}</p>
-                <br>
-                <p><strong>Responsável Técnico:</strong> ${rt.nome} — Registro: ${rt.registro}</p>
-                <p><strong>Data de Elaboração:</strong> ${rt.data}</p>
-                
-                <h3>1. SETORES E ATIVIDADES</h3>
-                <table>
-                    <tr><th>Setor</th><th>Atividades</th></tr>
-                    ${setores.length ? setores.map(s => `<tr><td>${s.nome}</td><td>${s.atividades}</td></tr>`).join('') : '<tr><td colspan="2">Nenhum setor cadastrado</td></tr>'}
-                </table>
-                
-                <h3>2. MATRIZ DE RISCOS</h3>
-                <table>
-                    <tr><th>Setor</th><th>Função</th><th>Agente</th><th>Valor</th><th>Limite</th><th>Situação</th></tr>
-                    ${riscos.length ? riscos.map(r => {
-                        const cor = r.status === 'ok' ? 'status-ok' : r.status === 'alerta' ? 'status-alerta' : 'status-ruim';
-                        const txt = r.status === 'ok' ? 'Adequado' : r.status === 'alerta' ? 'Alerta' : 'Acima do Limite';
-                        return `<tr><td>${r.setor}</td><td>${r.funcao}</td><td>${r.agente}</td><td>${r.valor}</td><td>${r.limite}</td><td class="${cor}">${txt}</td></tr>`;
-                    }).join('') : '<tr><td colspan="6">Nenhum risco cadastrado</td></tr>'}
-                </table>
-                
-                <h3>3. PLANO DE AÇÃO</h3>
-                <table>
-                    <tr><th>Risco Alvo</th><th>Medida a Implementar</th><th>Prazo</th></tr>
-                    ${acoes.length ? acoes.map(a => `<tr><td>${a.alvo}</td><td>${a.desc}</td><td>${a.prazo}</td></tr>`).join('') : '<tr><td colspan="3">Nenhuma medida cadastrada</td></tr>'}
-                </table>
-                
-                <h3>4. CONCLUSÃO E VALIDADE</h3>
-                <p>O presente PGR estabelece as diretrizes para gestão de riscos nos ambientes de trabalho. Revisão anual prevista. Medidas implementadas conforme prazos.</p>
-                
-                <div style="margin-top:60px;">
-                    <div class="assinatura assinatura-esq">
-                        <p>_________________________</p>
-                        <p>Responsável Legal</p>
-                        <p>${emp.respNome}</p>
-                    </div>
-                    <div class="assinatura assinatura-dir">
-                        <p>_________________________</p>
-                        <p>Responsável Técnico</p>
-                        <p>${rt.nome}</p>
-                    </div>
-                </div>
-            `;
-            const doc = document.getElementById('pgr-documento');
-            doc.innerHTML = html;
-            doc.classList.add('visivel');
-        }
-    </script>
-</body>
-</html>
