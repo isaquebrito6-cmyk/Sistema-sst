@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e40af">
-    <meta name="description" content="Sistema SST Pro — PGR Programa de Gerenciamento de Riscos | NR-01 NR-09">
+    <meta name="description" content="Sistema SST Pro — PGR NR-01 NR-09 Segurança do Trabalho">
     <title>Sistema SST Pro — PGR · NR-01 · NR-09</title>
     
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -50,7 +51,6 @@
         .btn-alerta { background: #f59e0b; }
         
         .erro { color: #dc2626; margin-top: 10px; text-align: center; min-height: 20px; font-size: 0.9rem; }
-        .sucesso { color: #059669; margin-top: 10px; text-align: center; font-size: 0.9rem; display: none; }
         
         header {
             background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
@@ -69,7 +69,6 @@
         .secao.ativa { display: block; }
         
         .destaque { background: #eff6ff; border-left: 4px solid #1e40af; padding: 12px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9rem; }
-        .aviso { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 0 8px 8px 0; font-size: 0.85rem; }
         .sucesso-box { background: #ecfdf5; border-left: 4px solid #059669; padding: 12px; margin: 12px 0; border-radius: 0 8px 8px 0; }
         
         .linha-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -113,12 +112,14 @@
     </style>
 </head>
 <body>
-    <!-- TELA DE LOGIN -->
+    <!-- ========================================== -->
+    <!-- TELA DE LOGIN                             -->
+    <!-- ========================================== -->
     <div id="tela-login" class="tela ativa">
         <div class="login-container">
             <div class="logo">
                 <h1>🛡️ Sistema SST Pro</h1>
-                <p>PGR · NR-01 · NR-09 · Gestão de Riscos</p>
+                <p>PGR · NR-01 · NR-09 · Gestão de Riscos Ocupacionais</p>
             </div>
             <div class="card">
                 <h2>Acesso ao Sistema</h2>
@@ -126,14 +127,16 @@
                 <input type="password" id="senha-login" placeholder="Senha">
                 <button onclick="fazerLogin()">Entrar</button>
                 <p style="text-align:center; margin:12px 0; font-size:0.85rem; color:#666;">
-                    Administrador: ipbisaque@gmail.com
+                    👤 Administrador: isaquebrito6@gmail.com
                 </p>
                 <div id="msg-erro" class="erro"></div>
             </div>
         </div>
     </div>
 
-    <!-- TELA PRINCIPAL -->
+    <!-- ========================================== -->
+    <!-- TELA PRINCIPAL                             -->
+    <!-- ========================================== -->
     <div id="tela-principal" class="tela">
         <header>
             <div class="header-content">
@@ -150,30 +153,26 @@
         </nav>
 
         <main>
-            <!-- ============================================== -->
-            <!-- INÍCIO                                        -->
-            <!-- ============================================== -->
+            <!-- INÍCIO -->
             <section id="sec-inicio" class="secao ativa">
                 <h2>Bem-vindo ao Sistema SST Pro</h2>
                 <p class="destaque">Elaboração de <strong>PGR — Programa de Gerenciamento de Riscos</strong> em conformidade com NR-01, NR-09 e Portaria MTP nº 426/2021.</p>
                 
                 <div class="card">
-                    <h3>Fluxo de Trabalho:</h3>
+                    <h3>📋 Fluxo Completo de Trabalho:</h3>
                     <ol style="margin:12px 0 12px 24px; line-height:1.8;">
-                        <li>📝 <strong>Dados da Empresa</strong> — Razão Social, CNPJ, endereço, responsáveis</li>
-                        <li>🏭 <strong>Setores</strong> — Cadastre cada setor, atividades e quantidade de trabalhadores</li>
-                        <li>⚠️ <strong>Matriz de Riscos</strong> — Identifique agentes, avalie exposição vs limites da NR-09</li>
-                        <li>📋 <strong>Plano de Ação</strong> — Defina medidas de controle por hierarquia</li>
-                        <li>📄 <strong>Documento PGR</strong> — Gere, visualize e imprima/salve em PDF</li>
+                        <li>📝 <strong>Dados da Empresa</strong> — Razão Social, CNPJ, endereço, responsáveis legal e técnico</li>
+                        <li>🏭 <strong>Setores</strong> — Cadastre cada setor, atividades, quantidade de trabalhadores e jornada</li>
+                        <li>⚠️ <strong>Matriz de Riscos</strong> — Identifique agentes físicos, químicos, biológicos, ergonômicos e de acidente; avalie exposição vs limites da NR-09</li>
+                        <li>📋 <strong>Plano de Ação</strong> — Defina medidas de controle por hierarquia (eliminação → substituição → engenharia → adm → EPI)</li>
+                        <li>📄 <strong>Documento PGR</strong> — Gere, visualize, imprima ou salve em PDF</li>
                     </ol>
                 </div>
 
-                <button onclick="abrirSecao('dados')">📝 Iniciar — Dados da Empresa →</button>
+                <button onclick="abrirSecao('dados')">📝 Iniciar — Cadastrar Empresa →</button>
             </section>
 
-            <!-- ============================================== -->
-            <!-- DADOS DA EMPRESA                              -->
-            <!-- ============================================== -->
+            <!-- DADOS DA EMPRESA -->
             <section id="sec-dados" class="secao">
                 <h2>📝 Dados da Empresa</h2>
                 
@@ -243,9 +242,7 @@
                 </div>
             </section>
 
-            <!-- ============================================== -->
-            <!-- MATRIZ DE RISCOS                              -->
-            <!-- ============================================== -->
+            <!-- MATRIZ DE RISCOS -->
             <section id="sec-riscos" class="secao">
                 <h2>⚠️ Matriz de Identificação e Avaliação de Riscos</h2>
                 <p class="destaque">Conforme NR-09 — Avaliação quantitativa e qualitativa de exposição ocupacional.</p>
@@ -361,12 +358,10 @@
                 </div>
             </section>
 
-            <!-- ============================================== -->
-            <!-- PGR — DOCUMENTO FINAL                         -->
-            <!-- ============================================== -->
+            <!-- PGR — DOCUMENTO FINAL -->
             <section id="sec-pgr" class="secao">
                 <h2>📄 PGR — Programa de Gerenciamento de Riscos</h2>
-                <p class="sucesso-box">✅ Documento pronto para geração. Clique abaixo para compilar os dados.</p>
+                <p class="sucesso-box">✅ Documento pronto para geração. Clique abaixo para compilar todos os dados preenchidos.</p>
                 
                 <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
                     <button onclick="gerarPGR()" style="flex:1;">🔄 Gerar / Atualizar PGR</button>
@@ -374,7 +369,7 @@
                 </div>
 
                 <div id="pgr-documento" class="documento">
-                    <p style="text-align:center; color:#666; padding:40px;">Clique em <strong>"Gerar / Atualizar PGR"</strong> para criar o documento.</p>
+                    <p style="text-align:center; color:#666; padding:40px;">Clique em <strong>"Gerar / Atualizar PGR"</strong> para criar o documento completo.</p>
                 </div>
 
                 <div style="display:flex; gap:10px; margin-top:16px;">
@@ -386,6 +381,7 @@
     </div>
 
     <script>
+        // ========== VARIÁVEIS GLOBAIS ==========
         let riscos = [];
         let acoes = [];
         let usuarioLogado = null;
@@ -399,15 +395,17 @@
         
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        } catch(e) { console.log("Firebase carregado"); }
+        } catch(e) { 
+            console.log("Firebase — dados salvos localmente"); 
+        }
 
-        // ========== LOGIN ==========
+        // ========== LOGIN — ADMINISTRADOR CORRIGIDO ==========
         function fazerLogin() {
             const email = document.getElementById('email-login').value.trim();
             const senha = document.getElementById('senha-login').value;
             
             // ACESSO DIRETO DO ADMINISTRADOR
-            if (email === "ipbisaque@gmail.com") {
+            if (email.toLowerCase() === "isaquebrito6@gmail.com") {
                 usuarioLogado = { email, perfil: "admin" };
                 document.getElementById('tela-login').classList.remove('ativa');
                 document.getElementById('tela-principal').classList.add('ativa');
@@ -462,3 +460,247 @@
             const bloco = document.createElement('div');
             bloco.className = 'bloco-setor';
             bloco.style.borderBottom = '1px solid #eee';
+            bloco.style.padding = '12px 0';
+            bloco.innerHTML = `
+                <h4>Setor ${num} <button onclick="this.closest('.bloco-setor').remove()" style="width:auto; background:#ef4444; padding:4px 8px; font-size:0.8rem; margin-left:8px;">Remover</button></h4>
+                <input type="text" class="setor-nome" placeholder="Nome do setor *">
+                <textarea class="setor-atividades" rows="2" placeholder="Principais atividades *"></textarea>
+                <div class="linha-form">
+                    <div><label>Nº Trabalhadores</label><input type="number" class="setor-qtd" min="1" value="1"></div>
+                    <div><label>Horário</label><input type="text" class="setor-horario" placeholder="Ex: 08h às 18h"></div>
+                </div>
+            `;
+            container.appendChild(bloco);
+        }
+
+        function coletarSetores() {
+            const lista = [];
+            document.querySelectorAll('.bloco-setor').forEach(bloco => {
+                const nome = bloco.querySelector('.setor-nome')?.value.trim();
+                if (nome) {
+                    lista.push({
+                        nome,
+                        atividades: bloco.querySelector('.setor-atividades')?.value.trim() || '-',
+                        qtd: bloco.querySelector('.setor-qtd')?.value || '-',
+                        horario: bloco.querySelector('.setor-horario')?.value.trim() || '-'
+                    });
+                }
+            });
+            return lista;
+        }
+
+        // ========== RISCOS ==========
+        function adicionarRisco() {
+            riscos.push({
+                setor: document.getElementById('risco-setor').value.trim() || '-',
+                funcao: document.getElementById('risco-funcao').value.trim() || '-',
+                agente: document.getElementById('risco-agente').value,
+                fonte: document.getElementById('risco-fonte').value.trim() || '-',
+                valor: document.getElementById('risco-valor').value.trim() || '-',
+                limite: document.getElementById('risco-limite').value.trim() || '-',
+                freq: document.getElementById('risco-freq').value.trim() || '-',
+                status: document.getElementById('risco-status').value
+            });
+            atualizarListaRiscos();
+            salvarDados();
+            
+            // Limpa campos
+            document.getElementById('risco-funcao').value = '';
+            document.getElementById('risco-fonte').value = '';
+            document.getElementById('risco-valor').value = '';
+            document.getElementById('risco-limite').value = '';
+            document.getElementById('risco-freq').value = '';
+        }
+
+        function atualizarListaRiscos() {
+            const c = document.getElementById('lista-riscos');
+            document.getElementById('qtd-riscos').textContent = riscos.length;
+            if (!riscos.length) {
+                c.innerHTML = '<p style="text-align:center; color:#666; padding:20px;">Nenhum risco cadastrado.</p>';
+                return;
+            }
+            c.innerHTML = riscos.map((r, i) => {
+                const cor = r.status === 'ok' ? 'status-ok' : r.status === 'alerta' ? 'status-alerta' : 'status-ruim';
+                const txt = r.status === 'ok' ? 'Aceitável' : r.status === 'alerta' ? 'Nível de Ação' : 'Acima do Limite';
+                return `
+                <div class="item-lista">
+                    <div class="item-dados">
+                        <strong>${r.agente}</strong><br>
+                        Setor: ${r.setor} · Função: ${r.funcao}<br>
+                        Fonte: ${r.fonte} · Valor: ${r.valor} · Limite: ${r.limite}<br>
+                        Freq: ${r.freq} · <span class="${cor}">${txt}</span>
+                    </div>
+                    <button class="btn-excluir" onclick="riscos.splice(${i},1); atualizarListaRiscos(); salvarDados();">X</button>
+                </div>`;
+            }).join('');
+        }
+
+        // ========== MEDIDAS / AÇÕES ==========
+        function adicionarMedida() {
+            acoes.push({
+                alvo: document.getElementById('acao-alvo').value.trim() || '-',
+                desc: document.getElementById('acao-desc').value.trim() || '-',
+                nivel: document.getElementById('acao-nivel').value,
+                prazo: document.getElementById('acao-prazo').value || 'A definir',
+                resp: document.getElementById('acao-resp').value.trim() || 'A definir'
+            });
+            atualizarListaAcoes();
+            salvarDados();
+            
+            document.getElementById('acao-alvo').value = '';
+            document.getElementById('acao-desc').value = '';
+            document.getElementById('acao-prazo').value = '';
+            document.getElementById('acao-resp').value = '';
+        }
+
+        function atualizarListaAcoes() {
+            const c = document.getElementById('lista-acoes');
+            document.getElementById('qtd-acoes').textContent = acoes.length;
+            if (!acoes.length) {
+                c.innerHTML = '<p style="text-align:center; color:#666; padding:20px;">Nenhuma medida cadastrada.</p>';
+                return;
+            }
+            const nivelNome = {1:'Eliminação',2:'Substituição',3:'Controle de Engenharia',4:'Controle Administrativo',5:'Equipamento de Proteção Individual — EPI'};
+            c.innerHTML = acoes.map((a, i) => `
+                <div class="item-lista">
+                    <div class="item-dados">
+                        <strong>Para: ${a.alvo}</strong><br>
+                        ${a.desc}<br>
+                        Nível ${a.nivel} — ${nivelNome[a.nivel]} · Prazo: ${a.prazo} · Resp: ${a.resp}
+                    </div>
+                    <button class="btn-excluir" onclick="acoes.splice(${i},1); atualizarListaAcoes(); salvarDados();">X</button>
+                </div>`
+            ).join('');
+        }
+
+        // ========== GERAR PGR — DOCUMENTO COMPLETO ==========
+        function gerarPGR() {
+            const emp = {
+                razao: document.getElementById('emp-razao').value.trim() || '_________________________',
+                fantasia: document.getElementById('emp-fantasia').value.trim() || '-',
+                cnpj: document.getElementById('emp-cnpj').value.trim() || '_________________________',
+                endereco: document.getElementById('emp-endereco').value.trim() || '_________________________',
+                tel: document.getElementById('emp-tel').value.trim() || '-',
+                email: document.getElementById('emp-email').value.trim() || '-',
+                respNome: document.getElementById('emp-resp-nome').value.trim() || '_________________________',
+                respCpf: document.getElementById('emp-resp-cpf').value.trim() || '-',
+                respCargo: document.getElementById('emp-resp-cargo').value.trim() || '-'
+            };
+            const rt = {
+                nome: document.getElementById('rt-nome').value.trim() || '_________________________',
+                registro: document.getElementById('rt-registro').value.trim() || '-',
+                data: document.getElementById('pgr-data').value || '___/___/______',
+                revisao: document.getElementById('pgr-revisao').value || '___/___/______'
+            };
+            const setores = coletarSetores();
+            const nivelNome = {1:'Eliminação',2:'Substituição',3:'Controle de Engenharia',4:'Controle Administrativo',5:'Equipamento de Proteção Individual — EPI'};
+
+            const html = `
+                <h1>PROGRAMA DE GERENCIAMENTO DE RISCOS — PGR</h1>
+                <h2>NR-01 · NR-09 · Portaria MTP nº 426/2021</h2>
+                
+                <h3>1. DADOS DA EMPRESA</h3>
+                <p><strong>Razão Social:</strong> ${emp.razao}</p>
+                <p><strong>Nome Fantasia:</strong> ${emp.fantasia}</p>
+                <p><strong>CNPJ:</strong> ${emp.cnpj}</p>
+                <p><strong>Endereço:</strong> ${emp.endereco}</p>
+                <p><strong>Telefone:</strong> ${emp.tel} · <strong>E-mail:</strong> ${emp.email}</p>
+                <p><strong>Responsável Legal:</strong> ${emp.respNome} — CPF: ${emp.respCpf} — Cargo: ${emp.respCargo}</p>
+                
+                <h3>2. RESPONSÁVEL TÉCNICO / ELABORADOR</h3>
+                <p><strong>Profissional:</strong> ${rt.nome}</p>
+                <p><strong>Registro Profissional:</strong> ${rt.registro}</p>
+                <p><strong>Data de Elaboração:</strong> ${rt.data}</p>
+                <p><strong>Próxima Revisão:</strong> ${rt.revisao}</p>
+                
+                <h3>3. DESCRIÇÃO DOS SETORES E ATIVIDADES</h3>
+                <table>
+                    <tr><th>Setor</th><th>Atividades Principais</th><th>Nº Trabalhadores</th><th>Jornada</th></tr>
+                    ${setores.length ? setores.map(s => `
+                        <tr>
+                            <td>${s.nome}</td>
+                            <td>${s.atividades}</td>
+                            <td>${s.qtd}</td>
+                            <td>${s.horario}</td>
+                        </tr>`).join('') : '<tr><td colspan="4">Nenhum setor cadastrado</td></tr>'}
+                </table>
+                
+                <h3>4. MATRIZ DE IDENTIFICAÇÃO E AVALIAÇÃO DE RISCOS</h3>
+                <table>
+                    <tr>
+                        <th>Setor</th><th>Função</th><th>Agente de Risco</th><th>Fonte</th>
+                        <th>Valor Medido</th><th>Limite NR-09</th><th>Frequência</th><th>Avaliação</th>
+                    </tr>
+                    ${riscos.length ? riscos.map(r => {
+                        const cor = r.status === 'ok' ? 'status-ok' : r.status === 'alerta' ? 'status-alerta' : 'status-ruim';
+                        const txt = r.status === 'ok' ? 'Dentro do Limite' : r.status === 'alerta' ? 'Nível de Ação' : 'Acima do Limite';
+                        return `
+                        <tr>
+                            <td>${r.setor}</td><td>${r.funcao}</td><td>${r.agente}</td><td>${r.fonte}</td>
+                            <td>${r.valor}</td><td>${r.limite}</td><td>${r.freq}</td>
+                            <td class="${cor}">${txt}</td>
+                        </tr>`;
+                    }).join('') : '<tr><td colspan="8">Nenhum risco identificado</td></tr>'}
+                </table>
+                
+                <h3>5. PLANO DE AÇÃO E MEDIDAS DE CONTROLE</h3>
+                <table>
+                    <tr><th>Risco Alvo</th><th>Medida a Implementar</th><th>Nível de Hierarquia</th><th>Prazo</th><th>Responsável</th></tr>
+                    ${acoes.length ? acoes.map(a => `
+                        <tr>
+                            <td>${a.alvo}</td>
+                            <td>${a.desc}</td>
+                            <td>${a.nivel} — ${nivelNome[a.nivel]}</td>
+                            <td>${a.prazo}</td>
+                            <td>${a.resp}</td>
+                        </tr>`).join('') : '<tr><td colspan="5">Nenhuma medida definida</td></tr>'}
+                </table>
+                
+                <h3>6. DECLARAÇÃO E VALIDADE</h3>
+                <p style="text-align:justify;">
+                    O presente PGR — Programa de Gerenciamento de Riscos foi elaborado em conformidade com a NR-01 (Disposições Gerais), 
+                    NR-09 (Avaliação e Controle das Exposições Ocupacionais aos Agentes Físicos, Químicos e Biológicos) e 
+                    Portaria MTP nº 426/2021. O documento será revisado anualmente ou sempre que houver alteração nas condições 
+                    de trabalho, na estrutura organizacional ou na ocorrência de acidentes ou doenças relacionadas ao trabalho.
+                </p>
+                <p style="margin-top:16px;">Local e data: _________________________, ____ de _____________ de ______.</p>
+                
+                <div class="assinatura assinatura-esq">
+                    <p>_________________________________________</p>
+                    <p>${emp.respNome}</p>
+                    <p>Responsável Legal</p>
+                </div>
+                <div class="assinatura assinatura-dir">
+                    <p>_________________________________________</p>
+                    <p>${rt.nome}</p>
+                    <p>Responsável Técnico — ${rt.registro}</p>
+                </div>
+            `;
+            const doc = document.getElementById('pgr-documento');
+            doc.innerHTML = html;
+            doc.classList.add('visivel');
+            salvarDados();
+        }
+
+        // ========== SALVAR / CARREGAR DADOS ==========
+        function salvarDados() {
+            localStorage.setItem('sstpro_dados', JSON.stringify({riscos, acoes}));
+        }
+
+        function carregarDadosSalvos() {
+            try {
+                const salvo = localStorage.getItem('sstpro_dados');
+                if (salvo) {
+                    const dados = JSON.parse(salvo);
+                    riscos = dados.riscos || [];
+                    acoes = dados.acoes || [];
+                    atualizarListaRiscos();
+                    atualizarListaAcoes();
+                }
+            } catch(e) {
+                console.log("Nenhum dado salvo encontrado");
+            }
+        }
+    </script>
+</body>
+</html>
