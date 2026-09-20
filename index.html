@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1e40af">
+    <title>SST Pro — Gestão de Segurança e Saúde do Trabalho</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="tela-login" class="tela ativa">
+        <div class="login-container">
+            <div class="logo">
+                <h1>🛡️ SST Pro</h1>
+                <p>Sistema de Gestão de Segurança e Saúde do Trabalho</p>
+            </div>
+            <div class="card">
+                <h2>Acesso ao Sistema</h2>
+                <input type="email" id="email-login" placeholder="Seu e-mail">
+                <input type="password" id="senha-login" placeholder="Sua senha">
+                <button onclick="fazerLogin()">Entrar</button>
+                <p id="msg-erro" class="erro"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="tela-principal" class="tela">
+        <header>
+            <div class="header-content">
+                <h1>🛡️ SST Pro</h1>
+                <button class="btn-sair" onclick="sair()">Sair</button>
+            </div>
+        </header>
+
+        <nav class="menu-principal">
+            <button class="btn-menu ativo" data-tela="painel">📊 Painel</button>
+            <button class="btn-menu" data-tela="empresa">🏢 Empresa</button>
+            <button class="btn-menu" data-tela="colaboradores">👥 Colaboradores</button>
+            <button class="btn-menu" data-tela="clinicas">🏥 Clínicas</button>
+            <button class="btn-menu" data-tela="pgr">⚠️ PGR</button>
+            <button class="btn-menu" data-tela="pcmso">🏥 PCMSO</button>
+            <button class="btn-menu" data-tela="documentos">📄 Documentos</button>
+        </nav>
+
+        <main>
+            <!-- PAINEL -->
+            <section id="sec-painel" class="secao ativa">
+                <h2>Painel de Controle</h2>
+                <div class="grid-cards">
+                    <div class="card-status">
+                        <h3>Colaboradores</h3>
+                        <p class="numero" id="qtd-colab">0</p>
+                    </div>
+                    <div class="card-status alerta">
+                        <h3>Exames Pendentes</h3>
+                        <p class="numero" id="qtd-pendentes">0</p>
+                    </div>
+                    <div class="card-status ok">
+                        <h3>Clínicas Parceiras</h3>
+                        <p class="numero" id="qtd-clinicas">0</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>📋 Acesso Rápido</h3>
+                    <div class="botoes-acesso">
+                        <button onclick="abrirSecao('pgr')">Gerar PGR</button>
+                        <button onclick="abrirSecao('pcmso')">Gerar PCMSO</button>
+                        <button onclick="abrirSecao('documentos')">Ver Documentos</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- EMPRESA -->
+            <section id="sec-empresa" class="secao">
+                <h2>🏢 Dados da Empresa</h2>
+                <div class="card form-card">
+                    <label>Razão Social</label>
+                    <input type="text" id="emp-razao">
+                    <label>Nome Fantasia</label>
+                    <input type="text" id="emp-fantasia">
+                    <label>CNPJ</label>
+                    <input type="text" id="emp-cnpj">
+                    <label>Endereço</label>
+                    <input type="text" id="emp-endereco">
+                    <label>Telefone</label>
+                    <input type="text" id="emp-tel">
+                    <label>Responsável Legal</label>
+                    <input type="text" id="emp-resp">
+                    <button onclick="salvarEmpresa()">💾 Salvar Dados</button>
+                </div>
+            </section>
+
+            <!-- COLABORADORES -->
+            <section id="sec-colaboradores" class="secao">
+                <h2>👥 Colaboradores</h2>
+                <div class="card form-card">
+                    <h3>Cadastrar Colaborador</h3>
+                    <label>Nome Completo</label>
+                    <input type="text" id="col-nome">
+                    <label>CPF</label>
+                    <input type="text" id="col-cpf">
+                    <label>Função / Cargo</label>
+                    <input type="text" id="col-funcao">
+                    <label>Setor</label>
+                    <input type="text" id="col-setor">
+                    <label>Data de Admissão</label>
+                    <input type="date" id="col-admissao">
+                    <button onclick="cadastrarColaborador()">✅ Cadastrar</button>
+                </div>
+                <div class="card">
+                    <h3>Lista de Colaboradores</h3>
+                    <div id="lista-colaboradores"></div>
+                </div>
+            </section>
+
+            <!-- CLÍNICAS -->
+            <section id="sec-clinicas" class="secao">
+                <h2>🏥 Clínicas Parceiras</h2>
+                <div class="card form-card">
+                    <h3>Cadastrar Clínica</h3>
+                    <label>Razão Social</label>
+                    <input type="text" id="clin-razao">
+                    <label>CNPJ</label>
+                    <input type="text" id="clin-cnpj">
+                    <label>Endereço</label>
+                    <input type="text" id="clin-endereco">
+                    <label>Telefone / Contato</label>
+                    <input type="text" id="clin-tel">
+                    <button onclick="cadastrarClinica()">✅ Cadastrar</button>
+                </div>
+                <div class="card">
+                    <h3>Clínicas Cadastradas</h3>
+                    <div id="lista-clinicas"></div>
+                </div>
+            </section>
+
+            <!-- PGR -->
+            <section id="sec-pgr" class="secao">
+                <h2>⚠️ PGR — Programa de Gerenciamento de Riscos</h2>
+                <div class="card form-card">
+                    <h3>Mapear Riscos por Setor/Função</h3>
+                    <label>Setor / Área</label>
+                    <input type="text" id="risco-setor">
+                    <label>Função</label>
+                    <input type="text" id="risco-funcao">
+                    
+                    <h4>Riscos Identificados</h4>
+                    <div class="riscos-tipo">
+                        <label><input type="checkbox" class="chk-risco" value="Físico — Ruído, Calor, Vibração"> Físico</label>
+                        <label><input type="checkbox" class="chk-risco" value="Químico — Poeiras, Fumos, Produtos Químicos"> Químico</label>
+                        <label><input type="checkbox" class="chk-risco" value="Biológico — Agentes Biológicos"> Biológico</label>
+                        <label><input type="checkbox" class="chk-risco" value="Ergonômico — Postura, Repetitividade"> Ergonômico</label>
+                        <label><input type="checkbox" class="chk-risco" value="Acidente — Máquinas, Quedas, Choques"> Acidente</label>
+                        <label><input type="checkbox" class="chk-risco" value="Psicossocial — Carga Horária, Pressão"> Psicossocial</label>
+                    </div>
+                    
+                    <label>Medidas de Controle / Prevenção</label>
+                    <textarea id="risco-medidas" rows="3"></textarea>
+                    
+                    <button onclick="adicionarRisco()">➕ Adicionar Risco</button>
+                </div>
+                
+                <div class="card">
+                    <h3>Matriz de Riscos</h3>
+                    <div id="lista-riscos"></div>
+                    <button class="btn-principal" onclick="gerarPGR()">📄 Gerar Documento PGR</button>
+                </div>
+                
+                <div id="visual-pgr" class="card documento">
+                    <!-- PGR Gerado aparece aqui -->
+                </div>
+            </section>
+
+            <!-- PCMSO -->
+            <section id="sec-pcmso" class="secao">
+                <h2>🏥 PCMSO — Programa de Controle Médico de Saúde Ocupacional</h2>
+                <div class="card">
+                    <p class="destaque">O PCMSO é gerado com base nos riscos mapeados no PGR.</p>
+                    <button class="btn-principal" onclick="gerarPCMSO()">📄 Gerar Documento PCMSO</button>
+                </div>
+                
+                <div class="card form-card">
+                    <h3>Controle de Exames</h3>
+                    <label>Colaborador</label>
+                    <select id="exame-colab"></select>
+                    <label>Tipo de Exame</label>
+                    <select id="exame-tipo">
+                        <option>Admissional</option>
+                        <option>Periódico</option>
+                        <option>Demissional</option>
+                        <option>Retorno ao Trabalho</option>
+                        <option>Mudança de Função</option>
+                    </select>
+                    <label>Clínica</label>
+                    <select id="exame-clinica"></select>
+                    <label>Data Prevista</label>
+                    <input type="date" id="exame-data">
+                    <button onclick="registrarExame()">✅ Registrar Solicitação</button>
+                </div>
+                
+                <div class="card">
+                    <h3>Exames e ASO</h3>
+                    <div id="lista-exames"></div>
+                </div>
+                
+                <div id="visual-pcmso" class="card documento"></div>
+            </section>
+
+            <!-- DOCUMENTOS -->
+            <section id="sec-documentos" class="secao">
+                <h2>📄 Documentos Gerados</h2>
+                <div class="card">
+                    <h3>Imprimir / Salvar / Enviar</h3>
+                    <p>Selecione o documento para visualizar e usar os botões:</p>
+                    <div class="botoes-acesso">
+                        <button onclick="imprimirDocumento('visual-pgr')">🖨️ Imprimir PGR</button>
+                        <button onclick="imprimirDocumento('visual-pcmso')">🖨️ Imprimir PCMSO</button>
+                    </div>
+                    <div class="dica">
+                        💡 Ao imprimir, escolha "Salvar como PDF" para enviar pelo WhatsApp ou e-mail.
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <script src="style.js"></script>
+</body>
+</html>
