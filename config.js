@@ -1,5 +1,6 @@
 // ======================================================
 // SST Pro — Configuração do Firebase
+// ADMINISTRADOR TOTAL: isaquebrito6@gmail.com
 // ======================================================
 
 const firebaseConfig = {
@@ -12,18 +13,16 @@ const firebaseConfig = {
 };
 
 // ======================================================
-// NÃO ALTERAR ABAIXO DESTA LINHA
+// ADMINISTRADOR DO SISTEMA — ACESSO TOTAL
 // ======================================================
+
+const USUARIO_ADMIN = "isaquebrito6@gmail.com";
+
+function isAdmin(email) {
+  return email && email.toLowerCase() === USUARIO_ADMIN.toLowerCase();
+}
 
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-
-// E-mail do Administrador (você)
-const USUARIO_ADMIN = "ipbisaque@gmail.com";
-
-// Verificar se é administrador
-function isAdmin(email) {
-  return email && email.toLowerCase() === USUARIO_ADMIN.toLowerCase();
-}
