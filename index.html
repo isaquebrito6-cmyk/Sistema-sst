@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e40af">
     <title>SST Pro — Gestão de Segurança e Saúde do Trabalho</title>
-    <link rel="manifest" href="manifest.json">
     
+    <!-- Firebase na ordem CORRETA -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -24,7 +24,6 @@
         .logo h1 { font-size: 1.8rem; color: #1e40af; margin-bottom: 5px; }
         .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 16px; }
         .card h2 { font-size: 1.3rem; margin-bottom: 20px; text-align: center; color: #1f2937; }
-        .card h3 { font-size: 1rem; margin-bottom: 12px; color: #374151; }
         input, textarea, select { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
         input:focus, textarea:focus, select:focus { outline: none; border-color: #1e40af; box-shadow: 0 0 0 3px rgba(30,64,175,0.1); }
         button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.1s; }
@@ -33,6 +32,7 @@
         button:hover:not(.btn-sair) { background: #1c3ed0; }
         .btn-excluir { background: #ef4444; width: auto; padding: 8px 12px; font-size: 0.9rem; }
         .erro { color: #dc2626; margin-top: 10px; text-align: center; min-height: 20px; }
+        .sucesso { color: #059669; margin-top: 10px; text-align: center; }
         
         /* Cabeçalho e Menu */
         header { background: #1e40af; color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
@@ -66,9 +66,10 @@
         .riscos-tipo label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
         .destaque { background: #eff6ff; border-left: 4px solid #1e40af; padding: 12px; margin: 12px 0; border-radius: 0 8px 8px 0; }
         .dica { margin-top: 12px; padding: 10px; background: #fef3c7; border-radius: 6px; font-size: 0.9rem; }
+        .documento { background: #fff; padding: 20px; border: 1px solid #ddd; margin-top: 15px; }
         @media print {
             header, .menu-principal, .card > button, .dica, .btn-excluir, form { display: none !important; }
-            .secao { display: block !important; }
+            .secao, .documento { display: block !important; }
         }
     </style>
 </head>
@@ -101,7 +102,7 @@
                 </div>
                 
                 <p id="msg-erro" class="erro"></p>
-                <p id="msg-sucesso" style="color:#059669; margin-top:10px; display:none;"></p>
+                <p id="msg-sucesso" class="sucesso" style="display:none;"></p>
             </div>
         </div>
     </div>
@@ -140,12 +141,12 @@
                         <p class="numero" id="qtd-pendentes">0</p>
                     </div>
                     <div class="card-status ok">
-                        <h3>Clínicas Parceiras</h3>
+                        <h3>Clínicas</h3>
                         <p class="numero" id="qtd-clinicas">0</p>
                     </div>
                 </div>
                 <div class="card">
-                    <h3>📋 Acesso Rápido</h3>
+                    <h3>Acesso Rápido</h3>
                     <div class="botoes-acesso">
                         <button onclick="abrirSecao('pgr')">Gerar PGR</button>
                         <button onclick="abrirSecao('pcmso')">Gerar PCMSO</button>
@@ -179,7 +180,7 @@
             <section id="sec-colaboradores" class="secao">
                 <h2>👥 Colaboradores</h2>
                 <div class="card form-card">
-                    <h3>Cadastrar Colaborador</h3>
+                    <h3>Cadastrar</h3>
                     <label>Nome Completo</label>
                     <input type="text" id="col-nome">
                     <label>CPF</label>
@@ -193,7 +194,7 @@
                     <button onclick="cadastrarColaborador()">✅ Cadastrar</button>
                 </div>
                 <div class="card">
-                    <h3>Lista de Colaboradores</h3>
+                    <h3>Lista</h3>
                     <div id="lista-colaboradores"></div>
                 </div>
             </section>
@@ -202,7 +203,7 @@
             <section id="sec-clinicas" class="secao">
                 <h2>🏥 Clínicas Parceiras</h2>
                 <div class="card form-card">
-                    <h3>Cadastrar Clínica</h3>
+                    <h3>Cadastrar</h3>
                     <label>Razão Social</label>
                     <input type="text" id="clin-razao">
                     <label>CNPJ</label>
@@ -214,7 +215,7 @@
                     <button onclick="cadastrarClinica()">✅ Cadastrar</button>
                 </div>
                 <div class="card">
-                    <h3>Clínicas Cadastradas</h3>
+                    <h3>Lista</h3>
                     <div id="lista-clinicas"></div>
                 </div>
             </section>
@@ -223,23 +224,23 @@
             <section id="sec-pgr" class="secao">
                 <h2>⚠️ PGR — Programa de Gerenciamento de Riscos</h2>
                 <div class="card form-card">
-                    <h3>Mapear Riscos por Setor/Função</h3>
+                    <h3>Mapear Riscos</h3>
                     <label>Setor / Área</label>
                     <input type="text" id="risco-setor">
-                    <label>Função</label>
+                    <label>Função / Cargo</label>
                     <input type="text" id="risco-funcao">
                     
                     <h4>Riscos Identificados</h4>
                     <div class="riscos-tipo">
                         <label><input type="checkbox" class="chk-risco" value="Físico — Ruído, Calor, Vibração"> Físico</label>
-                        <label><input type="checkbox" class="chk-risco" value="Químico — Poeiras, Fumos, Produtos Químicos"> Químico</label>
-                        <label><input type="checkbox" class="chk-risco" value="Biológico — Agentes Biológicos"> Biológico</label>
-                        <label><input type="checkbox" class="chk-risco" value="Ergonômico — Postura, Repetitividade"> Ergonômico</label>
-                        <label><input type="checkbox" class="chk-risco" value="Acidente — Máquinas, Quedas, Choques"> Acidente</label>
-                        <label><input type="checkbox" class="chk-risco" value="Psicossocial — Carga Horária, Pressão"> Psicossocial</label>
+                        <label><input type="checkbox" class="chk-risco" value="Químico — Poeiras, Produtos"> Químico</label>
+                        <label><input type="checkbox" class="chk-risco" value="Biológico"> Biológico</label>
+                        <label><input type="checkbox" class="chk-risco" value="Ergonômico"> Ergonômico</label>
+                        <label><input type="checkbox" class="chk-risco" value="Acidente"> Acidente</label>
+                        <label><input type="checkbox" class="chk-risco" value="Psicossocial"> Psicossocial</label>
                     </div>
                     
-                    <label>Medidas de Controle / Prevenção</label>
+                    <label>Medidas de Controle</label>
                     <textarea id="risco-medidas" rows="3"></textarea>
                     
                     <button onclick="adicionarRisco()">➕ Adicionar Risco</button>
@@ -248,24 +249,24 @@
                 <div class="card">
                     <h3>Matriz de Riscos</h3>
                     <div id="lista-riscos"></div>
-                    <button class="btn-principal" onclick="gerarPGR()" style="margin-top:15px;">📄 Gerar Documento PGR</button>
+                    <button onclick="gerarPGR()" style="margin-top:15px;">📄 Gerar PGR</button>
                 </div>
                 
-                <div id="visual-pgr" class="card documento" style="margin-top:20px;"></div>
+                <div id="visual-pgr" class="documento" style="display:none;"></div>
             </section>
 
             <!-- PCMSO -->
             <section id="sec-pcmso" class="secao">
-                <h2>🏥 PCMSO — NR-7 — Programa de Controle Médico de Saúde Ocupacional</h2>
+                <h2>🏥 PCMSO — NR-7</h2>
                 <div class="card">
-                    <p class="destaque">O PCMSO é gerado com base nos riscos mapeados no PGR. Portaria MTP nº 426/2021.</p>
-                    <button class="btn-principal" onclick="gerarPCMSO()" style="margin-top:10px;">📄 Gerar Documento PCMSO</button>
+                    <p class="destaque">Gerado com base nos riscos do PGR — Portaria MTP nº 426/2021.</p>
+                    <button onclick="gerarPCMSO()" style="margin-top:10px;">📄 Gerar PCMSO</button>
                 </div>
                 
                 <div class="card form-card">
                     <h3>Controle de Exames</h3>
                     <label>Colaborador</label>
-                    <select id="exame-colab"></select>
+                    <select id="exame-colab"><option value="">Selecione...</option></select>
                     <label>Tipo de Exame</label>
                     <select id="exame-tipo">
                         <option>Admissional</option>
@@ -275,35 +276,27 @@
                         <option>Mudança de Função</option>
                     </select>
                     <label>Clínica</label>
-                    <select id="exame-clinica"></select>
+                    <select id="exame-clinica"><option value="">Selecione...</option></select>
                     <label>Data Prevista</label>
                     <input type="date" id="exame-data">
-                    <button onclick="registrarExame()" style="margin-top:10px;">✅ Registrar Solicitação</button>
+                    <button onclick="registrarExame()" style="margin-top:10px;">✅ Registrar</button>
                 </div>
                 
                 <div class="card">
-                    <h3>Exames e ASO</h3>
+                    <h3>Exames Cadastrados</h3>
                     <div id="lista-exames"></div>
                 </div>
                 
-                <div id="visual-pcmso" class="card documento" style="margin-top:20px;"></div>
+                <div id="visual-pcmso" class="documento" style="display:none;"></div>
             </section>
 
             <!-- NR-09 -->
             <section id="sec-nr09" class="secao">
-                <h2>📋 NR-09 — Avaliação e Controle das Exposições Ocupacionais</h2>
+                <h2>📋 NR-09 — Avaliação de Exposições</h2>
                 <div class="card">
-                    <p class="destaque">Portaria MTP nº 426/2021 — Avaliação de agentes físicos, químicos e biológicos.</p>
-                </div>
-                
-                <div class="card form-card">
-                    <h3>Dados da Avaliação</h3>
-                    <label>Razão Social</label>
-                    <input type="text" id="nr09-razao">
-                    <label>CNPJ</label>
-                    <input type="text" id="nr09-cnpj">
+                    <p class="destaque">Portaria MTP nº 426/2021.</p>
                     <label>Responsável Técnico</label>
-                    <input type="text" id="nr09-resp-tecnico" placeholder="Nome e Registro do Responsável">
+                    <input type="text" id="nr09-resp-tecnico" placeholder="Nome e Registro">
                     <label>Data da Avaliação</label>
                     <input type="date" id="nr09-data-elab">
                 </div>
@@ -311,36 +304,33 @@
                 <div class="card">
                     <h3>Agentes Avaliados</h3>
                     <div id="nr09-agentes-lista"></div>
-                    <button onclick="adicionarAgenteNR09()" style="margin:10px 0; background:#1e40af; color:white; border:none; padding:10px; border-radius:6px;">+ Adicionar Agente</button>
+                    <button onclick="adicionarAgenteNR09()" style="background:#059669; margin:10px 0;">+ Adicionar Agente</button>
                 </div>
                 
                 <div class="card">
                     <h3>Medidas de Controle</h3>
                     <div id="nr09-acoes-lista"></div>
-                    <button onclick="adicionarAcaoNR09()" style="margin:10px 0; background:#059669; color:white; border:none; padding:10px; border-radius:6px;">+ Adicionar Medida</button>
+                    <button onclick="adicionarAcaoNR09()" style="background:#f59e0b; margin:10px 0;">+ Adicionar Medida</button>
                 </div>
                 
-                <div style="display:flex; gap:10px; margin:20px 0;">
-                    <button onclick="gerarDocumentoNR09()" style="flex:1; background:#1e40af; color:white;">📄 Gerar NR-09 Completo</button>
-                    <button onclick="imprimirNR09()" style="flex:1; background:#f59e0b; color:white;">🖨️ Imprimir / PDF</button>
+                <div style="display:flex; gap:10px; margin:15px 0;">
+                    <button onclick="gerarDocumentoNR09()">📄 Gerar NR-09</button>
+                    <button onclick="imprimirNR09()" style="background:#f59e0b;">🖨️ Imprimir / PDF</button>
                 </div>
                 
-                <div id="nr09-documento-final" class="documento" style="display:none; background:white; padding:30px; margin-top:20px; border:1px solid #ccc;"></div>
+                <div id="nr09-documento-final" class="documento" style="display:none;"></div>
             </section>
 
             <!-- DOCUMENTOS -->
             <section id="sec-documentos" class="secao">
                 <h2>📄 Documentos Gerados</h2>
                 <div class="card">
-                    <h3>Imprimir / Salvar em PDF</h3>
-                    <p>Selecione o documento para visualizar e usar os botões:</p>
+                    <h3>Salvar em PDF</h3>
+                    <p>Abra o documento e use Imprimir → Salvar como PDF.</p>
                     <div class="botoes-acesso">
                         <button onclick="abrirSecao('pgr')">Ver PGR</button>
                         <button onclick="abrirSecao('pcmso')">Ver PCMSO</button>
                         <button onclick="abrirSecao('nr09')">Ver NR-09</button>
-                    </div>
-                    <div class="dica">
-                        💡 Ao imprimir, escolha "Salvar como PDF" para enviar pelo WhatsApp ou e-mail.
                     </div>
                 </div>
             </section>
