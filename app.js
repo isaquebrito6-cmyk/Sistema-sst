@@ -14,6 +14,7 @@ let usuarioAtual = null;
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof auth === 'undefined' || typeof db === 'undefined') {
     console.error('Firebase não carregado! Verifique o config.js');
+    alert('Erro: config.js não carregado! Verifique a ordem dos arquivos.');
     return;
   }
   
@@ -56,12 +57,9 @@ async function fazerLogin() {
   } catch (erro) {
     console.log('Erro login:', erro.code);
     if (erro.code === 'auth/user-not-found') {
-      try {
-        await auth.createUserWithEmailAndPassword(email, senha);
-        msgErro.textContent = 'Conta criada com sucesso!';
-      } catch (criaErro) {
-        msgErro.textContent = 'Crie o usuário primeiro no Firebase → Authentication';
-      }
+      msgErro.textContent = 'Usuário não encontrado! Crie o e-mail no Firebase → Authentication primeiro.';
+    } else if (erro.code === 'auth/wrong-password') {
+      msgErro.textContent = 'Senha incorreta!';
     } else {
       msgErro.textContent = 'Erro: ' + (erro.message || erro.code);
     }
@@ -128,6 +126,18 @@ function abrirSecao(nome) {
   if (nome === 'pcmso' || nome === 'nr09') atualizarSelects();
 }
 
+// === CARREGAR TODOS OS DADOS ===
+async function carregarDados() {
+  await Promise.all([
+    carregarEmpresa(),
+    carregarColaboradores(),
+    carregarClinicas(),
+    carregarRiscos(),
+    carregarExames()
+  ]);
+  atualizarSelects();
+}
+
 // === DADOS DA EMPRESA ===
 async function salvarEmpresa() {
   empresaDados = {
@@ -160,6 +170,12 @@ async function carregarEmpresa() {
 }
 
 // === COLABORADORES ===
+function limparCampos(prefixo) {
+  document.querySelectorAll(`[id^="${prefixo}"]`).forEach(el => {
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') el.value = '';
+  });
+}
+
 async function cadastrarColaborador() {
   const colab = {
     nome: document.getElementById('col-nome').value,
@@ -174,7 +190,6 @@ async function cadastrarColaborador() {
   await db.collection('colaboradores').add(colab);
   limparCampos('col-');
   carregarColaboradores();
-  atualizarSelects();
   alert('✅ Colaborador cadastrado!');
 }
 
@@ -244,6 +259,20 @@ async function excluirClinica(id) {
   if (confirm('Excluir?')) {
     await db.collection('clinicas').doc(id).delete();
     carregarClinicas();
+  }
+}
+
+// === ATUALIZAR SELECTS (Colaboradores e Clínicas) ===
+function atualizarSelects() {
+  const selColab = document.getElementById('exame-colab');
+  if (selColab) {
+    selColab.innerHTML = '<option value="">Selecione...</option>' +
+      listaColaboradores.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  }
+  const selClinica = document.getElementById('exame-clinica');
+  if (selClinica) {
+    selClinica.innerHTML = '<option value="">Selecione...</option>' +
+      listaClinicas.map(c => `<option value="${c.id}">${c.razao}</option>`).join('');
   }
 }
 
@@ -337,7 +366,7 @@ function gerarPGR() {
   </div>
 </div>`;
   const el = document.getElementById('visual-pgr');
-  if (el) el.innerHTML = pgrHTML;
+  if (el) { el.innerHTML = pgrHTML; el.style.display = 'block'; }
   alert('✅ PGR gerado! Use Imprimir → Salvar como PDF.');
 }
 
@@ -372,7 +401,7 @@ function gerarPCMSO() {
   <ul>
     <li><strong>Admissional:</strong> Antes de iniciar</li>
     <li><strong>Periódico:</strong> Anual ou conforme risco</li>
-    <li><strong>Retorno ao Trabalho:</strong> Após afastamento &gt; 30 dias</li>
+    <li><strong>Retorno ao Trabalho:</strong> Após afastamento > 30 dias</li>
     <li><strong>Mudança de Função:</strong> Antes da transferência</li>
     <li><strong>Demissional:</strong> Até o desligamento</li>
   </ul>
@@ -386,8 +415,62 @@ function gerarPCMSO() {
   </div>
 </div>`;
   const el = document.getElementById('visual-pcmso');
-  if (el) el.innerHTML = pcmsoHTML;
+  if (el) { el.innerHTML = pcmsoHTML; el.style.display = 'block'; }
   alert('✅ PCMSO gerado! Pronto para impressão.');
+}
+
+// === EXAMES ===
+async function registrarExame() {
+  const colabId = document.getElementById('exame-colab').value;
+  const tipo = document.getElementById('exame-tipo').value;
+  const clinicaId = document.getElementById('exame-clinica').value;
+  const data = document.getElementById('exame-data').value;
+  
+  if (!colabId || !tipo || !data) return alert('Preencha colaborador, tipo e data!');
+  
+  const colab = listaColaboradores.find(c => c.id === colabId);
+  const clinica = listaClinicas.find(c => c.id === clinicaId);
+  
+  await db.collection('exames').add({
+    colaboradorId: colabId,
+    colaboradorNome: colab?.nome || '',
+    tipo,
+    clinicaNome: clinica?.razao || '',
+    data,
+    status: 'Pendente'
+  });
+  
+  limparCampos('exame-');
+  carregarExames();
+  alert('✅ Exame registrado!');
+}
+
+async function carregarExames() {
+  try {
+    const snap = await db.collection('exames').get();
+    listaExames = [];
+    snap.forEach(doc => listaExames.push({ id: doc.id, ...doc.data() }));
+    
+    const lista = document.getElementById('lista-exames');
+    if (lista) {
+      lista.innerHTML = listaExames.map(e => `
+        <div class="item-lista">
+          <div><strong>${e.colaboradorNome}</strong><br>${e.tipo} — ${e.data} — ${e.clinicaNome || 'Sem clínica'}</div>
+          <button class="btn-excluir" onclick="excluirExame('${e.id}')">Excluir</button>
+        </div>
+      `).join('');
+    }
+    const pendentes = listaExames.filter(e => e.status === 'Pendente').length;
+    const qtdPend = document.getElementById('qtd-pendentes');
+    if (qtdPend) qtdPend.textContent = pendentes;
+  } catch(e) { console.log('Erro:', e); }
+}
+
+async function excluirExame(id) {
+  if (confirm('Excluir?')) {
+    await db.collection('exames').doc(id).delete();
+    carregarExames();
+  }
 }
 
 // === NR-09 ===
@@ -400,7 +483,7 @@ function adicionarAgenteNR09() {
       <input type="text" class="ag-tipo" placeholder="Físico / Químico / Biológico">
       <input type="text" class="ag-valor" placeholder="Valor medido">
       <input type="text" class="ag-limite" placeholder="Limite de exposição">
-      <input type="text" class="ag-situacao" placeholder="Situação">
+      <input type="text" class="ag-situacao" placeholder="Adequado / Insatisfatório">
       <button onclick="this.parentElement.remove()" class="btn-excluir">Remover</button>
     </div>`);
 }
@@ -425,18 +508,29 @@ function gerarDocumentoNR09() {
   const agentes = document.querySelectorAll('#nr09-agentes-lista .card');
   let tabelaAgentes = '';
   agentes.forEach(ag => {
-    const nome = ag.querySelector('.ag-nome')?.value || '';
+    const nome = ag.querySelector('.ag-nome')?.value;
     if (nome) {
-      tabelaAgentes += `<tr><td>${nome}</td><td>${ag.querySelector('.ag-tipo')?.value || ''}</td><td>${ag.querySelector('.ag-valor')?.value || ''}</td><td>${ag.querySelector('.ag-limite')?.value || ''}</td><td>${ag.querySelector('.ag-situacao')?.value || ''}</td></tr>`;
+      tabelaAgentes += `<tr>
+        <td>${nome}</td>
+        <td>${ag.querySelector('.ag-tipo')?.value || ''}</td>
+        <td>${ag.querySelector('.ag-valor')?.value || ''}</td>
+        <td>${ag.querySelector('.ag-limite')?.value || ''}</td>
+        <td>${ag.querySelector('.ag-situacao')?.value || ''}</td>
+      </tr>`;
     }
   });
 
   const acoes = document.querySelectorAll('#nr09-acoes-lista .card');
   let tabelaAcoes = '';
   acoes.forEach(ac => {
-    const desc = ac.querySelector('.ac-descricao')?.value || '';
+    const desc = ac.querySelector('.ac-descricao')?.value;
     if (desc) {
-      tabelaAcoes += `<tr><td>${ac.querySelector('.ac-prioridade')?.value || ''}</td><td>${desc}</td><td>${ac.querySelector('.ac-prazo')?.value || ''}</td><td>${ac.querySelector('.ac-responsavel')?.value || ''}</td></tr>`;
+      tabelaAcoes += `<tr>
+        <td>${ac.querySelector('.ac-prioridade')?.value || ''}</td>
+        <td>${desc}</td>
+        <td>${ac.querySelector('.ac-prazo')?.value || ''}</td>
+        <td>${ac.querySelector('.ac-responsavel')?.value || ''}</td>
+      </tr>`;
     }
   });
 
@@ -452,4 +546,54 @@ function gerarDocumentoNR09() {
   .assinatura div { border-top:1px solid #000; width:45%; text-align:center; padding-top:10px; }
 </style>
 <div class="pagina-nr09">
-  <h1>NR-09 — AVALIAÇÃO E
+  <h1>NR-09 — AVALIAÇÃO E CONTROLE DAS EXPOSIÇÕES OCUPACIONAIS</h1>
+  <p style="text-align:center;">Portaria MTP nº 426/2021</p>
+  <h3 style="text-align:center; margin:15px 0;">${empresaDados.razao || 'Nome da Empresa'}</h3>
+  <p style="text-align:center;">CNPJ: ${empresaDados.cnpj || ''}</p>
+  <p style="text-align:center;">Data da Avaliação: ${dataElab}</p>
+  
+  <h2>1. OBJETIVO</h2>
+  <p>Avaliar as exposições ocupacionais a agentes físicos, químicos e biológicos, propondo medidas de controle.</p>
+  
+  <h2>2. AGENTES AVALIADOS</h2>
+  ${tabelaAgentes ? `
+  <table>
+    <tr><th>Agente</th><th>Tipo</th><th>Valor Medido</th><th>Limite</th><th>Situação</th></tr>
+    ${tabelaAgentes}
+  </table>` : '<p><em>Nenhum agente adicionado.</em></p>'}
+  
+  <h2>3. MEDIDAS DE CONTROLE</h2>
+  ${tabelaAcoes ? `
+  <table>
+    <tr><th>Prioridade</th><th>Medida</th><th>Prazo</th><th>Responsável</th></tr>
+    ${tabelaAcoes}
+  </table>` : '<p><em>Nenhuma medida cadastrada.</em></p>'}
+  
+  <h2>4. CONCLUSÃO</h2>
+  <p>Recomenda-se a implementação das medidas acima no prazo estabelecido. Revisão periódica conforme NR-09.</p>
+  
+  <div class="assinatura">
+    <div>
+      <p>${empresaDados.responsavel || '________________'}</p>
+      <p>Responsável Legal</p>
+    </div>
+    <div>
+      <p>${respTec}</p>
+      <p>Responsável Técnico</p>
+    </div>
+  </div>
+</div>`;
+
+  const el = document.getElementById('nr09-documento-final');
+  if (el) { el.innerHTML = docHTML; el.style.display = 'block'; }
+  alert('✅ NR-09 gerado! Use Imprimir → Salvar como PDF.');
+}
+
+function imprimirNR09() {
+  const el = document.getElementById('nr09-documento-final');
+  if (!el || el.style.display === 'none') {
+    alert('Gere o documento primeiro!');
+    return;
+  }
+  window.print();
+}
