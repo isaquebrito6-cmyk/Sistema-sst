@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- TELA DE LOGIN -->
     <div id="tela-login" class="tela ativa">
         <div class="login-container">
             <div class="logo">
@@ -46,6 +47,7 @@
         </div>
     </div>
 
+    <!-- TELA PRINCIPAL -->
     <div id="tela-principal" class="tela">
         <header>
             <div class="header-content">
@@ -61,6 +63,7 @@
             <button class="btn-menu" data-tela="clinicas">🏥 Clínicas</button>
             <button class="btn-menu" data-tela="pgr">⚠️ PGR</button>
             <button class="btn-menu" data-tela="pcmso">🏥 PCMSO</button>
+            <button class="btn-menu" data-tela="nr09">📋 NR-09</button>
             <button class="btn-menu" data-tela="documentos">📄 Documentos</button>
         </nav>
 
@@ -87,6 +90,7 @@
                     <div class="botoes-acesso">
                         <button onclick="abrirSecao('pgr')">Gerar PGR</button>
                         <button onclick="abrirSecao('pcmso')">Gerar PCMSO</button>
+                        <button onclick="abrirSecao('nr09')">NR-09</button>
                         <button onclick="abrirSecao('documentos')">Ver Documentos</button>
                     </div>
                 </div>
@@ -172,81 +176,4 @@
                         <label><input type="checkbox" class="chk-risco" value="Químico — Poeiras, Fumos, Produtos Químicos"> Químico</label>
                         <label><input type="checkbox" class="chk-risco" value="Biológico — Agentes Biológicos"> Biológico</label>
                         <label><input type="checkbox" class="chk-risco" value="Ergonômico — Postura, Repetitividade"> Ergonômico</label>
-                        <label><input type="checkbox" class="chk-risco" value="Acidente — Máquinas, Quedas, Choques"> Acidente</label>
-                        <label><input type="checkbox" class="chk-risco" value="Psicossocial — Carga Horária, Pressão"> Psicossocial</label>
-                    </div>
-                    
-                    <label>Medidas de Controle / Prevenção</label>
-                    <textarea id="risco-medidas" rows="3"></textarea>
-                    
-                    <button onclick="adicionarRisco()">➕ Adicionar Risco</button>
-                </div>
-                
-                <div class="card">
-                    <h3>Matriz de Riscos</h3>
-                    <div id="lista-riscos"></div>
-                    <button class="btn-principal" onclick="gerarPGR()">📄 Gerar Documento PGR</button>
-                </div>
-                
-                <div id="visual-pgr" class="card documento">
-                    <!-- PGR Gerado aparece aqui -->
-                </div>
-            </section>
-
-            <!-- PCMSO -->
-            <section id="sec-pcmso" class="secao">
-                <h2>🏥 PCMSO — Programa de Controle Médico de Saúde Ocupacional</h2>
-                <div class="card">
-                    <p class="destaque">O PCMSO é gerado com base nos riscos mapeados no PGR.</p>
-                    <button class="btn-principal" onclick="gerarPCMSO()">📄 Gerar Documento PCMSO</button>
-                </div>
-                
-                <div class="card form-card">
-                    <h3>Controle de Exames</h3>
-                    <label>Colaborador</label>
-                    <select id="exame-colab"></select>
-                    <label>Tipo de Exame</label>
-                    <select id="exame-tipo">
-                        <option>Admissional</option>
-                        <option>Periódico</option>
-                        <option>Demissional</option>
-                        <option>Retorno ao Trabalho</option>
-                        <option>Mudança de Função</option>
-                    </select>
-                    <label>Clínica</label>
-                    <select id="exame-clinica"></select>
-                    <label>Data Prevista</label>
-                    <input type="date" id="exame-data">
-                    <button onclick="registrarExame()">✅ Registrar Solicitação</button>
-                </div>
-                
-                <div class="card">
-                    <h3>Exames e ASO</h3>
-                    <div id="lista-exames"></div>
-                </div>
-                
-                <div id="visual-pcmso" class="card documento"></div>
-            </section>
-
-            <!-- DOCUMENTOS -->
-            <section id="sec-documentos" class="secao">
-                <h2>📄 Documentos Gerados</h2>
-                <div class="card">
-                    <h3>Imprimir / Salvar / Enviar</h3>
-                    <p>Selecione o documento para visualizar e usar os botões:</p>
-                    <div class="botoes-acesso">
-                        <button onclick="imprimirDocumento('visual-pgr')">🖨️ Imprimir PGR</button>
-                        <button onclick="imprimirDocumento('visual-pcmso')">🖨️ Imprimir PCMSO</button>
-                    </div>
-                    <div class="dica">
-                        💡 Ao imprimir, escolha "Salvar como PDF" para enviar pelo WhatsApp ou e-mail.
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <script src="config.js"></script>
-    <script src="app.js"></script>
-</body>
-</html>
+                       
