@@ -17,15 +17,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#EDF1EF;--sf:#FFFFFF;--sf2:#F5F8F7;--ink:#11262B;--ink2:#51666B;--line:#D6DEDB;--brand:#0B5560;--brand2:#0A434B;--bi:#FFFFFF;--soft:#DDEBEC;--acc:#F0B429;--side:#0B3B42;--sideink:#CFE3E5;--danger:#B3261E;
---low:#3F8F5B;--med:#B58F0A;--high:#D9712B;--crit:#C2372F;--lows:#DDEFE3;--meds:#F7EDC6;--highs:#FBE3D0;--crits:#F8D9D6;--shadow:0 1px 2px rgba(11,38,43,.06),0 8px 24px rgba(11,38,43,.07);color-scheme:light;
+:root{--bg:#EEF2F1;--sf:#FFFFFF;--sf2:#F6F9F8;--ink:#11242A;--ink2:#54676B;--line:#DBE3E1;--brand:#0B5560;--brand2:#083E46;--bi:#FFFFFF;--soft:#DDEBEC;--acc:#E8A62F;--side:#0A333A;--sideink:#CFE3E5;--danger:#B3261E;
+--low:#3F8F5B;--med:#B58F0A;--high:#D9712B;--crit:#C2372F;--lows:#DDEFE3;--meds:#F7EDC6;--highs:#FBE3D0;--crits:#F8D9D6;--shadow:0 1px 2px rgba(11,38,43,.05),0 1px 1px rgba(11,38,43,.04);--shadow-md:0 4px 10px rgba(11,38,43,.06),0 1px 2px rgba(11,38,43,.05);--shadow-lg:0 24px 60px rgba(6,20,24,.28);--ease:cubic-bezier(.4,0,.2,1);color-scheme:light;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E191C;--sf:#162428;--sf2:#1B2D32;--ink:#E5EEEF;--ink2:#9DB1B4;--line:#2A3D42;--brand:#5EB9C5;--brand2:#7CCAD4;--bi:#06272C;--soft:#1C3B41;--acc:#F0B429;--side:#091316;--sideink:#B9CFD2;--danger:#F28B82;--low:#5DBB80;--med:#DDB93A;--high:#F09355;--crit:#F0766E;--lows:#1B3A28;--meds:#3B3410;--highs:#452B15;--crits:#472120;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0E191C;--sf:#162428;--sf2:#1B2D32;--ink:#E5EEEF;--ink2:#9DB1B4;--line:#2A3D42;--brand:#5EB9C5;--brand2:#7CCAD4;--bi:#06272C;--soft:#1C3B41;--acc:#F0B429;--side:#091316;--sideink:#B9CFD2;--danger:#F28B82;--low:#5DBB80;--med:#DDB93A;--high:#F09355;--crit:#F0766E;--lows:#1B3A28;--meds:#3B3410;--highs:#452B15;--crits:#472120;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E191C;--sf:#162428;--sf2:#1B2D32;--ink:#E5EEEF;--ink2:#9DB1B4;--line:#2A3D42;--brand:#5EB9C5;--brand2:#7CCAD4;--bi:#06272C;--soft:#1C3B41;--acc:#F0B429;--side:#091316;--sideink:#B9CFD2;--danger:#F28B82;--low:#5DBB80;--med:#DDB93A;--high:#F09355;--crit:#F0766E;--lows:#1B3A28;--meds:#3B3410;--highs:#452B15;--crits:#472120;--shadow:0 1px 2px rgba(0,0,0,.35);--shadow-md:0 4px 12px rgba(0,0,0,.35);--shadow-lg:0 24px 60px rgba(0,0,0,.55);--ease:cubic-bezier(.4,0,.2,1);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E191C;--sf:#162428;--sf2:#1B2D32;--ink:#E5EEEF;--ink2:#9DB1B4;--line:#2A3D42;--brand:#5EB9C5;--brand2:#7CCAD4;--bi:#06272C;--soft:#1C3B41;--acc:#F0B429;--side:#091316;--sideink:#B9CFD2;--danger:#F28B82;--low:#5DBB80;--med:#DDB93A;--high:#F09355;--crit:#F0766E;--lows:#1B3A28;--meds:#3B3410;--highs:#452B15;--crits:#472120;--shadow:0 1px 2px rgba(0,0,0,.35);--shadow-md:0 4px 12px rgba(0,0,0,.35);--shadow-lg:0 24px 60px rgba(0,0,0,.55);--ease:cubic-bezier(.4,0,.2,1);color-scheme:dark}
 *{box-sizing:border-box}
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-h1,h2,h3{font-family:'Bricolage Grotesque','Instrument Sans',system-ui,sans-serif;margin:0;letter-spacing:-.01em;line-height:1.2}
+h1,h2,h3{font-family:'Bricolage Grotesque','Instrument Sans',system-ui,sans-serif;margin:0;letter-spacing:-.015em;line-height:1.2;font-weight:700}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--brand)}
 :focus-visible{outline:3px solid var(--acc);outline-offset:2px;border-radius:6px}
@@ -35,9 +35,9 @@ a{color:var(--brand)}
 .brand .mk{width:34px;height:34px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#11262B;flex:none}
 .brand b{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;color:#fff;display:block;line-height:1.1}
 .brand span{font-size:11.5px;opacity:.75;line-height:1.2;display:block}
-.nav{display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border-radius:9px;border:0;background:none;color:inherit;text-align:left;cursor:pointer;font-weight:500}
+.nav{display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border-radius:9px;border:0;background:none;color:inherit;text-align:left;cursor:pointer;font-weight:500;transition:background-color .15s var(--ease),box-shadow .15s var(--ease)}
 .nav:hover{background:rgba(255,255,255,.07)}
-.nav.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 3px 0 0 var(--acc)}
+.nav.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 3px 0 0 var(--acc);font-weight:600}
 .nav svg{width:19px;height:19px;flex:none}
 .nav{position:relative}
 .navbadge{margin-left:auto;background:var(--danger);color:#fff;font-size:11px;font-weight:700;min-width:19px;height:19px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;flex:none}
@@ -46,13 +46,15 @@ a{color:var(--brand)}
 #install-btn.show{display:flex}
 .navbadge.warn{background:var(--acc);color:#11262B}
 .side .sp{flex:1}
+.navgroup{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.4);padding:16px 12px 5px;letter-spacing:.01em}
+.navgroup:first-child{padding-top:2px}
 .side small{opacity:.6;padding:8px 12px;font-size:11.5px;line-height:1.35}
 .main{flex:1;min-width:0}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:10px 20px;flex-wrap:wrap}
-.top h1{font-size:20px;flex:1;min-width:120px}
+.top h1{font-size:21px;flex:1;min-width:120px;color:var(--ink)}
 .menu{display:none}
 .roles{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.roles select{max-width:190px}
+.roles select{max-width:190px;height:36px;min-height:0;border-radius:99px;background:var(--sf2);font-size:13px;padding:6px 12px}
 .content{padding:20px;max-width:1180px;margin:0 auto}
 .scrim{display:none}
 @media (max-width:900px){
@@ -62,10 +64,11 @@ a{color:var(--brand)}
 .menu{display:inline-grid}
 .top{padding:10px 14px}.content{padding:14px}
 }
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--sf);color:var(--ink);padding:9px 14px;border-radius:9px;cursor:pointer;font-weight:600;font-size:14px;line-height:1.2;min-height:40px;text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--sf);color:var(--ink);padding:9px 14px;border-radius:9px;cursor:pointer;font-weight:600;font-size:14px;line-height:1.2;min-height:40px;text-decoration:none;transition:background-color .15s var(--ease),border-color .15s var(--ease),box-shadow .15s var(--ease),transform .08s var(--ease)}
 .btn:hover{border-color:var(--brand)}
 .btn.p{background:var(--brand);border-color:var(--brand);color:var(--bi)}
-.btn.p:hover{background:var(--brand2)}
+.btn.p:hover{background:var(--brand2);box-shadow:0 2px 8px rgba(11,85,96,.28)}
+.btn:active{transform:translateY(1px)}
 .btn.d{color:var(--danger)}
 .btn.s{padding:6px 10px;min-height:34px;font-size:13px}
 .btn.g{background:none;border-color:transparent}
@@ -77,13 +80,14 @@ input,select,textarea{width:100%;border:1px solid var(--line);background:var(--s
 textarea{min-height:84px;resize:vertical}
 input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(--brand)}
 .card{background:var(--sf);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+.tbl tr.click{transition:background-color .12s var(--ease)}
 .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 .kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:18px}
-.kpi{background:var(--sf);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi{background:var(--sf);border:1px solid var(--line);border-top:2.5px solid var(--brand);border-radius:10px 10px 12px 12px;padding:13px 14px;box-shadow:var(--shadow)}
 .kpi b{font:700 28px 'Bricolage Grotesque',sans-serif;display:block;line-height:1.1}
 .kpi span{color:var(--ink2);font-size:13px}
 .two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
-.card h3{font-size:16px;margin-bottom:10px}
+.card h3{font-size:15.5px;margin-bottom:10px;letter-spacing:-.01em}
 .muted{color:var(--ink2)}.sm{font-size:13px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .row.sb{justify-content:space-between}
@@ -107,13 +111,15 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .tbl td.act{justify-content:flex-end}.tbl td.act::before{display:none}
 }
 .empty{text-align:center;padding:34px 16px;color:var(--ink2)}
+.empty .mk{width:52px;height:52px;border-radius:14px;background:var(--soft);color:var(--brand);display:grid;place-items:center;margin:0 auto 14px}
+.empty .mk svg{width:26px;height:26px}
 .empty h3{color:var(--ink);margin-bottom:6px}
 .steps{display:grid;gap:10px;margin:16px 0;text-align:left}
 .steps div{display:flex;gap:12px;align-items:flex-start;background:var(--sf2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .steps b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--brand);color:var(--bi);display:grid;place-items:center;font-size:13px}
 .overlay{position:fixed;inset:0;background:rgba(6,20,24,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-.sheet{background:var(--sf);border-radius:14px;width:100%;max-width:760px;max-height:100%;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);margin:0}
-.sheet>header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.sheet{background:var(--sf);border-radius:14px;width:100%;max-width:760px;max-height:100%;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);margin:0}
+.sheet>header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;background:var(--sf2);border-radius:14px 14px 0 0}
 .sheet>header h2{font-size:18px;flex:1}
 .sheet .bd{padding:16px 18px;overflow:auto;flex:1}
 .sheet>footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
@@ -393,7 +399,7 @@ function distBar(rs){
 function tbl(cols,rows,ra){
  return `<table class="tbl"><thead><tr>${cols.map(c=>`<th>${c.h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr ${ra?ra(r):''}>${cols.map(c=>`<td data-l="${esc(c.h)}" ${c.a?'class="act"':''}>${c.f(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
-const emptyBox=(t,d,btn)=>`<div class="card empty"><h3>${t}</h3><p>${d}</p>${btn||''}</div>`;
+const emptyBox=(t,d,btn,icon)=>`<div class="card empty"><div class="mk">${ic(icon||'file')}</div><h3>${t}</h3><p>${d}</p>${btn||''}</div>`;
 
 /* ====================== FORMULÁRIOS ====================== */
 function fieldHTML(f,v){
@@ -732,7 +738,7 @@ VIEWS.empresas=()=>{
  const q=norm(S.q);const l=L('empresas').filter(e=>!q||norm(e.razao+' '+e.fantasia+' '+e.cnpj).includes(q)).sort(byN);
  return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar empresa ou CNPJ" value="${esc(S.q)}" data-c="q"><button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button></div>`+
  (l.length?`<div class="grid">${l.map(e=>{const rs=L('riscos').filter(r=>r.empresaId===e.id);const nc=L('colaboradores').filter(c=>c.empresaId===e.id&&c.status!=='Desligado').length;
-  return `<div class="card"><div class="row sb"><h3 style="margin:0">${esc(e.razao)}</h3><span class="chip gray">Grau ${esc(e.grau||'—')}</span></div><p class="muted sm" style="margin:4px 0 10px">${esc(e.cnpj||'CNPJ não informado')} · ${nc} colaborador(es)</p>${rs.length?distBar(rs):''}<p class="sm muted" style="margin:6px 0 12px">${rs.length?rs.length+' risco(s) no inventário':'Inventário de riscos vazio'}</p><div class="row"><button class="btn s" data-a="edit" data-e="empresa" data-id="${e.id}">${ic('edit')}Editar</button><button class="btn s" data-a="goEmp" data-v="riscos" data-id="${e.id}">Riscos</button><button class="btn s" data-a="goEmp" data-v="documentos" data-id="${e.id}">Documentos</button><button class="btn s d g" data-a="delEmp" data-id="${e.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`:emptyBox('Nenhuma empresa encontrada','Cadastre a empresa cliente para começar.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`));
+  return `<div class="card"><div class="row sb"><h3 style="margin:0">${esc(e.razao)}</h3><span class="chip gray">Grau ${esc(e.grau||'—')}</span></div><p class="muted sm" style="margin:4px 0 10px">${esc(e.cnpj||'CNPJ não informado')} · ${nc} colaborador(es)</p>${rs.length?distBar(rs):''}<p class="sm muted" style="margin:6px 0 12px">${rs.length?rs.length+' risco(s) no inventário':'Inventário de riscos vazio'}</p><div class="row"><button class="btn s" data-a="edit" data-e="empresa" data-id="${e.id}">${ic('edit')}Editar</button><button class="btn s" data-a="goEmp" data-v="riscos" data-id="${e.id}">Riscos</button><button class="btn s" data-a="goEmp" data-v="documentos" data-id="${e.id}">Documentos</button><button class="btn s d g" data-a="delEmp" data-id="${e.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`:emptyBox('Nenhuma empresa encontrada','Cadastre a empresa cliente para começar.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`,'build'));
 };
 VIEWS.colaboradores=()=>{
  const q=norm(S.q);let l=L('colaboradores');if(S.role==='empresa')l=l.filter(c=>c.empresaId===S.rid);
@@ -740,16 +746,16 @@ VIEWS.colaboradores=()=>{
  l=l.filter(c=>!q||norm(c.nome+' '+c.cpf+' '+c.funcao+' '+c.setor).includes(q)).sort(byN);
  return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por nome, CPF, função ou setor" value="${esc(S.q)}" data-c="q">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button></div>`+
  (l.length?tbl([{h:'Nome',f:c=>`<a href="#" data-a="ficha" data-id="${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a><br><span class="muted sm">${esc(c.cpf||'')}</span>`},{h:'Empresa',f:c=>esc(nEmp(c.empresaId))},{h:'Função / setor',f:c=>esc((c.funcao||'')+(c.setor?' · '+c.setor:''))},{h:'Riscos (PGR)',f:c=>{const rs=riscosDoColab(c);return rs.length?`<span class="chip low">${rs.length} vinculado(s)</span>`:'<span class="chip high">sem risco</span>'}},{h:'Próximo exame',f:c=>{const p=proximo(c);return p?`<span class="chip ${dias(p)<0?'crit':dias(p)<=60?'med':'low'}">${fd(p)}</span>`:'<span class="chip gray">sem ASO</span>'}},{h:'Situação',f:c=>c.status==='Ativo'?'Ativo':`<span class="chip gray">${esc(c.status)}</span>`},{h:'',a:1,f:c=>`<button class="btn s p" data-a="ficha" data-id="${c.id}">Ficha e exames</button> <button class="btn s g" data-a="edit" data-e="colaborador" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delCol" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
- :emptyBox('Nenhum colaborador','Cadastre os colaboradores com função e setor: é isso que liga cada pessoa aos exames do PCMSO.',`<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button>`));
+ :emptyBox('Nenhum colaborador','Cadastre os colaboradores com função e setor: é isso que liga cada pessoa aos exames do PCMSO.',`<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button>`,'users'));
 };
 VIEWS.clinicas=()=>{
  const l=L('clinicas').sort(byN);
  return `<div class="bar"><div class="grow muted">Clínicas que recebem as guias de encaminhamento e devolvem os ASOs.</div><button class="btn p" data-a="new" data-e="clinica">${ic('plus')}Nova clínica</button></div>`+
- (l.length?`<div class="grid">${l.map(c=>`<div class="card"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0 0 8px">${esc(c.cnpj||'')}${c.cidade?' · '+esc(c.cidade):''}<br>${esc(c.telefone||'')} ${esc(c.email||'')}</p>${c.medico_nome?`<p class="sm" style="margin:0 0 10px">${esc(c.medico_nome)} ${esc(c.medico_crm||'')}</p>`:''}<div class="row"><button class="btn s" data-a="edit" data-e="clinica" data-id="${c.id}">${ic('edit')}Editar</button><button class="btn s g d" data-a="delCli" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`).join('')}</div>`:emptyBox('Nenhuma clínica cadastrada','Cadastre ao menos uma clínica para encaminhar exames.',`<button class="btn p" data-a="new" data-e="clinica">${ic('plus')}Nova clínica</button>`));
+ (l.length?`<div class="grid">${l.map(c=>`<div class="card"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0 0 8px">${esc(c.cnpj||'')}${c.cidade?' · '+esc(c.cidade):''}<br>${esc(c.telefone||'')} ${esc(c.email||'')}</p>${c.medico_nome?`<p class="sm" style="margin:0 0 10px">${esc(c.medico_nome)} ${esc(c.medico_crm||'')}</p>`:''}<div class="row"><button class="btn s" data-a="edit" data-e="clinica" data-id="${c.id}">${ic('edit')}Editar</button><button class="btn s g d" data-a="delCli" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`).join('')}</div>`:emptyBox('Nenhuma clínica cadastrada','Cadastre ao menos uma clínica para encaminhar exames.',`<button class="btn p" data-a="new" data-e="clinica">${ic('plus')}Nova clínica</button>`,'clinic'));
 };
 function empSel(){return S.role==='empresa'?'':`<select id="ef" data-c="ef" style="max-width:280px" aria-label="Empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.emp)}</select>`}
 VIEWS.riscos=()=>{
- const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O inventário de riscos pertence a uma empresa.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`);
+ const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O inventário de riscos pertence a uma empresa.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`,'shield');
  const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
  const sets=[...new Set(rs.map(r=>r.setor||'Sem setor'))];
  return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
@@ -757,7 +763,7 @@ VIEWS.riscos=()=>{
  sets.map(s=>`<h2 style="font-size:17px;margin:20px 0 10px">${esc(s)}</h2><div class="grid">${rs.filter(r=>(r.setor||'Sem setor')===s).map(r=>{const n=nivel(r.sev,r.prob);return `<div class="card"><div class="row sb"><span class="chip ${n.k}">${n.n} · ${n.v}</span><span class="chip gray">${CATS[r.cat]||''}</span></div><h3 style="margin:10px 0 4px;font-size:15.5px">${esc(r.perigo)}</h3>${r.fonte?`<p class="sm muted" style="margin:0 0 4px">Fonte: ${esc(r.fonte)}</p>`:''}<p class="sm" style="margin:0 0 8px">Funções: ${esc(r.funcoes||'todo o setor')}</p><div class="row" style="gap:5px;margin-bottom:10px">${(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div><div class="row"><button class="btn s" data-a="editRisco" data-id="${r.id}">${ic('edit')}Editar</button><button class="btn s g" data-a="dupRisco" data-id="${r.id}">Duplicar</button><button class="btn s g d" data-a="delRisco" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`).join('');
 };
 VIEWS.acoes=()=>{
- const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O plano de ação pertence a uma empresa.');
+ const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O plano de ação pertence a uma empresa.',null,'tasks');
  const l=L('acoes').filter(a=>a.empresaId===e.id).sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9'));
  return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn p" data-a="new" data-e="acao">${ic('plus')}Nova ação</button></div>`+
  (l.length?tbl([{h:'Ação',f:a=>nl(a.acao)},{h:'Responsável',f:a=>esc(a.responsavel||'—')},{h:'Prazo',f:a=>{const at=a.status!=='Concluída'&&a.prazo&&a.prazo<today();return `<span class="chip ${at?'crit':'gray'}">${fd(a.prazo)}</span>`}},{h:'Situação',f:a=>`<select data-c="acaoSt" data-id="${a.id}" style="min-width:140px">${opts(['Pendente','Em andamento','Concluída'],a.status)}</select>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="edit" data-e="acao" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delAcao" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
@@ -772,11 +778,11 @@ VIEWS.solicitacoes=()=>{
  return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar colaborador ou empresa" value="${esc(S.q)}" data-c="q">${S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:''}</div>
  <div class="row" style="margin-bottom:14px;gap:6px">${tabs.map(t=>`<button class="btn s ${S.sst===t?'p':''}" data-a="stf" data-v="${t}">${t} (${cnt(t)})</button>`).join('')}</div>`+
  (l.length?tbl([{h:'Colaborador',f:s=>`<b>${esc(nCol(s.colabId))}</b>`},{h:'Empresa',f:s=>esc(nEmp(s.empresaId))},{h:'Exame',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Agenda',f:s=>fd(s.dataAgend)},{h:'Situação',f:s=>`<span class="chip ${s.status==='Realizado'?'low':s.status==='Cancelado'?'gray':''}">${s.status}</span>${s.arquivo?' <span class="chip low">ASO anexado</span>':''}`}],l,s=>`class="click" data-a="det" data-id="${s.id}"`)
- :emptyBox('Nenhuma solicitação','Quando a empresa solicita um exame, a guia, o ASO e o checklist saem daqui.',S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:''));
+ :emptyBox('Nenhuma solicitação','Quando a empresa solicita um exame, a guia, o ASO e o checklist saem daqui.',S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:'','clip'));
 };
 VIEWS.documentos=()=>{
  const e=empAtual();
- if(!e)return emptyBox('Vamos montar o PGR da sua empresa','Use o formulário: ele reúne os dados da empresa e o inventário de riscos numa única tela e já gera o PGR ao salvar.',isC()?`<button class="btn p" data-a="formPGR">${ic('file')}Abrir formulário do PGR</button>`:'');
+ if(!e)return emptyBox('Vamos montar o PGR da sua empresa','Use o formulário: ele reúne os dados da empresa e o inventário de riscos numa única tela e já gera o PGR ao salvar.',isC()?`<button class="btn p" data-a="formPGR">${ic('file')}Abrir formulário do PGR</button>`:'','file');
  const hist0=L('documentos').filter(d=>d.empresaId===e.id);
  const pgr0=hist0.filter(d=>d.tipo==='PGR').sort((a,b)=>b.rev-a.rev)[0];
  const pcmso0=hist0.filter(d=>d.tipo==='PCMSO').sort((a,b)=>b.rev-a.rev)[0];
@@ -1118,7 +1124,9 @@ function shell(){
  const nav=NAV[S.role];if(!nav.some(n=>n[0]===S.view))S.view=nav[0][0];
  const tt=(nav.find(n=>n[0]===S.view)||[])[1]||'';
  const al=alertas();
- return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${nav.map(n=>`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${ic(n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('')}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button><small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${VIEWS[S.view]()}</main></div></div>`;
+ const grp={empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
+ const navHTML=nav.map(n=>(grp[n[0]]?`<div class="navgroup">${grp[n[0]]}</div>`:'')+`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${ic(n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('');
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button><small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${VIEWS[S.view]()}</main></div></div>`;
 }
 function render(){
  if(!S.ready)return;
