@@ -123,6 +123,14 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 @media (max-width:640px){.fld.w3,.fld.w2,.fld.w4{grid-column:span 6}}
 .fld label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
 .fld small{display:block;color:var(--ink2);font-size:12px;margin-top:3px}
+.pgr-wrap{max-width:920px;margin:0 auto}
+.pgr-row{background:var(--sf2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:12px}
+.pgr-row .fg{grid-template-columns:repeat(6,1fr)}
+.pgr-rhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.pgr-rhead b{font-size:13px;color:var(--brand)}
+.stepbar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.stepbar span{padding:5px 11px;border-radius:99px;font-size:12.5px;font-weight:600;background:var(--sf2);border:1px solid var(--line);color:var(--ink2)}
+.stepbar span.on{background:var(--brand);border-color:var(--brand);color:var(--bi)}
 .fld.bad input,.fld.bad select,.fld.bad textarea{border-color:var(--danger)}
 .sec{grid-column:span 6;font:700 14px 'Bricolage Grotesque',sans-serif;color:var(--brand);border-bottom:1px solid var(--line);padding-bottom:4px;margin-top:8px}
 .checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
@@ -500,6 +508,101 @@ function aplicarModelo(id){
  document.querySelectorAll('#fm input[name="exames"]').forEach(c=>c.checked=h.ex.includes(c.value));
  nvlUpd();
 }
+/* ====================== FORMULÁRIO DO PGR (empresa + riscos numa tela) ====================== */
+function abrirFormPGR(empId){
+ const emp=empId?clone(G('empresas',empId)):{grau:'2'};
+ const rows=L('riscos').filter(r=>r.empresaId===empId).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))).map(r=>({id:r.id,key:uid()}));
+ if(!rows.length)rows.push({id:null,key:uid()});
+ S.pgrForm={emp,rows,removed:[]};
+ renderFormPGR();
+}
+function pgrRowData(row){if(row.data)return row.data;return row.id?G('riscos',row.id):{cat:'fisico',exposicao:'Habitual e permanente',sev:'3',prob:'3',exames:['clinico']}}
+function pgrSyncState(){
+ const st=S.pgrForm;if(!st)return;
+ const g=id=>{const e=document.getElementById(id);return e?e.value:undefined};
+ ENT.empresa.f().forEach(f=>{if(f.sec)return;const v=g('f_emp_'+f.k);if(v!==undefined)st.emp[f.k]=v});
+ st.rows.forEach(row=>{
+  const rid='pr_'+row.key+'_';
+  if(!document.getElementById(rid+'setor'))return;
+  const exames=Object.keys(EXAMES).filter(k=>{const e=document.getElementById(rid+'ex_'+k);return e&&e.checked});
+  row.data={setor:g(rid+'setor'),funcoes:g(rid+'funcoes'),cat:g(rid+'cat'),perigo:g(rid+'perigo'),fonte:g(rid+'fonte'),danos:g(rid+'danos'),aval:g(rid+'aval'),medidas:g(rid+'medidas'),sev:g(rid+'sev'),prob:g(rid+'prob'),per:g(rid+'per'),exposicao:'Habitual e permanente',exames};
+ });
+}
+function renderFormPGR(){
+ const st=S.pgrForm;if(!st){$('#modal-root').innerHTML='';return}
+ const emp=st.emp,ef=ENT.empresa.f();
+ const modeloOpts=`<option value="">Modelo do catálogo…</option>${Object.entries(CATS).map(([k,n])=>`<optgroup label="${n}">${HAZ.filter(h=>h.cat===k).map(h=>`<option value="${h.id}">${esc(h.perigo)}</option>`).join('')}</optgroup>`).join('')}`;
+ const rowHTML=(row,i)=>{const r=pgrRowData(row)||{};const rid='pr_'+row.key+'_';const n=nivel(r.sev,r.prob);
+  return `<div class="pgr-row" id="row_${row.key}"><div class="pgr-rhead"><b>Risco ${i+1}${r.setor?' — '+esc(r.setor):''}</b><span class="row"><span class="chip ${n.k}" id="${rid}nvl">${n.n} (${n.v})</span><button type="button" class="btn s g d" data-a="pgrRemRow" data-row="${row.key}" aria-label="Remover risco">${ic('trash')}</button></span></div>
+  <div class="fg">
+  <div class="fld w3"><label>Setor / GHE</label><input id="${rid}setor" value="${esc(r.setor||'')}"></div>
+  <div class="fld w3"><label>Funções expostas</label><input id="${rid}funcoes" value="${esc(r.funcoes||'')}" placeholder="separadas por vírgula, ou 'todas'"></div>
+  <div class="fld w4"><label>Modelo do catálogo (opcional)</label><select id="${rid}modelo" onchange="pgrApplyModelo('${row.key}',this.value)">${modeloOpts}</select></div>
+  <div class="fld w2"><label>Categoria</label><select id="${rid}cat">${opts(Object.entries(CATS),r.cat)}</select></div>
+  <div class="fld"><label>Perigo / fator de risco</label><input id="${rid}perigo" value="${esc(r.perigo||'')}"></div>
+  <div class="fld w3"><label>Fonte geradora</label><input id="${rid}fonte" value="${esc(r.fonte||'')}"></div>
+  <div class="fld w3"><label>Possíveis danos à saúde</label><input id="${rid}danos" value="${esc(r.danos||'')}"></div>
+  <div class="fld w4"><label>Avaliação (medição ou observação)</label><input id="${rid}aval" value="${esc(r.aval||'')}"></div>
+  <div class="fld w2"><label>Severidade</label><select id="${rid}sev" onchange="pgrNvl('${row.key}')">${opts([['1','1 – Leve'],['2','2 – Baixa'],['3','3 – Moderada'],['4','4 – Grave'],['5','5 – Gravíssima']],r.sev)}</select></div>
+  <div class="fld"><label>Medidas de prevenção existentes</label><textarea id="${rid}medidas" rows="2">${esc(r.medidas||'')}</textarea></div>
+  <div class="fld w3"><label>Probabilidade</label><select id="${rid}prob" onchange="pgrNvl('${row.key}')">${opts([['1','1 – Rara'],['2','2 – Pouco provável'],['3','3 – Possível'],['4','4 – Provável'],['5','5 – Quase certa']],r.prob)}</select></div>
+  <div class="fld w3"><label>Periodicidade dos exames</label><select id="${rid}per">${opts([['','Automática'],['6','6 meses'],['12','12 meses'],['24','24 meses']],r.per||'')}</select></div>
+  <div class="fld"><label>Exames indicados (PCMSO)</label><div class="checks">${Object.entries(EXAMES).map(([k,v])=>`<label class="chk"><input type="checkbox" id="${rid}ex_${k}" ${(r.exames||[]).includes(k)?'checked':''}><span>${esc(v.n.split(' (')[0])}</span></label>`).join('')}</div></div>
+  </div></div>`;
+ };
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:980px" role="dialog" aria-modal="true"><header><h2>Formulário do PGR</h2><button type="button" class="btn g s" data-a="pgrClose" aria-label="Fechar">${ic('x')}</button></header><div class="bd"><div class="pgr-wrap">
+ <p class="muted sm" style="margin-top:0">Preencha os dados reais da empresa e os riscos ocupacionais. Ao salvar, o PGR é gerado automaticamente a partir do que você digitar aqui.</p>
+ <div class="sec" style="margin-top:0">Dados da empresa</div>
+ <div class="fg">${ef.map(f=>f.sec?'':fieldHTML(Object.assign({},f,{k:'emp_'+f.k}),emp[f.k])).join('')}</div>
+ <div class="sec">Inventário de riscos ocupacionais</div>
+ <div id="pgr-rows">${st.rows.map((r,i)=>rowHTML(r,i)).join('')}</div>
+ <button type="button" class="btn" data-a="pgrAddRow">${ic('plus')}Adicionar risco</button>
+ </div></div><footer><button type="button" class="btn" data-a="pgrClose">Cancelar</button><button type="button" class="btn p" data-a="pgrSave">${ic('file')}Salvar e gerar PGR</button></footer></div></div>`;
+}
+function pgrNvl(key){
+ const s=$('#pr_'+key+'_sev'),p=$('#pr_'+key+'_prob'),el=$('#pr_'+key+'_nvl');if(!s||!p||!el)return;
+ const n=nivel(s.value,p.value);el.className='chip '+n.k;el.textContent=n.n+' ('+n.v+')';
+}
+function pgrApplyModelo(key,id){
+ const h=HAZ.find(x=>x.id===id);if(!h)return;const rid='pr_'+key+'_';
+ const set=(f,v)=>{const e=$('#'+rid+f);if(e)e.value=v};
+ set('cat',h.cat);set('perigo',h.perigo);set('fonte',h.fonte);set('danos',h.danos);set('medidas',h.medidas);set('sev',String(h.s));set('prob',String(h.p));
+ document.querySelectorAll(`[id^="${rid}ex_"]`).forEach(c=>{const k=c.id.slice((rid+'ex_').length);c.checked=h.ex.includes(k)});
+ pgrNvl(key);
+}
+function pgrAddRow(){const st=S.pgrForm;if(!st)return;pgrSyncState();st.rows.push({id:null,key:uid()});renderFormPGR()}
+function pgrRemRow(key){
+ const st=S.pgrForm;if(!st)return;pgrSyncState();
+ const row=st.rows.find(r=>r.key===key);if(!row)return;
+ if(row.id)st.removed.push(row.id);
+ st.rows=st.rows.filter(r=>r.key!==key);
+ if(!st.rows.length)st.rows.push({id:null,key:uid()});
+ renderFormPGR();
+}
+function pgrClose(){S.pgrForm=null;$('#modal-root').innerHTML=''}
+function pgrSave(){
+ const st=S.pgrForm;if(!st)return;
+ const g=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+ const razao=g('f_emp_razao');
+ if(!razao){toast('Preencha ao menos a razão social da empresa.');const w=document.getElementById('w_emp_razao');if(w){w.classList.add('bad');w.querySelector('input').focus()}return}
+ const emp=Object.assign({},st.emp);
+ ENT.empresa.f().forEach(f=>{if(!f.sec)emp[f.k]=g('f_emp_'+f.k)});
+ const savedEmp=save('empresas',emp,true);
+ st.rows.forEach(row=>{
+  const rid='pr_'+row.key+'_';
+  const setor=g(rid+'setor');
+  const perigo=g(rid+'perigo');
+  if(!setor&&!perigo)return;
+  const exames=Object.keys(EXAMES).filter(k=>{const e=document.getElementById(rid+'ex_'+k);return e&&e.checked});
+  const r={empresaId:savedEmp.id,setor,funcoes:g(rid+'funcoes'),cat:g(rid+'cat')||'fisico',perigo,fonte:g(rid+'fonte'),danos:g(rid+'danos'),aval:g(rid+'aval'),medidas:g(rid+'medidas'),sev:g(rid+'sev')||'3',prob:g(rid+'prob')||'3',per:g(rid+'per'),exposicao:'Habitual e permanente',exames:exames.length?exames:['clinico']};
+  if(row.id)r.id=row.id;
+  save('riscos',r,true);
+ });
+ st.removed.forEach(id=>del('riscos',id,true));
+ S.emp=savedEmp.id;S.pgrForm=null;$('#modal-root').innerHTML='';render();
+ toast('Dados salvos. Gerando o PGR…');
+ setTimeout(()=>abrirDocEmpresa('PGR',docMeta(savedEmp,'PGR'),savedEmp),50);
+}
 /* solicitação de exame */
 function abrirSol(id,pre){
  const env=pre&&pre._enviar;if(pre){pre=Object.assign({},pre);delete pre._enviar}
@@ -633,13 +736,14 @@ VIEWS.solicitacoes=()=>{
  :emptyBox('Nenhuma solicitação','Quando a empresa solicita um exame, a guia, o ASO e o checklist saem daqui.',S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:''));
 };
 VIEWS.documentos=()=>{
- const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','Os documentos são gerados a partir dos dados da empresa.');
+ const e=empAtual();
+ if(!e)return emptyBox('Vamos montar o PGR da sua empresa','Use o formulário: ele reúne os dados da empresa e o inventário de riscos numa única tela e já gera o PGR ao salvar.',isC()?`<button class="btn p" data-a="formPGR">${ic('file')}Abrir formulário do PGR</button>`:'');
  const rs=L('riscos').filter(r=>r.empresaId===e.id),cs=L('colaboradores').filter(c=>c.empresaId===e.id);
  const ck=[[!!(e.cnpj&&e.razao),'Dados da empresa (razão social e CNPJ)'],[!!(e.medico_nome&&e.medico_crm),'Médico coordenador do PCMSO com CRM'],[!!e.tec_nome,'Responsável técnico do PGR'],[!!e.atividades,'Descrição das atividades'],[rs.length>0,'Inventário de riscos ('+rs.length+')'],[cs.length>0,'Colaboradores cadastrados ('+cs.length+')']];
  const hist=L('documentos').filter(d=>d.empresaId===e.id).sort((a,b)=>b.emissao.localeCompare(a.emissao)||b.rev-a.rev);
  const rv=t=>Math.max(0,...hist.filter(d=>d.tipo===t).map(d=>d.rev));
  const card=(t,sub,lei)=>`<div class="card"><h3>${t}</h3><p class="sm muted" style="margin:0 0 10px">${sub}</p><p class="sm" style="margin:0 0 12px">Última revisão emitida: <b>${rv(t)?'Rev. '+String(rv(t)).padStart(2,'0'):'nenhuma'}</b></p><div class="row"><button class="btn s" data-a="verDoc" data-t="${t}">Visualizar minuta</button>${isC()?`<button class="btn s p" data-a="emitDoc" data-t="${t}">Emitir revisão ${String(rv(t)+1).padStart(2,'0')}</button>`:''}</div></div>`;
- return `<div class="bar">${empSel()}</div>
+ return `<div class="bar">${empSel()}${isC()?`<button class="btn" data-a="formPGR">${ic('file')}Formulário do PGR</button>`:''}</div>
  ${isC()?`<div class="card" style="margin-bottom:16px"><h3>Conferência antes de emitir</h3><div class="checks">${ck.map(c=>`<div class="chk" style="${c[0]?'':'border-color:var(--high)'}"><span>${c[0]?'✔':'⚠'}</span><span>${c[1]}</span></div>`).join('')}</div><p class="sm muted" style="margin:10px 0 0">Itens pendentes não impedem a geração, mas ficam em branco no documento.</p></div>`:''}
  <div class="grid">${isC()?card('PGR','Programa de Gerenciamento de Riscos: inventário de riscos e plano de ação (NR-1 GRO/PGR, com avaliações de agentes conforme NR-9).')+card('PCMSO','Programa de Controle Médico de Saúde Ocupacional (NR-7): exames por função, periodicidade e relatório analítico.'):''}
  <div class="card"><h3>Modelos em branco</h3><p class="sm muted" style="margin:0 0 10px">Para imprimir e preencher à mão.</p><div class="row"><button class="btn s" data-a="blank" data-t="aso">ASO</button><button class="btn s" data-a="blank" data-t="psico">Checklist psicossocial</button></div></div></div>
@@ -995,6 +1099,8 @@ closeFicha(){S.ficha=null;$('#modal-root').innerHTML=''},
 fichaSol(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:ultimoAso(c.id)?'Periódico':'Admissional',exames:examesPend(c),_enviar:true})},
 fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='riscos';render()},
 docFicha(d){docFicha(G('colaboradores',d.id))},
+formPGR(){abrirFormPGR(S.emp||null)},
+pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrRemRow(d){pgrRemRow(d.row)},
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
 newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},
