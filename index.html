@@ -1235,7 +1235,11 @@ async cnpj(t){
   const set=(f,v)=>{const e=g(f);if(e&&v)e.value=v};
   const nomeF=g('razao')||g('nome');if(nomeF&&j.razao_social)nomeF.value=j.razao_social;
   set('fantasia',j.nome_fantasia);
-  set('cnae',[j.cnae_fiscal,j.cnae_fiscal_descricao].filter(Boolean).join(' - '));
+  if(j.cnae_fiscal){
+   const d=String(j.cnae_fiscal).padStart(7,'0');
+   const cod=d.slice(0,2)+'.'+d.slice(2,4)+'-'+d.slice(4,5)+'-'+d.slice(5,7);
+   set('cnae',[cod,j.cnae_fiscal_descricao].filter(Boolean).join(' - '));
+  }
   const end=[j.descricao_tipo_de_logradouro,j.logradouro,j.numero].filter(Boolean).join(' ')+(j.complemento?', '+j.complemento:'')+(j.bairro?' - '+j.bairro:'');
   set('endereco',end.trim());
   set('cidade',j.municipio);
