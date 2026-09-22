@@ -279,6 +279,9 @@ const PSICO=[
 ];
 const ESCALA=['Nunca','Raramente','Às vezes','Frequentemente','Sempre'];
 const nivel=(s,p)=>{const v=(+s||0)*(+p||0);return v>=16?{k:'crit',n:'Crítico',v}:v>=10?{k:'high',n:'Alto',v}:v>=5?{k:'med',n:'Médio',v}:{k:'low',n:'Baixo',v}};
+const HAZ_FONTES=[...new Set(HAZ.map(h=>h.fonte))];
+const HAZ_DANOS=[...new Set(HAZ.map(h=>h.danos))];
+const HAZ_MEDIDAS=[...new Set(HAZ.map(h=>h.medidas))];
 
 /* ====================== CAMADA DE DADOS ====================== */
 const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos'];
@@ -406,7 +409,7 @@ function fieldHTML(f,v){
  const id='f_'+f.k;let inner='';
  const at=`${f.c?` data-c="${f.c}"`:''}${f.m?` data-mask="${f.m}"`:''}${f.dis?' disabled':''}`;
  if(f.t==='select')inner=`<select id="${id}" name="${f.k}"${at}>${opts(typeof f.o==='function'?f.o():f.o,v,f.ph)}</select>`;
- else if(f.t==='textarea')inner=`<textarea id="${id}" name="${f.k}" rows="${f.rows||3}"${at}>${esc(v)}</textarea>`;
+ else if(f.t==='textarea'){const dl=f.dl&&f.dl.length?` list="dl_${id}"`:'';inner=`<textarea id="${id}" name="${f.k}" rows="${f.rows||3}"${at}${dl}>${esc(v)}</textarea>${f.dl&&f.dl.length?`<datalist id="dl_${id}">${f.dl.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`:''}`;}
  else if(f.t==='checks'){const sel=v||[];inner=`<div class="checks" id="${id}">${f.o.map(([k,l])=>`<label class="chk"><input type="checkbox" name="${f.k}" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}</div>`}
  else{const dl=f.dl&&f.dl.length?` list="dl_${id}"`:'';inner=`<input id="${id}" name="${f.k}" type="${f.t||'text'}" value="${esc(v)}"${f.max?` maxlength="${f.max}"`:''}${f.min!=null?` min="${f.min}" max="${f.mx}"`:''}${f.inp?` inputmode="${f.inp}"`:''}${at}${dl} autocomplete="off">${f.dl&&f.dl.length?`<datalist id="dl_${id}">${f.dl.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`:''}`;}
  return `<div class="fld ${f.w?'w'+f.w:''}" id="w_${f.k}"><label for="${id}">${esc(f.l)}${f.r?' *':''}</label>${inner}${f.h?`<small>${esc(f.h)}</small>`:''}</div>`;
@@ -464,9 +467,9 @@ empresa:{col:'empresas',t:'empresa',f:()=>[
  {k:'emerg',l:'Recursos para emergência',t:'textarea',h:'Extintores, hidrantes, brigada, saídas de emergência, primeiros socorros'}]},
 clinica:{col:'clinicas',t:'clínica',f:()=>[
  {k:'nome',l:'Nome da clínica',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',inp:'numeric',c:'cnpj',h:'Preenche o nome e o endereço'},
- {k:'cep',l:'CEP',w:2,m:'cep',inp:'numeric',c:'cep',h:'Digite o CEP e o endereço preenche sozinho'},{k:'endereco',l:'Endereço',w:4,h:'Rua, número e complemento'},{k:'cidade',l:'Cidade',w:2},
+ {k:'cep',l:'CEP',w:2,m:'cep',inp:'numeric',c:'cep',h:'Digite o CEP e o endereço preenche sozinho'},{k:'endereco',l:'Endereço',w:3,h:'Rua, número e complemento'},{k:'cidade',l:'Cidade',w:2},{k:'uf',l:'UF',t:'select',o:UFS,w:1,ph:'UF'},
  {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail para receber as guias',t:'email',w:3},
- {k:'medico_nome',l:'Médico responsável',w:3},{k:'medico_crm',l:'CRM',w:3},
+ {k:'medico_nome',l:'Médico responsável',w:3},{k:'medico_crm',l:'CRM',w:3,h:'Ex.: CRM/PR 00000'},
  {k:'exames',l:'Exames oferecidos',t:'textarea'}]},
 colaborador:{col:'colaboradores',t:'colaborador',f:()=>[
  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:4,ph:'Selecione'},{k:'status',l:'Situação',t:'select',o:['Ativo','Afastado','Desligado'],w:2},
@@ -482,13 +485,13 @@ acao:{col:'acoes',t:'ação',f:()=>[
 };
 function riscoFields(empId){return [
  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'setor',l:'Setor / GHE',r:1,w:3,h:'Grupo homogêneo de exposição. Ex.: Produção, Escritório',dl:empId?distVals(empId,'setor'):[]},
- {k:'funcoes',l:'Funções expostas',w:6,h:'Separe por vírgula. Use "todas" para todo o setor. É o que define os exames de cada colaborador.'},
+ {k:'funcoes',l:'Funções expostas',w:6,h:'Separe por vírgula. Use "todas" para todo o setor. É o que define os exames de cada colaborador.',dl:empId?distVals(empId,'funcao'):[]},
  {k:'atividades',l:'Atividades realizadas',t:'textarea',rows:2},
  {sec:'Perigo e exposição'},
  {k:'cat',l:'Categoria',t:'select',r:1,o:Object.entries(CATS),w:3},{k:'exposicao',l:'Exposição',t:'select',o:['Habitual e permanente','Habitual e intermitente','Eventual'],w:3},
- {k:'perigo',l:'Perigo / fator de risco',r:1,t:'textarea',rows:2},{k:'fonte',l:'Fonte geradora',w:3},{k:'danos',l:'Possíveis danos à saúde',w:3},
+ {k:'perigo',l:'Perigo / fator de risco',r:1,t:'textarea',rows:2},{k:'fonte',l:'Fonte geradora',w:3,dl:HAZ_FONTES},{k:'danos',l:'Possíveis danos à saúde',w:3,dl:HAZ_DANOS},
  {k:'aval',l:'Avaliação quantitativa ou qualitativa',w:6,h:'Ex.: Dosimetria 86 dB(A) em 08/2026, ou "Avaliação qualitativa por inspeção"'},
- {k:'medidas',l:'Medidas de prevenção existentes (EPC, EPI, administrativas)',t:'textarea',rows:2},
+ {k:'medidas',l:'Medidas de prevenção existentes (EPC, EPI, administrativas)',t:'textarea',rows:2,dl:HAZ_MEDIDAS},
  {sec:'Classificação do risco'},
  {k:'sev',l:'Severidade (1 a 5)',t:'select',o:[['1','1 – Leve'],['2','2 – Baixa'],['3','3 – Moderada'],['4','4 – Grave'],['5','5 – Gravíssima']],w:3,c:'nvl'},
  {k:'prob',l:'Probabilidade (1 a 5)',t:'select',o:[['1','1 – Rara'],['2','2 – Pouco provável'],['3','3 – Possível'],['4','4 – Provável'],['5','5 – Quase certa']],w:3,c:'nvl'},
@@ -507,6 +510,11 @@ function abrirEnt(kind,id,pre){
  if(kind==='colaborador'&&rec.empresaId){
   const setores=distVals(rec.empresaId,'setor'),funcs=distVals(rec.empresaId,'funcao');
   fields=fields.map(f=>f.k==='setor'?Object.assign({},f,{dl:setores}):f.k==='funcao'?Object.assign({},f,{dl:funcs}):f);
+ }
+ if(kind==='acao'&&rec.empresaId){
+  const emp2=G('empresas',rec.empresaId);
+  const nomes=[...new Set(L('colaboradores').filter(c=>c.empresaId===rec.empresaId).map(c=>c.nome).concat(emp2&&emp2.resp_nome?[emp2.resp_nome]:[]))].sort((a,b)=>norm(a).localeCompare(norm(b)));
+  fields=fields.map(f=>f.k==='responsavel'?Object.assign({},f,{dl:nomes}):f);
  }
  openForm({title:(id?'Editar ':'Nova ')+E.t,fields,val:rec,save:v=>{save(E.col,Object.assign(rec,v));toast('Salvo.')}});
 }
@@ -555,15 +563,15 @@ function renderFormPGR(){
   return `<div class="pgr-row" id="row_${row.key}"><div class="pgr-rhead"><b>Risco ${i+1}${r.setor?' — '+esc(r.setor):''}</b><span class="row"><span class="chip ${n.k}" id="${rid}nvl">${n.n} (${n.v})</span><button type="button" class="btn s g d" data-a="pgrRemRow" data-row="${row.key}" aria-label="Remover risco">${ic('trash')}</button></span></div>
   <div class="fg">
   <div class="fld w3"><label>Setor / GHE</label><input id="${rid}setor" value="${esc(r.setor||'')}" list="dl_pgr_setores"></div>
-  <div class="fld w3"><label>Funções expostas</label><input id="${rid}funcoes" value="${esc(r.funcoes||'')}" placeholder="separadas por vírgula, ou 'todas'"></div>
+  <div class="fld w3"><label>Funções expostas</label><input id="${rid}funcoes" value="${esc(r.funcoes||'')}" placeholder="separadas por vírgula, ou 'todas'" list="dl_pgr_funcoes"></div>
   <div class="fld w4"><label>Modelo do catálogo (opcional)</label><select id="${rid}modelo" onchange="pgrApplyModelo('${row.key}',this.value)">${modeloOpts}</select></div>
   <div class="fld w2"><label>Categoria</label><select id="${rid}cat">${opts(Object.entries(CATS),r.cat)}</select></div>
   <div class="fld"><label>Perigo / fator de risco</label><input id="${rid}perigo" value="${esc(r.perigo||'')}"></div>
-  <div class="fld w3"><label>Fonte geradora</label><input id="${rid}fonte" value="${esc(r.fonte||'')}"></div>
-  <div class="fld w3"><label>Possíveis danos à saúde</label><input id="${rid}danos" value="${esc(r.danos||'')}"></div>
+  <div class="fld w3"><label>Fonte geradora</label><input id="${rid}fonte" value="${esc(r.fonte||'')}" list="dl_pgr_fontes"></div>
+  <div class="fld w3"><label>Possíveis danos à saúde</label><input id="${rid}danos" value="${esc(r.danos||'')}" list="dl_pgr_danos"></div>
   <div class="fld w4"><label>Avaliação (medição ou observação)</label><input id="${rid}aval" value="${esc(r.aval||'')}"></div>
   <div class="fld w2"><label>Severidade</label><select id="${rid}sev" onchange="pgrNvl('${row.key}')">${opts([['1','1 – Leve'],['2','2 – Baixa'],['3','3 – Moderada'],['4','4 – Grave'],['5','5 – Gravíssima']],r.sev)}</select></div>
-  <div class="fld"><label>Medidas de prevenção existentes</label><textarea id="${rid}medidas" rows="2">${esc(r.medidas||'')}</textarea></div>
+  <div class="fld"><label>Medidas de prevenção existentes</label><textarea id="${rid}medidas" rows="2" list="dl_pgr_medidas">${esc(r.medidas||'')}</textarea></div>
   <div class="fld w3"><label>Probabilidade</label><select id="${rid}prob" onchange="pgrNvl('${row.key}')">${opts([['1','1 – Rara'],['2','2 – Pouco provável'],['3','3 – Possível'],['4','4 – Provável'],['5','5 – Quase certa']],r.prob)}</select></div>
   <div class="fld w3"><label>Periodicidade dos exames</label><select id="${rid}per">${opts([['','Automática'],['6','6 meses'],['12','12 meses'],['24','24 meses']],r.per||'')}</select></div>
   <div class="fld"><label>Exames indicados (PCMSO)</label><div class="checks">${Object.entries(EXAMES).map(([k,v])=>`<label class="chk"><input type="checkbox" id="${rid}ex_${k}" ${(r.exames||[]).includes(k)?'checked':''}><span>${esc(v.n.split(' (')[0])}</span></label>`).join('')}</div></div>
@@ -585,6 +593,10 @@ function renderFormPGR(){
  <button type="button" class="btn p" data-a="pgrBulkAdd">${ic('plus')}Adicionar riscos marcados a este setor</button>
  </div>
  <datalist id="dl_pgr_setores">${[...new Set(st.rows.map(r=>(pgrRowData(r)||{}).setor).filter(Boolean).concat(distVals(emp.id||'','setor')))].map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+ <datalist id="dl_pgr_funcoes">${[...new Set(distVals(emp.id||'','funcao'))].map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+ <datalist id="dl_pgr_fontes">${HAZ_FONTES.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+ <datalist id="dl_pgr_danos">${HAZ_DANOS.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+ <datalist id="dl_pgr_medidas">${HAZ_MEDIDAS.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
  <div id="pgr-rows">${st.rows.map((r,i)=>rowHTML(r,i)).join('')}</div>
  <button type="button" class="btn" data-a="pgrAddRow">${ic('plus')}Adicionar risco</button>
  </div></div><footer><button type="button" class="btn" data-a="pgrClose">Cancelar</button><button type="button" class="btn p" data-a="pgrSave">${ic('file')}Salvar e gerar PGR</button></footer></div></div>`;
@@ -1197,7 +1209,7 @@ blank(d){const aso=d.t==='aso';openDoc({title:aso?'ASO em branco':'Checklist psi
 dPrint(){let ok=false;const f=()=>{ok=true};window.addEventListener('beforeprint',f,{once:true});try{window.print()}catch(e){}setTimeout(()=>{window.removeEventListener('beforeprint',f);if(!ok)toast('A impressão não abriu aqui. Use Baixar e imprima o arquivo salvo.',5000)},1200)},
 async dSave(){const d=S.doc;if(d&&await saveAs(d.filename,standalone(d.title,d.html)))toast('Arquivo salvo.')},
 dSend(){sendDoc()},dClose(){closeDoc()},
-cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'}],save:v=>{save('config',Object.assign({},c,v,{id:'main'}))}})},
+cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'}],save:v=>{save('config',Object.assign({},c,v,{id:'main'}))}})},
 logo(){$('#logo-f').click()},
 logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:'main'}))},
 async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j))toast('Backup salvo.')},
