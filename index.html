@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SST Gestão — PGR, PCMSO e ASO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EDF1EF;--sf:#FFFFFF;--sf2:#F5F8F7;--ink:#11262B;--ink2:#51666B;--line:#D6DEDB;--brand:#0B5560;--brand2:#0A434B;--bi:#FFFFFF;--soft:#DDEBEC;--acc:#F0B429;--side:#0B3B42;--sideink:#CFE3E5;--danger:#B3261E;
+--low:#3F8F5B;--med:#B58F0A;--high:#D9712B;--crit:#C2372F;--lows:#DDEFE3;--meds:#F7EDC6;--highs:#FBE3D0;--crits:#F8D9D6;--shadow:0 1px 2px rgba(11,38,43,.06),0 8px 24px rgba(11,38,43,.07);color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E191C;--sf:#162428;--sf2:#1B2D32;--ink:#E5EEEF;--ink2:#9DB1B4;--line:#2A3D42;--brand:#5EB9C5;--brand2:#7CCAD4;--bi:#06272C;--soft:#1C3B41;--acc:#F0B429;--side:#091316;--sideink:#B9CFD2;--danger:#F28B82;--low:#5DBB80;--med:#DDB93A;--high:#F09355;--crit:#F0766E;--lows:#1B3A28;--meds:#3B3410;--highs:#452B15;--crits:#472120;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E191C;--sf:#162428;--sf2:#1B2D32;--ink:#E5EEEF;--ink2:#9DB1B4;--line:#2A3D42;--brand:#5EB9C5;--brand2:#7CCAD4;--bi:#06272C;--soft:#1C3B41;--acc:#F0B429;--side:#091316;--sideink:#B9CFD2;--danger:#F28B82;--low:#5DBB80;--med:#DDB93A;--high:#F09355;--crit:#F0766E;--lows:#1B3A28;--meds:#3B3410;--highs:#452B15;--crits:#472120;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
+*{box-sizing:border-box}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+h1,h2,h3{font-family:'Bricolage Grotesque','Instrument Sans',system-ui,sans-serif;margin:0;letter-spacing:-.01em;line-height:1.2}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--brand)}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px;border-radius:6px}
+.layout{display:flex;min-height:100vh}
+.side{width:250px;flex:none;background:var(--side);color:var(--sideink);position:sticky;top:env(safe-area-inset-top,0px);height:100vh;overflow:auto;padding:18px 12px;display:flex;flex-direction:column;gap:4px;z-index:40}
+.brand{display:flex;gap:10px;align-items:center;padding:4px 8px 18px}
+.brand .mk{width:34px;height:34px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#11262B;flex:none}
+.brand b{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;color:#fff;display:block;line-height:1.1}
+.brand span{font-size:11.5px;opacity:.75;line-height:1.2;display:block}
+.nav{display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border-radius:9px;border:0;background:none;color:inherit;text-align:left;cursor:pointer;font-weight:500}
+.nav:hover{background:rgba(255,255,255,.07)}
+.nav.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 3px 0 0 var(--acc)}
+.nav svg{width:19px;height:19px;flex:none}
+.nav{position:relative}
+.navbadge{margin-left:auto;background:var(--danger);color:#fff;font-size:11px;font-weight:700;min-width:19px;height:19px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;flex:none}
+.navbadge.warn{background:var(--acc);color:#11262B}
+.side .sp{flex:1}
+.side small{opacity:.6;padding:8px 12px;font-size:11.5px;line-height:1.35}
+.main{flex:1;min-width:0}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:10px 20px;flex-wrap:wrap}
+.top h1{font-size:20px;flex:1;min-width:120px}
+.menu{display:none}
+.roles{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.roles select{max-width:190px}
+.content{padding:20px;max-width:1180px;margin:0 auto}
+.scrim{display:none}
+@media (max-width:900px){
+.side{position:fixed;left:0;top:0;bottom:0;height:auto;transform:translateX(-102%);transition:transform .22s;padding-top:calc(18px + env(safe-area-inset-top,0px));width:272px}
+.nav-open .side{transform:none;box-shadow:0 0 40px rgba(0,0,0,.4)}
+.nav-open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:35}
+.menu{display:inline-grid}
+.top{padding:10px 14px}.content{padding:14px}
+}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--sf);color:var(--ink);padding:9px 14px;border-radius:9px;cursor:pointer;font-weight:600;font-size:14px;line-height:1.2;min-height:40px;text-decoration:none}
+.btn:hover{border-color:var(--brand)}
+.btn.p{background:var(--brand);border-color:var(--brand);color:var(--bi)}
+.btn.p:hover{background:var(--brand2)}
+.btn.d{color:var(--danger)}
+.btn.s{padding:6px 10px;min-height:34px;font-size:13px}
+.btn.g{background:none;border-color:transparent}
+.btn svg,.ic{width:18px;height:18px;flex:none}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.bar .grow{flex:1;min-width:160px}
+input,select,textarea{width:100%;border:1px solid var(--line);background:var(--sf);border-radius:9px;padding:9px 11px;min-height:40px}
+textarea{min-height:84px;resize:vertical}
+input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(--brand)}
+.card{background:var(--sf);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:18px}
+.kpi{background:var(--sf);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{font:700 28px 'Bricolage Grotesque',sans-serif;display:block;line-height:1.1}
+.kpi span{color:var(--ink2);font-size:13px}
+.two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card h3{font-size:16px;margin-bottom:10px}
+.muted{color:var(--ink2)}.sm{font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row.sb{justify-content:space-between}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--soft);color:var(--brand);white-space:nowrap}
+.chip.low{background:var(--lows);color:var(--low)}.chip.med{background:var(--meds);color:var(--med)}.chip.high{background:var(--highs);color:var(--high)}.chip.crit{background:var(--crits);color:var(--crit)}
+.chip.gray{background:var(--sf2);color:var(--ink2);border:1px solid var(--line)}
+.dist{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--sf2);border:1px solid var(--line)}
+.dist i{display:block}
+.dist .l{background:var(--low)}.dist .m{background:var(--med)}.dist .h{background:var(--high)}.dist .c{background:var(--crit)}
+.tbl{width:100%;border-collapse:collapse;background:var(--sf);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tbl th{text-align:left;font-size:12.5px;color:var(--ink2);font-weight:600;padding:10px 12px;background:var(--sf2);border-bottom:1px solid var(--line)}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tr.click{cursor:pointer}.tbl tr.click:hover td{background:var(--sf2)}
+@media (max-width:760px){
+.tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}
+.tbl thead{display:none}
+.tbl tr{border-bottom:1px solid var(--line);padding:8px 4px}
+.tbl td{border:0;padding:3px 10px;display:flex;gap:10px;justify-content:space-between;text-align:right}
+.tbl td::before{content:attr(data-l);color:var(--ink2);font-size:12.5px;text-align:left;flex:none}
+.tbl td.act{justify-content:flex-end}.tbl td.act::before{display:none}
+}
+.empty{text-align:center;padding:34px 16px;color:var(--ink2)}
+.empty h3{color:var(--ink);margin-bottom:6px}
+.steps{display:grid;gap:10px;margin:16px 0;text-align:left}
+.steps div{display:flex;gap:12px;align-items:flex-start;background:var(--sf2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.steps b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--brand);color:var(--bi);display:grid;place-items:center;font-size:13px}
+.overlay{position:fixed;inset:0;background:rgba(6,20,24,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.sheet{background:var(--sf);border-radius:14px;width:100%;max-width:760px;max-height:100%;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);margin:0}
+.sheet>header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.sheet>header h2{font-size:18px;flex:1}
+.sheet .bd{padding:16px 18px;overflow:auto;flex:1}
+.sheet>footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+@media (max-width:640px){.overlay{align-items:flex-end;padding:0;padding-top:env(safe-area-inset-top,0px)}.sheet{max-width:none;border-radius:16px 16px 0 0;max-height:94%}}
+.fg{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.fld{grid-column:span 6}.fld.w3{grid-column:span 3}.fld.w2{grid-column:span 2}.fld.w4{grid-column:span 4}
+@media (max-width:640px){.fld.w3,.fld.w2,.fld.w4{grid-column:span 6}}
+.fld label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+.fld small{display:block;color:var(--ink2);font-size:12px;margin-top:3px}
+.fld.bad input,.fld.bad select,.fld.bad textarea{border-color:var(--danger)}
+.sec{grid-column:span 6;font:700 14px 'Bricolage Grotesque',sans-serif;color:var(--brand);border-bottom:1px solid var(--line);padding-bottom:4px;margin-top:8px}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-weight:400!important;font-size:14px!important;background:var(--sf2);border:1px solid var(--line);padding:7px 9px;border-radius:8px;margin:0!important}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#11262B;color:#fff;padding:11px 16px;border-radius:10px;z-index:200;max-width:92vw;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.step:last-child{border-bottom:0}
+.step .n{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--sf2);border:1px solid var(--line);font-weight:700;font-size:13px}
+.step.ok .n{background:var(--low);border-color:var(--low);color:#fff}
+.step h4{margin:0 0 2px;font-size:15px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 16px;margin-bottom:8px}
+.kv span{display:block;font-size:12px;color:var(--ink2)}
+.q{border-top:1px solid var(--line);padding:10px 0}
+.q p{margin:0 0 6px}
+.scale{display:flex;gap:6px;flex-wrap:wrap}
+.scale label{display:flex;gap:5px;align-items:center;background:var(--sf2);border:1px solid var(--line);padding:5px 9px;border-radius:99px;font-size:13px;cursor:pointer}
+.legend{display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px}
+/* ---------- visualizador de documentos ---------- */
+#doc-root{position:fixed;inset:0;z-index:80;background:#3A4A4E;overflow:auto;display:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#doc-root.on{display:block}
+.doc-bar{position:sticky;top:0;z-index:2;background:#11262B;color:#fff;display:flex;gap:8px;padding:10px 14px;align-items:center;flex-wrap:wrap}
+.doc-bar b{flex:1;min-width:140px;font-size:14px}
+.doc-bar .btn{background:#1E3A40;border-color:#2F5058;color:#fff}
+.doc-bar .btn.p{background:var(--acc);border-color:var(--acc);color:#11262B}
+.doc-wrap{padding:18px 10px 40px;overflow-x:auto}
+</style>
+<style id="doc-css">
+
+</style>
+<style>
+@media print{
+html,body{background:#fff!important}
+#app,#modal-root,.toast,.doc-bar{display:none!important}
+#doc-root{position:static!important;background:#fff!important;overflow:visible!important;display:block!important;padding:0!important}
+.doc-wrap{padding:0!important;overflow:visible!important}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="doc-root"></div>
+<script>
+'use strict';
+/* ====================== UTILITÁRIOS ====================== */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nl=s=>esc(s).replace(/\n/g,'<br>');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const fd=iso=>{if(!iso)return '—';const p=String(iso).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso};
+const addM=(iso,m)=>{const d=new Date(iso+'T12:00:00');d.setMonth(d.getMonth()+Number(m));return d.toISOString().slice(0,10)};
+const dias=iso=>Math.round((new Date(iso+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5);
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const mask={cpf:v=>v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2'),
+cnpj:v=>v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2'),
+tel:v=>{v=v.replace(/\D/g,'').slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v.replace(/(\d{2})(\d*)/,'($1) $2')}};
+const IC={
+home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+build:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/>',
+users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3-5.5 6.5-5.5s6 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.7.2 4.5 1.9 5 4.5"/>',
+clinic:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/>',
+shield:'<path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M12 8v5M12 16v.5"/>',
+tasks:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.5 1.5L7 5M3.5 12l1.5 1.5L7 11M3.5 18l1.5 1.5L7 17"/>',
+clip:'<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/>',
+file:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
+gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+plus:'<path d="M12 5v14M5 12h14"/>',
+print:'<path d="M7 9V3h10v6"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
+send:'<path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/>',
+down:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
+up:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+x:'<path d="M6 6l12 12M18 6L6 18"/>',
+edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+check:'<path d="M5 12l5 5 9-10"/>'
+};
+const ic=(n,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]||''}</svg>`;
+function toast(m,ms=3200){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms)}
+
+/* ====================== CATÁLOGOS ====================== */
+const EXAMES={
+clinico:{n:'Exame clínico ocupacional (anamnese e exame físico)',p:12},
+audiometria:{n:'Audiometria tonal',p:12},
+acuidade:{n:'Acuidade visual',p:12},
+espirometria:{n:'Espirometria',p:12},
+rxtorax:{n:'Radiografia de tórax (padrão OIT)',p:12},
+hemograma:{n:'Hemograma completo',p:12},
+glicemia:{n:'Glicemia de jejum',p:12},
+ecg:{n:'Eletrocardiograma (ECG)',p:12},
+eeg:{n:'Eletroencefalograma (EEG)',p:24},
+hepatico:{n:'TGO / TGP / Gama-GT',p:12},
+renal:{n:'Ureia e creatinina',p:12},
+eas:{n:'EAS (urina tipo 1)',p:12},
+ibe:{n:'Indicadores biológicos de exposição (NR-7)',p:6},
+colinest:{n:'Colinesterase',p:6},
+vacinas:{n:'Avaliação do cartão de vacinação',p:12},
+psicossocial:{n:'Avaliação psicossocial (checklist)',p:12}
+};
+const CATS={fisico:'Físico',quimico:'Químico',biologico:'Biológico',ergonomico:'Ergonômico',acidente:'Acidente / Mecânico',psicossocial:'Psicossocial / Organizacional'};
+const TIPOS=['Admissional','Periódico','Retorno ao trabalho','Mudança de risco ocupacional','Demissional'];
+const STATUS=['Solicitado','Agendado','Realizado','Cancelado'];
+const HAZ=[
+{id:'ruido',cat:'fisico',perigo:'Ruído contínuo ou intermitente',fonte:'Máquinas, equipamentos e ferramentas em operação',danos:'Perda auditiva induzida por ruído, zumbido, estresse',medidas:'Manutenção preventiva, protetor auricular, sinalização de áreas ruidosas',ex:['clinico','audiometria'],s:3,p:3},
+{id:'calor',cat:'fisico',perigo:'Calor',fonte:'Fornos, equipamentos térmicos, insolação e ambiente sem ventilação',danos:'Desidratação, exaustão térmica, câimbras, golpe de calor',medidas:'Hidratação, pausas em local ventilado, ventilação e exaustão',ex:['clinico'],s:3,p:3},
+{id:'vibracao',cat:'fisico',perigo:'Vibração de mãos e braços / corpo inteiro',fonte:'Ferramentas vibratórias, veículos e máquinas',danos:'Síndrome de vibração mão-braço, lombalgia',medidas:'Rodízio de tarefas, manutenção, ferramentas com amortecimento',ex:['clinico'],s:3,p:2},
+{id:'radnaoion',cat:'fisico',perigo:'Radiação não ionizante (solda, UV)',fonte:'Operações de soldagem e corte',danos:'Queimaduras, lesões oculares e de pele',medidas:'Biombos, máscara de solda, vestimenta adequada',ex:['clinico','acuidade'],s:3,p:3},
+{id:'poeira',cat:'quimico',perigo:'Poeiras minerais / sílica',fonte:'Corte, lixamento, moagem, varrição a seco',danos:'Doenças respiratórias, pneumoconioses',medidas:'Umidificação, exaustão local, respirador PFF2 ou superior',ex:['clinico','espirometria','rxtorax'],s:4,p:3},
+{id:'fumos',cat:'quimico',perigo:'Fumos metálicos e gases de soldagem',fonte:'Processos de soldagem e corte térmico',danos:'Febre dos fumos metálicos, irritação respiratória',medidas:'Exaustão localizada, respirador para fumos, ventilação geral',ex:['clinico','espirometria','rxtorax'],s:3,p:3},
+{id:'solvente',cat:'quimico',perigo:'Solventes, tintas e vapores orgânicos',fonte:'Pintura, limpeza e desengraxe de peças',danos:'Dermatites, irritação, intoxicação por inalação ou contato',medidas:'Ventilação, luvas, respirador com filtro para vapores orgânicos, FISPQ acessível',ex:['clinico','hemograma','hepatico','ibe'],s:3,p:3},
+{id:'quimlimp',cat:'quimico',perigo:'Produtos químicos de limpeza',fonte:'Higienização de ambientes e superfícies',danos:'Dermatites, irritação de vias aéreas e olhos',medidas:'Luvas, diluição correta, rotulagem, treinamento sobre FISPQ',ex:['clinico'],s:2,p:3},
+{id:'biolog',cat:'biologico',perigo:'Contato com agentes biológicos (fluidos, resíduos)',fonte:'Manipulação de material potencialmente contaminado, resíduos e esgoto',danos:'Infecções e doenças infecto-contagiosas',medidas:'Luvas, higienização das mãos, esquema vacinal, descarte adequado',ex:['clinico','vacinas'],s:3,p:3},
+{id:'carga',cat:'ergonomico',perigo:'Levantamento e transporte manual de cargas',fonte:'Movimentação manual de materiais e volumes',danos:'Lombalgias, lesões musculoesqueléticas',medidas:'Auxílio mecânico, limite de peso, treinamento, rodízio',ex:['clinico'],s:3,p:4},
+{id:'postura',cat:'ergonomico',perigo:'Postura sentada prolongada e uso de computador',fonte:'Trabalho administrativo com mobiliário e equipamentos',danos:'DORT/LER, dor cervical e lombar, fadiga visual',medidas:'Mobiliário ajustável, pausas, análise ergonômica (AET) quando aplicável',ex:['clinico','acuidade'],s:2,p:4},
+{id:'repetitivo',cat:'ergonomico',perigo:'Movimentos repetitivos e posturas forçadas',fonte:'Tarefas de linha de produção e montagem',danos:'Tendinites, síndrome do túnel do carpo, DORT',medidas:'Pausas, rodízio, adequação de bancadas e ferramentas',ex:['clinico'],s:3,p:4},
+{id:'turno',cat:'ergonomico',perigo:'Trabalho em turnos e noturno',fonte:'Organização da jornada',danos:'Distúrbios do sono, fadiga, alterações metabólicas',medidas:'Escala planejada, intervalos, monitoramento de saúde',ex:['clinico','glicemia'],s:3,p:3},
+{id:'altura',cat:'acidente',perigo:'Queda de altura (trabalho em altura — NR-35)',fonte:'Andaimes, telhados, escadas, plataformas',danos:'Fraturas, traumatismos, óbito',medidas:'Cinto tipo paraquedista, ponto de ancoragem, treinamento NR-35, análise de risco',ex:['clinico','glicemia','ecg','eeg','acuidade','psicossocial'],s:5,p:3},
+{id:'eletrico',cat:'acidente',perigo:'Choque elétrico (NR-10)',fonte:'Instalações, painéis e equipamentos energizados',danos:'Queimaduras, fibrilação, parada cardiorrespiratória, óbito',medidas:'Bloqueio e etiquetagem, EPI dielétrico, treinamento NR-10, prontuário das instalações',ex:['clinico','ecg','eeg','glicemia','psicossocial'],s:5,p:2},
+{id:'maquinas',cat:'acidente',perigo:'Contato com partes móveis de máquinas',fonte:'Máquinas e equipamentos (NR-12)',danos:'Cortes, esmagamentos, amputações',medidas:'Proteções fixas e móveis, intertravamento, procedimentos de bloqueio',ex:['clinico','acuidade'],s:4,p:3},
+{id:'confinado',cat:'acidente',perigo:'Espaço confinado (NR-33)',fonte:'Tanques, silos, galerias e vasos',danos:'Asfixia, intoxicação, explosão, óbito',medidas:'Permissão de entrada, monitoramento de atmosfera, vigia, resgate',ex:['clinico','ecg','eeg','glicemia','psicossocial'],s:5,p:2},
+{id:'veiculos',cat:'acidente',perigo:'Operação de veículos e empilhadeiras',fonte:'Movimentação interna e externa de cargas',danos:'Colisões, atropelamentos, tombamento',medidas:'Habilitação e treinamento, sinalização, manutenção, limite de velocidade',ex:['clinico','acuidade','glicemia','ecg'],s:4,p:3},
+{id:'cortes',cat:'acidente',perigo:'Cortes e perfurações com ferramentas manuais',fonte:'Facas, estiletes, ferramentas de corte',danos:'Lacerações, perfurações',medidas:'Luvas de proteção, ferramentas adequadas, treinamento',ex:['clinico'],s:2,p:4},
+{id:'queda',cat:'acidente',perigo:'Queda de mesmo nível / escorregões',fonte:'Pisos molhados, desníveis, obstáculos',danos:'Contusões, fraturas, entorses',medidas:'Sinalização, piso antiderrapante, organização e limpeza',ex:['clinico'],s:2,p:3},
+{id:'incendio',cat:'acidente',perigo:'Incêndio e explosão',fonte:'Materiais inflamáveis e instalações elétricas',danos:'Queimaduras, intoxicação por fumaça, óbito',medidas:'Extintores, brigada, plano de emergência, sinalização e rotas de fuga',ex:['clinico'],s:5,p:2},
+{id:'psi-carga',cat:'psicossocial',perigo:'Sobrecarga, ritmo intenso e pressão por metas',fonte:'Organização do trabalho e política de metas',danos:'Estresse ocupacional, esgotamento, transtornos de ansiedade',medidas:'Revisão de metas, dimensionamento de equipes, canal de escuta',ex:['clinico','psicossocial'],s:3,p:3},
+{id:'psi-assedio',cat:'psicossocial',perigo:'Assédio moral ou sexual e violência no trabalho',fonte:'Relações hierárquicas e interpessoais',danos:'Sofrimento psíquico, adoecimento, afastamentos',medidas:'Política de conduta, canal de denúncia, treinamento de lideranças',ex:['clinico','psicossocial'],s:4,p:2},
+{id:'psi-autonomia',cat:'psicossocial',perigo:'Baixa autonomia e falta de clareza de papéis',fonte:'Gestão e comunicação',danos:'Estresse, desmotivação, conflitos',medidas:'Descrição de funções, reuniões de alinhamento, participação nas decisões',ex:['clinico','psicossocial'],s:2,p:3},
+{id:'psi-jornada',cat:'psicossocial',perigo:'Jornada prolongada e falta de pausas',fonte:'Escalas, horas extras e prazos',danos:'Fadiga, distúrbios do sono, conflitos trabalho-vida',medidas:'Controle de jornada, limite de horas extras, pausas',ex:['clinico','psicossocial'],s:3,p:3},
+{id:'psi-terceiros',cat:'psicossocial',perigo:'Violência de terceiros e trabalho isolado',fonte:'Atendimento ao público, vigilância, entregas',danos:'Lesões, estresse pós-traumático, medo',medidas:'Procedimentos de segurança, comunicação de emergência, treinamento',ex:['clinico','psicossocial'],s:4,p:2}
+];
+const PSICO=[
+{d:'Demandas e ritmo',q:['Tenho prazos ou metas que considero impossíveis de cumprir.','Preciso trabalhar em ritmo muito acelerado.','Faço horas extras ou levo trabalho para casa com frequência.']},
+{d:'Autonomia e clareza',q:['Tenho liberdade para decidir como executar minhas tarefas.|r','Sei claramente o que se espera de mim.|r','Recebo orientações contraditórias sobre o que fazer.']},
+{d:'Apoio e relações',q:['Posso contar com o apoio do meu superior quando preciso.|r','Tenho bom relacionamento com meus colegas.|r','Sinto que sou reconhecido(a) pelo meu trabalho.|r']},
+{d:'Conduta e segurança',q:['Já presenciei ou sofri humilhações, gritos ou ameaças no trabalho.','Já presenciei ou sofri assédio moral ou sexual no trabalho.','No contato com terceiros (clientes, público), sofro agressões verbais ou ameaças.']},
+{d:'Equilíbrio e bem-estar',q:['Consigo fazer pausas e descansar durante a jornada.|r','O trabalho interfere no meu sono ou no tempo com a família.','Sinto-me esgotado(a) ao final da jornada.']}
+];
+const ESCALA=['Nunca','Raramente','Às vezes','Frequentemente','Sempre'];
+const nivel=(s,p)=>{const v=(+s||0)*(+p||0);return v>=16?{k:'crit',n:'Crítico',v}:v>=10?{k:'high',n:'Alto',v}:v>=5?{k:'med',n:'Médio',v}:{k:'low',n:'Baixo',v}};
+
+/* ====================== CAMADA DE DADOS ====================== */
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos'];
+const DB={data:{},db:null,dl:null,mem:{}};
+COLS.forEach(c=>DB.data[c]={});
+let Q=Promise.resolve();
+const enqueue=fn=>{Q=Q.then(fn).catch(e=>{console.error(e);toast('Não foi possível salvar no servidor. Confira se você tem permissão de edição.')})};
+const persist=()=>{try{localStorage.setItem('sst.v1',JSON.stringify(DB.data))}catch(e){}};
+const loadLocal=()=>{try{const j=JSON.parse(localStorage.getItem('sst.v1')||'null');if(j)COLS.forEach(c=>DB.data[c]=j[c]||{})}catch(e){}};
+const L=c=>Object.values(DB.data[c]||{});
+const G=(c,id)=>(DB.data[c]||{})[id];
+const CFG=()=>G('config','main')||{};
+function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now();DB.data[c][rec.id]=rec;
+ if(DB.db){const r=clone(rec);enqueue(()=>DB.db.doc(c+'/'+r.id).set(r))}else persist();
+ if(!quiet)render();return rec}
+function del(c,id,quiet){delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();if(!quiet)render()}
+function delMany(c,fn){L(c).filter(fn).forEach(r=>del(c,r.id,true))}
+async function initData(){
+ let ok=false;
+ try{
+  if(window.claude&&claude.use){
+   const db=await claude.use('db');
+   if(db){DB.db=db;
+    try{DB.dl=await claude.use('downloads')}catch(e){}
+    COLS.forEach(c=>db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>console.warn('snapshot',c,e)));
+    ok=true}
+   else{try{DB.dl=await claude.use('downloads')}catch(e){}}
+  }
+ }catch(e){console.warn(e)}
+ if(!ok)loadLocal();
+ return ok;
+}
+/* arquivos (ASO em PDF/imagem): guardados em pedaços no banco compartilhado */
+const b64enc=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
+const b64dec=b=>{const s=atob(b);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
+async function putFile(file){
+ if(file.size>3*1024*1024)throw new Error('O arquivo tem mais de 3 MB. Comprima o PDF ou envie uma foto menor.');
+ const b64=b64enc(await file.arrayBuffer()),fid=uid();
+ if(DB.db){const CH=180000,n=Math.max(1,Math.ceil(b64.length/CH));
+  for(let i=0;i<n;i++)await DB.db.doc('arquivos/'+fid+'_'+i).set({fid,n:i,total:n,data:b64.slice(i*CH,(i+1)*CH)});
+  return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n}}
+ DB.mem[fid]=b64;try{localStorage.setItem('sst.f.'+fid,b64)}catch(e){}
+ return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n:1}
+}
+async function getFile(m){
+ let b64='';
+ if(DB.db){const q=await DB.db.collection('arquivos').where('fid','==',m.fid).get();b64=q.docs.map(d=>d.data()).sort((a,b)=>a.n-b.n).map(p=>p.data).join('')}
+ else b64=DB.mem[m.fid]||localStorage.getItem('sst.f.'+m.fid)||'';
+ if(!b64)throw new Error('Arquivo não encontrado.');
+ return new Blob([b64dec(b64)],{type:m.mime})
+}
+async function delFile(m){if(!m)return;try{if(DB.db){for(let i=0;i<(m.n||1);i++)await DB.db.doc('arquivos/'+m.fid+'_'+i).delete()}else{delete DB.mem[m.fid];localStorage.removeItem('sst.f.'+m.fid)}}catch(e){}}
+async function saveAs(filename,data){
+ try{if(DB.dl){await DB.dl.save({filename,data});return true}}catch(e){if(e&&e.code==='declined')return false;console.warn(e)}
+ try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);return true}catch(e){toast('Não foi possível baixar o arquivo neste ambiente.');return false}
+}
+
+/* ====================== ESTADO E REGRAS ====================== */
+const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false};
+const NAV={
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['config','Configurações','gear']],
+clinica:[['solicitacoes','Solicitações recebidas','clip']],
+empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['documentos','Documentos','file']]};
+const isC=()=>S.role==='consultoria';
+const byN=(a,b)=>norm(a.razao||a.nome).localeCompare(norm(b.razao||b.nome));
+const nEmp=id=>(G('empresas',id)||{}).razao||'—';
+const nCol=id=>(G('colaboradores',id)||{}).nome||'—';
+const nCli=id=>(G('clinicas',id)||{}).nome||'—';
+const opts=(l,v,ph)=>(ph?`<option value="">${ph}</option>`:'')+l.map(o=>{const [k,t]=Array.isArray(o)?o:[o,o];return `<option value="${esc(k)}" ${String(k)===String(v)?'selected':''}>${esc(t)}</option>`}).join('');
+function empAtual(){
+ if(S.role==='empresa')S.emp=S.rid;
+ if(!G('empresas',S.emp)){const l=L('empresas').sort(byN);S.emp=l[0]?l[0].id:''}
+ return G('empresas',S.emp);
+}
+function riscosDoColab(c){
+ const sc=norm(c.setor),fc=norm(c.funcao);
+ return L('riscos').filter(r=>{
+  if(r.empresaId!==c.empresaId)return false;
+  const fs=String(r.funcoes||'').split(/[,;\n]/).map(norm).filter(Boolean);
+  if(fs.length)return fs.some(f=>f==='todas'||f==='todos'||(fc&&(f===fc||fc.includes(f)||f.includes(fc))));
+  return !!sc&&norm(r.setor)===sc;
+ });
+}
+function examesDe(rs){
+ const m={};
+ rs.forEach(r=>(r.exames||[]).forEach(k=>{const p=+r.per||(EXAMES[k]||{}).p||12;m[k]=Math.min(m[k]||99,p)}));
+ if(!m.clinico)m.clinico=12;
+ return m;
+}
+const chavesOrd=m=>Object.keys(EXAMES).filter(k=>m[k]);
+function origemExame(rs,k){const o=rs.filter(r=>(r.exames||[]).includes(k)).map(r=>r.perigo);return k==='clinico'?['Todos os trabalhadores (NR-7)'].concat(o):o}
+function statusExame(c,k,m){
+ const ss=L('solicitacoes').filter(s=>s.colabId===c.id&&s.status==='Realizado'&&s.aso&&s.aso.data).sort((a,b)=>b.aso.data.localeCompare(a.aso.data));
+ let last=null;for(const s of ss){const d=k==='clinico'?s.aso.data:(s.aso.exames||{})[k];if(d){last=d;break}}
+ if(k==='psicossocial'&&!last){const sp=L('solicitacoes').filter(s=>s.colabId===c.id&&s.psico).sort((a,b)=>(b.psico.data||'').localeCompare(a.psico.data||''))[0];if(sp)last=sp.psico.data}
+ if(!last)return{k:'gray',t:'Sem registro',last:null,due:null};
+ const due=addM(last,m[k]||12),d=dias(due);
+ return{k:d<0?'crit':d<=60?'med':'low',t:d<0?'Vencido':d<=60?'Vence em '+d+' d':'Em dia',last,due};
+}
+function examesPend(c){const m=examesDe(riscosDoColab(c));const ks=chavesOrd(m).filter(k=>statusExame(c,k,m).k!=='low');return ks.length?ks:['clinico']}
+function ultimoAso(cid){return L('solicitacoes').filter(s=>s.colabId===cid&&s.status==='Realizado'&&s.aso&&s.aso.data).sort((a,b)=>b.aso.data.localeCompare(a.aso.data))[0]}
+function proximo(c){const u=ultimoAso(c.id);if(!u)return null;return u.aso.proximo||addM(u.aso.data,examesDe(riscosDoColab(c)).clinico||12)}
+function semRisco(c){return riscosDoColab(c).length===0}
+function colsEscopo(){let l=L('colaboradores').filter(c=>c.status!=='Desligado');if(S.role==='empresa')l=l.filter(c=>c.empresaId===S.rid);return l}
+function alertas(){
+ if(S.role==='clinica'){const n=L('solicitacoes').filter(s=>s.clinicaId===S.rid&&(s.status==='Solicitado'||s.status==='Agendado')).length;return{alvo:'solicitacoes',n}}
+ const cols=colsEscopo();
+ const semR=cols.filter(semRisco).length;
+ const venc=cols.filter(c=>{const p=proximo(c);return p&&dias(p)<0}).length;
+ let acs=L('acoes').filter(a=>a.status!=='Concluída'&&a.prazo&&a.prazo<today());if(S.role==='empresa')acs=acs.filter(a=>a.empresaId===S.rid);
+ return{semR,venc,atrasos:acs.length,alvo:'painel',n:semR+venc+acs.length};
+}
+function solScope(){let l=L('solicitacoes');if(S.role==='clinica')l=l.filter(s=>s.clinicaId===S.rid);if(S.role==='empresa')l=l.filter(s=>s.empresaId===S.rid);return l}
+function distBar(rs){
+ const c={low:0,med:0,high:0,crit:0};rs.forEach(r=>c[nivel(r.sev,r.prob).k]++);const t=rs.length||1;
+ return `<div class="dist" title="Distribuição por nível de risco">${['low:l','med:m','high:h','crit:c'].map(x=>{const [k,cl]=x.split(':');return c[k]?`<i class="${cl}" style="width:${c[k]/t*100}%"></i>`:''}).join('')}</div>`;
+}
+function tbl(cols,rows,ra){
+ return `<table class="tbl"><thead><tr>${cols.map(c=>`<th>${c.h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr ${ra?ra(r):''}>${cols.map(c=>`<td data-l="${esc(c.h)}" ${c.a?'class="act"':''}>${c.f(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+const emptyBox=(t,d,btn)=>`<div class="card empty"><h3>${t}</h3><p>${d}</p>${btn||''}</div>`;
+
+/* ====================== FORMULÁRIOS ====================== */
+function fieldHTML(f,v){
+ const id='f_'+f.k;let inner='';
+ const at=`${f.c?` data-c="${f.c}"`:''}${f.m?` data-mask="${f.m}"`:''}${f.dis?' disabled':''}`;
+ if(f.t==='select')inner=`<select id="${id}" name="${f.k}"${at}>${opts(typeof f.o==='function'?f.o():f.o,v,f.ph)}</select>`;
+ else if(f.t==='textarea')inner=`<textarea id="${id}" name="${f.k}" rows="${f.rows||3}"${at}>${esc(v)}</textarea>`;
+ else if(f.t==='checks'){const sel=v||[];inner=`<div class="checks" id="${id}">${f.o.map(([k,l])=>`<label class="chk"><input type="checkbox" name="${f.k}" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}</div>`}
+ else inner=`<input id="${id}" name="${f.k}" type="${f.t||'text'}" value="${esc(v)}"${f.max?` maxlength="${f.max}"`:''}${f.min!=null?` min="${f.min}" max="${f.mx}"`:''}${f.inp?` inputmode="${f.inp}"`:''}${at} autocomplete="off">`;
+ return `<div class="fld ${f.w?'w'+f.w:''}" id="w_${f.k}"><label for="${id}">${esc(f.l)}${f.r?' *':''}</label>${inner}${f.h?`<small>${esc(f.h)}</small>`:''}</div>`;
+}
+function openForm(cfg){
+ S.form=cfg;const v=cfg.val||{};
+ $('#modal-root').innerHTML=`<div class="overlay"><form class="sheet" id="fm" novalidate role="dialog" aria-modal="true" aria-label="${esc(cfg.title)}"><header><h2>${esc(cfg.title)}</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">${cfg.pre||''}<div class="fg">${cfg.fields.map(f=>f.sec?`<div class="sec">${esc(f.sec)}</div>`:fieldHTML(f,v[f.k])).join('')}</div></div><footer>${cfg.foot||''}<button type="button" class="btn" data-a="closeForm">Cancelar</button><button class="btn p" type="submit">${cfg.btn||'Salvar'}</button></footer></form></div>`;
+ setTimeout(()=>{const i=$('#fm input:not([type=checkbox]),#fm select,#fm textarea');if(i&&innerWidth>700)i.focus()},30);
+}
+function closeForm(){S.form=null;$('#modal-root').innerHTML='';if(S.det)renderDetalhe();else if(S.ficha)renderFicha()}
+function submitForm(e){
+ e.preventDefault();const cfg=S.form;if(!cfg)return;const vals={};let bad=null;
+ cfg.fields.forEach(f=>{
+  if(f.sec)return;
+  if(f.t==='checks')vals[f.k]=[...document.querySelectorAll(`#fm input[name="${f.k}"]:checked`)].map(x=>x.value);
+  else{const el=document.getElementById('f_'+f.k);vals[f.k]=el?el.value.trim():''}
+  const w=document.getElementById('w_'+f.k);
+  if(f.r&&!vals[f.k]){w.classList.add('bad');bad=bad||w}else w.classList.remove('bad');
+ });
+ if(bad){toast('Preencha os campos obrigatórios (*).');bad.querySelector('input,select,textarea').focus();return}
+ if(cfg.save(vals)!==false)closeForm();
+}
+function ask(msg,label,fn){
+ const d=document.createElement('div');d.className='overlay';d.style.zIndex=95;
+ d.innerHTML=`<div class="sheet" style="max-width:420px" role="alertdialog" aria-modal="true"><div class="bd"><p style="margin:0">${esc(msg)}</p></div><footer><button class="btn" data-k="0">Cancelar</button><button class="btn p" data-k="1">${esc(label||'Confirmar')}</button></footer></div>`;
+ d.addEventListener('click',ev=>{const b=ev.target.closest('[data-k]');if(!b)return;d.remove();if(b.dataset.k==='1')fn()});
+ document.body.appendChild(d);
+}
+
+/* ====================== ENTIDADES ====================== */
+const empOpts=()=>{let l=L('empresas').sort(byN);if(S.role==='empresa')l=l.filter(e=>e.id===S.rid);return l.map(e=>[e.id,e.razao])};
+const ENT={
+empresa:{col:'empresas',t:'empresa',f:()=>[
+ {sec:'Identificação'},
+ {k:'razao',l:'Razão social',r:1,w:4},{k:'fantasia',l:'Nome fantasia',w:2},
+ {k:'cnpj',l:'CNPJ',r:1,w:3,m:'cnpj',inp:'numeric'},{k:'cnae',l:'CNAE principal',w:3,h:'Ex.: 25.11-0-00'},
+ {k:'grau',l:'Grau de risco (NR-4)',t:'select',o:[['1','1'],['2','2'],['3','3'],['4','4']],w:3,h:'Conforme o CNAE, no Quadro I da NR-4'},
+ {k:'funcionarios',l:'Nº de trabalhadores',t:'number',w:3,inp:'numeric'},
+ {k:'jornada',l:'Jornada e turnos',w:3,h:'Ex.: 08h às 17h, segunda a sexta'},{k:'cipa',l:'CIPA',t:'select',o:['CIPA constituída','Designado da CIPA','Não obrigatória'],w:3},
+ {k:'endereco',l:'Endereço',w:4},{k:'cidade',l:'Cidade',w:2},{k:'uf',l:'UF',w:2,max:2},{k:'telefone',l:'Telefone',w:2,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:2},
+ {sec:'Responsáveis'},
+ {k:'resp_nome',l:'Responsável pela empresa',w:3},{k:'resp_cargo',l:'Cargo',w:3},
+ {k:'medico_nome',l:'Médico coordenador do PCMSO',w:3},{k:'medico_crm',l:'CRM',w:3,h:'Ex.: CRM/PR 00000'},
+ {k:'tec_nome',l:'Responsável técnico do PGR',w:3,h:'Engenheiro ou técnico de segurança do trabalho'},{k:'tec_reg',l:'Registro profissional',w:3},
+ {sec:'Caracterização'},
+ {k:'atividades',l:'Descrição das atividades e do processo produtivo',t:'textarea',rows:4},
+ {k:'instal',l:'Descrição do estabelecimento e das instalações',t:'textarea'},
+ {k:'emerg',l:'Recursos para emergência',t:'textarea',h:'Extintores, hidrantes, brigada, saídas de emergência, primeiros socorros'}]},
+clinica:{col:'clinicas',t:'clínica',f:()=>[
+ {k:'nome',l:'Nome da clínica',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',inp:'numeric'},
+ {k:'endereco',l:'Endereço',w:4},{k:'cidade',l:'Cidade',w:2},
+ {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail para receber as guias',t:'email',w:3},
+ {k:'medico_nome',l:'Médico responsável',w:3},{k:'medico_crm',l:'CRM',w:3},
+ {k:'exames',l:'Exames oferecidos',t:'textarea'}]},
+colaborador:{col:'colaboradores',t:'colaborador',f:()=>[
+ {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:4,ph:'Selecione'},{k:'status',l:'Situação',t:'select',o:['Ativo','Afastado','Desligado'],w:2},
+ {k:'nome',l:'Nome completo',r:1,w:4},{k:'cpf',l:'CPF',w:2,m:'cpf',inp:'numeric'},
+ {k:'nasc',l:'Data de nascimento',t:'date',w:2},{k:'sexo',l:'Sexo',t:'select',o:['Feminino','Masculino'],ph:'—',w:2},{k:'admissao',l:'Data de admissão',t:'date',w:2},
+ {k:'funcao',l:'Função / cargo',r:1,w:3},{k:'setor',l:'Setor / GHE',w:3},
+ {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:3}]},
+acao:{col:'acoes',t:'ação',f:()=>[
+ {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'status',l:'Situação',t:'select',o:['Pendente','Em andamento','Concluída'],w:3},
+ {k:'acao',l:'Ação / medida de prevenção',r:1,t:'textarea'},
+ {k:'responsavel',l:'Responsável',w:3},{k:'prazo',l:'Prazo',t:'date',w:3},
+ {k:'result',l:'Forma de acompanhamento e aferição de resultados',t:'textarea',rows:2}]}
+};
+function riscoFields(){return [
+ {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'setor',l:'Setor / GHE',r:1,w:3,h:'Grupo homogêneo de exposição. Ex.: Produção, Escritório'},
+ {k:'funcoes',l:'Funções expostas',w:6,h:'Separe por vírgula. Use "todas" para todo o setor. É o que define os exames de cada colaborador.'},
+ {k:'atividades',l:'Atividades realizadas',t:'textarea',rows:2},
+ {sec:'Perigo e exposição'},
+ {k:'cat',l:'Categoria',t:'select',r:1,o:Object.entries(CATS),w:3},{k:'exposicao',l:'Exposição',t:'select',o:['Habitual e permanente','Habitual e intermitente','Eventual'],w:3},
+ {k:'perigo',l:'Perigo / fator de risco',r:1,t:'textarea',rows:2},{k:'fonte',l:'Fonte geradora',w:3},{k:'danos',l:'Possíveis danos à saúde',w:3},
+ {k:'aval',l:'Avaliação quantitativa ou qualitativa',w:6,h:'Ex.: Dosimetria 86 dB(A) em 08/2026, ou "Avaliação qualitativa por inspeção"'},
+ {k:'medidas',l:'Medidas de prevenção existentes (EPC, EPI, administrativas)',t:'textarea',rows:2},
+ {sec:'Classificação do risco'},
+ {k:'sev',l:'Severidade (1 a 5)',t:'select',o:[['1','1 – Leve'],['2','2 – Baixa'],['3','3 – Moderada'],['4','4 – Grave'],['5','5 – Gravíssima']],w:3,c:'nvl'},
+ {k:'prob',l:'Probabilidade (1 a 5)',t:'select',o:[['1','1 – Rara'],['2','2 – Pouco provável'],['3','3 – Possível'],['4','4 – Provável'],['5','5 – Quase certa']],w:3,c:'nvl'},
+ {k:'proposta',l:'Medidas propostas (plano de ação)',t:'textarea',rows:2,h:'Se preenchido, pode ser importado para o Plano de ação.'},
+ {sec:'Vigilância médica (PCMSO)'},
+ {k:'exames',l:'Exames indicados',t:'checks',o:Object.entries(EXAMES).map(([k,v])=>[k,v.n])},
+ {k:'per',l:'Periodicidade dos exames (meses)',t:'select',o:[['6','6 meses'],['12','12 meses'],['24','24 meses']],w:3,h:'A definição final cabe ao médico coordenador.'}]}
+
+function abrirEnt(kind,id,pre){
+ const E=ENT[kind];const rec=id?clone(G(E.col,id)):Object.assign({},pre||{});
+ if(kind==='colaborador'||kind==='acao'){if(S.role==='empresa')rec.empresaId=S.rid;else if(!rec.empresaId)rec.empresaId=S.emp||''}
+ if(kind==='colaborador'&&!rec.status)rec.status='Ativo';
+ if(kind==='acao'&&!rec.status)rec.status='Pendente';
+ if(kind==='empresa'&&!rec.grau)rec.grau='2';
+ openForm({title:(id?'Editar ':'Nova ')+E.t,fields:E.f(),val:rec,save:v=>{save(E.col,Object.assign(rec,v));toast('Salvo.')}});
+}
+function abrirRisco(id,pre){
+ const rec=id?clone(G('riscos',id)):Object.assign({empresaId:S.emp,cat:'fisico',exposicao:'Habitual e permanente',sev:'3',prob:'3',per:'12',exames:['clinico']},pre||{});
+ const pre_=`<div class="fld" style="margin-bottom:12px"><label for="modelo">Começar de um modelo do catálogo</label><select id="modelo" data-c="modelo"><option value="">Selecione um perigo comum para preencher automaticamente…</option>${Object.entries(CATS).map(([k,n])=>`<optgroup label="${n}">${HAZ.filter(h=>h.cat===k).map(h=>`<option value="${h.id}">${esc(h.perigo)}</option>`).join('')}</optgroup>`).join('')}</select></div><div id="nvl" style="margin-bottom:12px"></div>`;
+ openForm({title:id?'Editar risco':'Novo risco no inventário',pre:pre_,fields:riscoFields(),val:rec,save:v=>{if(v.exposicao===''||!v.per)v.per='12';save('riscos',Object.assign(rec,v));toast('Risco salvo.')}});
+ nvlUpd();
+}
+function nvlUpd(){
+ const el=$('#nvl');if(!el)return;const s=$('#f_sev'),p=$('#f_prob');if(!s||!p)return;
+ const n=nivel(s.value,p.value);el.innerHTML=`<span class="chip ${n.k}">Nível de risco: ${n.n} (${n.v})</span> <span class="muted sm">severidade × probabilidade</span>`;
+}
+function aplicarModelo(id){
+ const h=HAZ.find(x=>x.id===id);if(!h)return;
+ const set=(k,v)=>{const e=$('#f_'+k);if(e)e.value=v};
+ set('cat',h.cat);set('perigo',h.perigo);set('fonte',h.fonte);set('danos',h.danos);set('medidas',h.medidas);set('sev',String(h.s));set('prob',String(h.p));
+ document.querySelectorAll('#fm input[name="exames"]').forEach(c=>c.checked=h.ex.includes(c.value));
+ nvlUpd();
+}
+/* solicitação de exame */
+function abrirSol(id,pre){
+ const env=pre&&pre._enviar;if(pre){pre=Object.assign({},pre);delete pre._enviar}
+ const rec=id?clone(G('solicitacoes',id)):{empresaId:S.role==='empresa'?S.rid:(S.emp||''),clinicaId:S.role==='clinica'?S.rid:'',tipo:'Admissional',dataSolic:today(),status:'Solicitado',exames:['clinico']};
+ if(pre)Object.assign(rec,pre);
+ const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid&&c.status!=='Desligado'||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
+ window._colOpts=colOpts;
+ openForm({title:id?'Editar solicitação':env?'Enviar pedido de exame à clínica':'Nova solicitação de exame',btn:env?'Criar e gerar pacote':'Salvar',val:rec,
+ fields:[
+  {k:'empresaId',l:'Empresa solicitante',t:'select',r:1,o:empOpts,w:3,c:'solEmp',ph:'Selecione'},
+  {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,c:'solCol',ph:'Selecione'},
+  {k:'clinicaId',l:'Clínica',t:'select',r:1,o:()=>L('clinicas').sort(byN).map(c=>[c.id,c.nome]),w:3,ph:'Selecione'},
+  {k:'tipo',l:'Tipo de exame',t:'select',o:TIPOS,w:3,c:'solTipo'},
+  {k:'dataSolic',l:'Data da solicitação',t:'date',w:3},{k:'dataAgend',l:'Data agendada',t:'date',w:3},
+  {k:'exames',l:'Exames a realizar',t:'checks',o:Object.entries(EXAMES).map(([k,v])=>[k,v.n]),h:'Marcados automaticamente conforme o inventário de riscos da função. Ajuste se necessário.'},
+  {k:'obs',l:'Observações para a clínica',t:'textarea',rows:2}],
+ save:v=>{
+  if(!v.exames.includes('clinico'))v.exames.unshift('clinico');
+  const novo=!rec.id;Object.assign(rec,v);if(v.dataAgend&&rec.status==='Solicitado')rec.status='Agendado';
+  const r=save('solicitacoes',rec);toast(novo?'Solicitação criada. Abra-a para gerar a guia e o ASO.':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';if(env)setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
+ }});
+}
+function preencherExames(){
+ const c=G('colaboradores',$('#f_colabId').value);if(!c)return;
+ const m=examesDe(riscosDoColab(c));const tp=($('#f_tipo')||{}).value;const pend=tp==='Periódico'?examesPend(c):null;
+ document.querySelectorAll('#fm input[name="exames"]').forEach(x=>x.checked=!!m[x.value]&&(!pend||pend.includes(x.value)));
+}
+/* ASO (clínica) */
+function abrirAso(id){
+ const s=G('solicitacoes',id),c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
+ const a=clone(s.aso||{});
+ const rs=riscosDoColab(c);
+ const val={data:a.data||s.dataAgend||today(),medico_nome:a.medico_nome||cl.medico_nome||'',medico_crm:a.medico_crm||cl.medico_crm||'',resultado:a.resultado||'',
+  riscos:a.riscos!=null?a.riscos:(rs.map(r=>r.perigo).join('; ')||'Ausência de riscos específicos'),obs:a.obs||'',proximo:a.proximo||''};
+ const fs=[{sec:'Exame clínico'},
+  {k:'data',l:'Data do exame clínico',t:'date',r:1,w:2},{k:'medico_nome',l:'Médico examinador',r:1,w:2},{k:'medico_crm',l:'CRM',r:1,w:2},
+  {k:'resultado',l:'Conclusão',t:'select',r:1,o:['Apto','Inapto'],ph:'Selecione',w:3},{k:'proximo',l:'Próximo exame periódico',t:'date',w:3,h:'Em branco: calculado pela periodicidade.'},
+  {k:'riscos',l:'Riscos ocupacionais informados no ASO',t:'textarea',rows:2},
+  {sec:'Exames complementares (data de realização)'}];
+ (s.exames||[]).filter(k=>k!=='clinico').forEach(k=>{fs.push({k:'ex_'+k,l:(EXAMES[k]||{n:k}).n,t:'date',w:3});val['ex_'+k]=(a.exames||{})[k]||''});
+ fs.push({k:'obs',l:'Observações (restrições, recomendações)',t:'textarea'});
+ openForm({title:'Dados do ASO — '+(c.nome||''),val,fields:fs,btn:'Salvar ASO',save:v=>{
+  const ex={};(s.exames||[]).forEach(k=>{if(v['ex_'+k])ex[k]=v['ex_'+k]});
+  const n=clone(s);n.aso={data:v.data,medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:v.riscos,obs:v.obs,exames:ex};
+  if(n.status!=='Cancelado')n.status='Realizado';
+  save('solicitacoes',n);toast('ASO registrado. Anexe o arquivo assinado, se houver.');
+ }});
+}
+/* checklist psicossocial */
+function abrirPsico(id,ro){
+ const s=G('solicitacoes',id),p=(s.psico||{}),r=p.resp||{};let n=0;
+ const qs=PSICO.map(g=>`<h3 style="margin:14px 0 4px;font-size:15px;color:var(--brand)">${g.d}</h3>`+g.q.map(t=>{const i=n++,tx=t.split('|')[0];return `<div class="q"><p>${i+1}. ${esc(tx)}</p><div class="scale">${ESCALA.map((l,k)=>`<label><input type="radio" name="q${i}" value="${k}" ${r['q'+i]==String(k)?'checked':''} ${ro?'disabled':''}>${l}</label>`).join('')}</div></div>`}).join('')).join('');
+ $('#modal-root').innerHTML=`<div class="overlay"><form class="sheet" id="psf"><header><h2>Checklist psicossocial</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd"><p class="muted sm" style="margin-top:0">Colaborador: <b>${esc(nCol(s.colabId))}</b>. Responda pensando nos últimos 3 meses. Instrumento de triagem organizacional: não é diagnóstico e deve ser interpretado por profissional habilitado. As respostas são sigilosas.</p>${qs}<div class="fld" style="margin-top:12px"><label for="psobs">Comentários (opcional)</label><textarea id="psobs" ${ro?'disabled':''}>${esc(p.obs||'')}</textarea></div></div><footer><button type="button" class="btn" data-a="closeForm">${ro?'Fechar':'Cancelar'}</button>${ro?'':'<button class="btn p" type="submit">Salvar respostas</button>'}</footer></form></div>`;
+ S.form={psico:id};
+}
+function salvarPsico(e){
+ e.preventDefault();const id=S.form.psico,s=clone(G('solicitacoes',id));const resp={};let tot=0;
+ for(let i=0;i<15;i++){const c=document.querySelector(`#psf input[name="q${i}"]:checked`);if(c){resp['q'+i]=c.value;tot++}}
+ if(tot<15){toast('Responda todas as 15 perguntas ('+tot+' respondidas).');return}
+ s.psico={resp,obs:$('#psobs').value.trim(),data:today()};save('solicitacoes',s);closeForm();toast('Checklist salvo.');
+}
+function psicoResumo(p){
+ let n=0;return PSICO.map(g=>{let sum=0;g.q.forEach(t=>{const i=n++;let v=+p.resp['q'+i];if(t.endsWith('|r'))v=4-v;sum+=v});const m=sum/g.q.length;return{d:g.d,m,k:m>=2.5?'crit':m>=1.5?'med':'low',t:m>=2.5?'Atenção elevada':m>=1.5?'Atenção moderada':'Sem indicativo'}});
+}
+
+/* ====================== TELAS ====================== */
+const VIEWS={};
+VIEWS.painel=()=>{
+ const emp=L('empresas');
+ if(!emp.length)return `<div class="card empty" style="max-width:640px;margin:20px auto"><h3>Vamos montar sua base de SST</h3><p>Siga a ordem abaixo. Tudo o que você cadastrar alimenta o PGR, o PCMSO e as guias de exame automaticamente.</p><div class="steps"><div><b>1</b><span><strong>Empresa cliente</strong><br><span class="muted sm">Dados, CNAE, grau de risco e responsáveis.</span></span></div><div><b>2</b><span><strong>Colaboradores e clínicas</strong><br><span class="muted sm">Função e setor de cada pessoa; clínicas que atendem.</span></span></div><div><b>3</b><span><strong>Inventário de riscos</strong><br><span class="muted sm">Perigos por setor. Os exames de cada função saem daqui.</span></span></div><div><b>4</b><span><strong>Gerar documentos</strong><br><span class="muted sm">PGR e PCMSO prontos para enviar ou imprimir.</span></span></div></div><div class="row" style="justify-content:center"><button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Cadastrar primeira empresa</button><button class="btn" data-a="demo">Ver com dados de exemplo</button></div></div>`;
+ const col=L('colaboradores').filter(c=>c.status!=='Desligado'),sol=L('solicitacoes');
+ const ab=sol.filter(s=>s.status==='Solicitado'||s.status==='Agendado').length;
+ const mes=today().slice(0,7),feitos=sol.filter(s=>s.status==='Realizado'&&s.aso&&(s.aso.data||'').startsWith(mes)).length;
+ const info=col.map(c=>{const p=proximo(c);return{c,p,d:p?dias(p):null}});
+ const venc=info.filter(o=>o.p&&o.d<=60).sort((a,b)=>a.d-b.d);
+ const sem=info.filter(o=>!o.p);
+ const semR=col.filter(semRisco);
+ const atr=L('acoes').filter(a=>a.status!=='Concluída'&&a.prazo&&a.prazo<today()).sort((a,b)=>a.prazo.localeCompare(b.prazo));
+ const rev=emp.map(e=>{const ds=L('documentos').filter(d=>d.empresaId===e.id&&d.tipo==='PGR').sort((a,b)=>b.emissao.localeCompare(a.emissao));return{e,u:ds[0]}}).filter(o=>!o.u||dias(addM(o.u.emissao,24))<=90);
+ return `<div class="kpis"><div class="kpi"><b>${emp.length}</b><span>Empresas</span></div><div class="kpi"><b>${col.length}</b><span>Colaboradores ativos</span></div><div class="kpi"><b>${ab}</b><span>Exames em andamento</span></div><div class="kpi"><b>${feitos}</b><span>ASOs neste mês</span></div><div class="kpi" style="${semR.length?'border-color:var(--high)':''}"><b style="${semR.length?'color:var(--high)':''}">${semR.length}</b><span>Sem risco vinculado</span></div></div>
+ <div class="two"><div class="card"><h3>Exames vencidos ou a vencer (60 dias)</h3>${venc.length?venc.slice(0,10).map(o=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.c.nome)}<br><span class="muted sm">${esc(nEmp(o.c.empresaId))}</span></span><span class="chip ${o.d<0?'crit':'med'}">${o.d<0?'vencido há '+(-o.d)+' d':'em '+o.d+' d'} · ${fd(o.p)}</span></div>`).join(''):'<p class="muted">Nenhum exame vencendo. Os prazos aparecem quando o ASO é registrado.</p>'}${sem.length?`<p class="sm muted" style="margin-bottom:0">${sem.length} colaborador(es) ainda sem ASO registrado no sistema.</p>`:''}</div>
+ <div class="card"><h3>Colaboradores sem risco vinculado</h3>${semR.length?`<p class="sm muted" style="margin:0 0 8px">Sem vínculo com o inventário de riscos, o PCMSO só exige o exame clínico para eles. Confira a função ou o setor no cadastro, e se o setor/função aparece nos riscos da empresa.</p>${semR.slice(0,8).map(c=>`<div class="row sb click" data-a="ficha" data-id="${c.id}" style="padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer"><span>${esc(c.nome)}<br><span class="muted sm">${esc(nEmp(c.empresaId))} · ${esc(c.funcao||'—')}</span></span><span class="chip high">sem risco</span></div>`).join('')}${semR.length>8?`<p class="sm muted" style="margin:8px 0 0">+ ${semR.length-8} colaborador(es).</p>`:''}`:'<p class="muted">Todos os colaboradores têm ao menos um risco vinculado.</p>'}</div>
+ <div class="card"><h3>Ações do plano em atraso</h3>${atr.length?atr.slice(0,8).map(a=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.acao.slice(0,80))}<br><span class="muted sm">${esc(nEmp(a.empresaId))} · ${esc(a.responsavel||'sem responsável')}</span></span><span class="chip crit">${fd(a.prazo)}</span></div>`).join(''):'<p class="muted">Nenhuma ação atrasada.</p>'}</div>
+ <div class="card"><h3>Revisão do PGR</h3>${rev.length?rev.map(o=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.e.razao)}</span><span class="chip ${o.u?'med':'gray'}">${o.u?'revisar até '+fd(addM(o.u.emissao,24)):'PGR não emitido'}</span></div>`).join(''):'<p class="muted">Todos os PGRs estão dentro da vigência de 2 anos.</p>'}</div>
+ <div class="card"><h3>Solicitações recentes</h3>${sol.length?sol.sort((a,b)=>(b.upd||0)-(a.upd||0)).slice(0,6).map(s=>`<div class="row sb click" data-a="det" data-id="${s.id}" style="padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer"><span>${esc(nCol(s.colabId))}<br><span class="muted sm">${esc(s.tipo)} · ${esc(nCli(s.clinicaId))}</span></span><span class="chip">${s.status}</span></div>`).join(''):'<p class="muted">Nenhuma solicitação ainda.</p>'}</div></div>`;
+};
+VIEWS.empresas=()=>{
+ const q=norm(S.q);const l=L('empresas').filter(e=>!q||norm(e.razao+' '+e.fantasia+' '+e.cnpj).includes(q)).sort(byN);
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar empresa ou CNPJ" value="${esc(S.q)}" data-c="q"><button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button></div>`+
+ (l.length?`<div class="grid">${l.map(e=>{const rs=L('riscos').filter(r=>r.empresaId===e.id);const nc=L('colaboradores').filter(c=>c.empresaId===e.id&&c.status!=='Desligado').length;
+  return `<div class="card"><div class="row sb"><h3 style="margin:0">${esc(e.razao)}</h3><span class="chip gray">Grau ${esc(e.grau||'—')}</span></div><p class="muted sm" style="margin:4px 0 10px">${esc(e.cnpj||'CNPJ não informado')} · ${nc} colaborador(es)</p>${rs.length?distBar(rs):''}<p class="sm muted" style="margin:6px 0 12px">${rs.length?rs.length+' risco(s) no inventário':'Inventário de riscos vazio'}</p><div class="row"><button class="btn s" data-a="edit" data-e="empresa" data-id="${e.id}">${ic('edit')}Editar</button><button class="btn s" data-a="goEmp" data-v="riscos" data-id="${e.id}">Riscos</button><button class="btn s" data-a="goEmp" data-v="documentos" data-id="${e.id}">Documentos</button><button class="btn s d g" data-a="delEmp" data-id="${e.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`:emptyBox('Nenhuma empresa encontrada','Cadastre a empresa cliente para começar.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`));
+};
+VIEWS.colaboradores=()=>{
+ const q=norm(S.q);let l=L('colaboradores');if(S.role==='empresa')l=l.filter(c=>c.empresaId===S.rid);
+ if(isC()&&S.fEmp)l=l.filter(c=>c.empresaId===S.fEmp);
+ l=l.filter(c=>!q||norm(c.nome+' '+c.cpf+' '+c.funcao+' '+c.setor).includes(q)).sort(byN);
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por nome, CPF, função ou setor" value="${esc(S.q)}" data-c="q">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button></div>`+
+ (l.length?tbl([{h:'Nome',f:c=>`<a href="#" data-a="ficha" data-id="${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a><br><span class="muted sm">${esc(c.cpf||'')}</span>`},{h:'Empresa',f:c=>esc(nEmp(c.empresaId))},{h:'Função / setor',f:c=>esc((c.funcao||'')+(c.setor?' · '+c.setor:''))},{h:'Riscos (PGR)',f:c=>{const rs=riscosDoColab(c);return rs.length?`<span class="chip low">${rs.length} vinculado(s)</span>`:'<span class="chip high">sem risco</span>'}},{h:'Próximo exame',f:c=>{const p=proximo(c);return p?`<span class="chip ${dias(p)<0?'crit':dias(p)<=60?'med':'low'}">${fd(p)}</span>`:'<span class="chip gray">sem ASO</span>'}},{h:'Situação',f:c=>c.status==='Ativo'?'Ativo':`<span class="chip gray">${esc(c.status)}</span>`},{h:'',a:1,f:c=>`<button class="btn s p" data-a="ficha" data-id="${c.id}">Ficha e exames</button> <button class="btn s g" data-a="edit" data-e="colaborador" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delCol" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhum colaborador','Cadastre os colaboradores com função e setor: é isso que liga cada pessoa aos exames do PCMSO.',`<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button>`));
+};
+VIEWS.clinicas=()=>{
+ const l=L('clinicas').sort(byN);
+ return `<div class="bar"><div class="grow muted">Clínicas que recebem as guias de encaminhamento e devolvem os ASOs.</div><button class="btn p" data-a="new" data-e="clinica">${ic('plus')}Nova clínica</button></div>`+
+ (l.length?`<div class="grid">${l.map(c=>`<div class="card"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0 0 8px">${esc(c.cnpj||'')}${c.cidade?' · '+esc(c.cidade):''}<br>${esc(c.telefone||'')} ${esc(c.email||'')}</p>${c.medico_nome?`<p class="sm" style="margin:0 0 10px">${esc(c.medico_nome)} ${esc(c.medico_crm||'')}</p>`:''}<div class="row"><button class="btn s" data-a="edit" data-e="clinica" data-id="${c.id}">${ic('edit')}Editar</button><button class="btn s g d" data-a="delCli" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`).join('')}</div>`:emptyBox('Nenhuma clínica cadastrada','Cadastre ao menos uma clínica para encaminhar exames.',`<button class="btn p" data-a="new" data-e="clinica">${ic('plus')}Nova clínica</button>`));
+};
+function empSel(){return S.role==='empresa'?'':`<select id="ef" data-c="ef" style="max-width:280px" aria-label="Empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.emp)}</select>`}
+VIEWS.riscos=()=>{
+ const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O inventário de riscos pertence a uma empresa.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`);
+ const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
+ const sets=[...new Set(rs.map(r=>r.setor||'Sem setor'))];
+ return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
+ <div class="card" style="margin-bottom:16px"><div class="row sb" style="margin-bottom:8px"><b>${rs.length} risco(s) · ${sets.length} setor(es)</b><div class="legend"><span class="chip low">Baixo 1–4</span><span class="chip med">Médio 5–9</span><span class="chip high">Alto 10–15</span><span class="chip crit">Crítico 16–25</span></div></div>${rs.length?distBar(rs):'<span class="muted sm">Nenhum risco cadastrado ainda. Use o catálogo de modelos para agilizar.</span>'}</div>`+
+ sets.map(s=>`<h2 style="font-size:17px;margin:20px 0 10px">${esc(s)}</h2><div class="grid">${rs.filter(r=>(r.setor||'Sem setor')===s).map(r=>{const n=nivel(r.sev,r.prob);return `<div class="card"><div class="row sb"><span class="chip ${n.k}">${n.n} · ${n.v}</span><span class="chip gray">${CATS[r.cat]||''}</span></div><h3 style="margin:10px 0 4px;font-size:15.5px">${esc(r.perigo)}</h3>${r.fonte?`<p class="sm muted" style="margin:0 0 4px">Fonte: ${esc(r.fonte)}</p>`:''}<p class="sm" style="margin:0 0 8px">Funções: ${esc(r.funcoes||'todo o setor')}</p><div class="row" style="gap:5px;margin-bottom:10px">${(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div><div class="row"><button class="btn s" data-a="editRisco" data-id="${r.id}">${ic('edit')}Editar</button><button class="btn s g" data-a="dupRisco" data-id="${r.id}">Duplicar</button><button class="btn s g d" data-a="delRisco" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`).join('');
+};
+VIEWS.acoes=()=>{
+ const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O plano de ação pertence a uma empresa.');
+ const l=L('acoes').filter(a=>a.empresaId===e.id).sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9'));
+ return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn p" data-a="new" data-e="acao">${ic('plus')}Nova ação</button></div>`+
+ (l.length?tbl([{h:'Ação',f:a=>nl(a.acao)},{h:'Responsável',f:a=>esc(a.responsavel||'—')},{h:'Prazo',f:a=>{const at=a.status!=='Concluída'&&a.prazo&&a.prazo<today();return `<span class="chip ${at?'crit':'gray'}">${fd(a.prazo)}</span>`}},{h:'Situação',f:a=>`<select data-c="acaoSt" data-id="${a.id}" style="min-width:140px">${opts(['Pendente','Em andamento','Concluída'],a.status)}</select>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="edit" data-e="acao" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delAcao" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Plano de ação vazio','Cadastre ações manualmente ou importe as medidas propostas no inventário de riscos.',`<button class="btn" data-a="impAcoes">Importar propostas do inventário</button>`));
+};
+VIEWS.solicitacoes=()=>{
+ const q=norm(S.q);let l=solScope();
+ const tabs=['Todas',...STATUS];
+ if(S.sst!=='Todas')l=l.filter(s=>s.status===S.sst);
+ l=l.filter(s=>!q||norm(nCol(s.colabId)+' '+nEmp(s.empresaId)).includes(q)).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
+ const cnt=t=>solScope().filter(s=>t==='Todas'||s.status===t).length;
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar colaborador ou empresa" value="${esc(S.q)}" data-c="q">${S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:''}</div>
+ <div class="row" style="margin-bottom:14px;gap:6px">${tabs.map(t=>`<button class="btn s ${S.sst===t?'p':''}" data-a="stf" data-v="${t}">${t} (${cnt(t)})</button>`).join('')}</div>`+
+ (l.length?tbl([{h:'Colaborador',f:s=>`<b>${esc(nCol(s.colabId))}</b>`},{h:'Empresa',f:s=>esc(nEmp(s.empresaId))},{h:'Exame',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Agenda',f:s=>fd(s.dataAgend)},{h:'Situação',f:s=>`<span class="chip ${s.status==='Realizado'?'low':s.status==='Cancelado'?'gray':''}">${s.status}</span>${s.arquivo?' <span class="chip low">ASO anexado</span>':''}`}],l,s=>`class="click" data-a="det" data-id="${s.id}"`)
+ :emptyBox('Nenhuma solicitação','Quando a empresa solicita um exame, a guia, o ASO e o checklist saem daqui.',S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:''));
+};
+VIEWS.documentos=()=>{
+ const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','Os documentos são gerados a partir dos dados da empresa.');
+ const rs=L('riscos').filter(r=>r.empresaId===e.id),cs=L('colaboradores').filter(c=>c.empresaId===e.id);
+ const ck=[[!!(e.cnpj&&e.razao),'Dados da empresa (razão social e CNPJ)'],[!!(e.medico_nome&&e.medico_crm),'Médico coordenador do PCMSO com CRM'],[!!e.tec_nome,'Responsável técnico do PGR'],[!!e.atividades,'Descrição das atividades'],[rs.length>0,'Inventário de riscos ('+rs.length+')'],[cs.length>0,'Colaboradores cadastrados ('+cs.length+')']];
+ const hist=L('documentos').filter(d=>d.empresaId===e.id).sort((a,b)=>b.emissao.localeCompare(a.emissao)||b.rev-a.rev);
+ const rv=t=>Math.max(0,...hist.filter(d=>d.tipo===t).map(d=>d.rev));
+ const card=(t,sub,lei)=>`<div class="card"><h3>${t}</h3><p class="sm muted" style="margin:0 0 10px">${sub}</p><p class="sm" style="margin:0 0 12px">Última revisão emitida: <b>${rv(t)?'Rev. '+String(rv(t)).padStart(2,'0'):'nenhuma'}</b></p><div class="row"><button class="btn s" data-a="verDoc" data-t="${t}">Visualizar minuta</button>${isC()?`<button class="btn s p" data-a="emitDoc" data-t="${t}">Emitir revisão ${String(rv(t)+1).padStart(2,'0')}</button>`:''}</div></div>`;
+ return `<div class="bar">${empSel()}</div>
+ ${isC()?`<div class="card" style="margin-bottom:16px"><h3>Conferência antes de emitir</h3><div class="checks">${ck.map(c=>`<div class="chk" style="${c[0]?'':'border-color:var(--high)'}"><span>${c[0]?'✔':'⚠'}</span><span>${c[1]}</span></div>`).join('')}</div><p class="sm muted" style="margin:10px 0 0">Itens pendentes não impedem a geração, mas ficam em branco no documento.</p></div>`:''}
+ <div class="grid">${isC()?card('PGR','Programa de Gerenciamento de Riscos: inventário de riscos e plano de ação (NR-1 GRO/PGR, com avaliações de agentes conforme NR-9).')+card('PCMSO','Programa de Controle Médico de Saúde Ocupacional (NR-7): exames por função, periodicidade e relatório analítico.'):''}
+ <div class="card"><h3>Modelos em branco</h3><p class="sm muted" style="margin:0 0 10px">Para imprimir e preencher à mão.</p><div class="row"><button class="btn s" data-a="blank" data-t="aso">ASO</button><button class="btn s" data-a="blank" data-t="psico">Checklist psicossocial</button></div></div></div>
+ <h2 style="font-size:17px;margin:22px 0 10px">Histórico de emissões</h2>`+(hist.length?tbl([{h:'Documento',f:d=>d.tipo+' — Rev. '+String(d.rev).padStart(2,'0')},{h:'Emissão',f:d=>fd(d.emissao)},{h:'Revisar até',f:d=>fd(addM(d.emissao,d.tipo==='PGR'?24:12))},{h:'',a:1,f:d=>`<button class="btn s" data-a="reabrirDoc" data-id="${d.id}">Abrir</button>`}],hist):'<p class="muted">Nenhum documento emitido ainda.</p>');
+};
+VIEWS.config=()=>{
+ const c=CFG();
+ return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
+ <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Compartilhado.</b> Os dados ficam salvos no banco do artefato e são vistos por todos que têm acesso ao link, com permissão de edição.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho. Para trabalhar em equipe ou com clínicas, publique o sistema como artefato compartilhado.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
+ <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa fictícia completa para você testar a geração dos documentos.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
+ <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) mostra o sistema como cada parte enxerga: a clínica só vê as solicitações dela; a empresa só vê as suas. É um filtro de visualização, não um login: quem tem permissão de edição neste artefato acessa todos os dados. Dados de saúde são sensíveis pela LGPD, então compartilhe o link apenas com quem precisa.</p></div></div>`;
+};
+
+/* detalhe da solicitação */
+function renderDetalhe(){
+ const s=G('solicitacoes',S.det);if(!s){S.det=null;$('#modal-root').innerHTML='';return}
+ const c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{};
+ const canCl=S.role!=='empresa',canEm=S.role!=='clinica';
+ const st=(ok,n,h,body)=>`<div class="step ${ok?'ok':''}"><div class="n">${ok?ic('check'):n}</div><div style="flex:1"><h4>${h}</h4>${body}</div></div>`;
+ const a=s.aso||{};
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" role="dialog" aria-modal="true"><header><h2>${esc(c.nome||'Solicitação')}</h2><span class="chip ${s.status==='Realizado'?'low':''}">${s.status}</span><button class="btn g s" data-a="closeDet" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <div class="kv"><div><span>Empresa</span>${esc(e.razao||'')}</div><div><span>Exame</span>${esc(s.tipo)}</div><div><span>Clínica</span>${esc(nCli(s.clinicaId))}</div><div><span>Solicitado em</span>${fd(s.dataSolic)}</div><div><span>Agendado para</span>${fd(s.dataAgend)}</div><div><span>Função / setor</span>${esc((c.funcao||'')+(c.setor?' · '+c.setor:''))}</div></div>
+ <div class="row" style="gap:5px;margin:8px 0 6px">${(s.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div>${s.obs?`<p class="sm muted">Obs.: ${nl(s.obs)}</p>`:''}
+ <div style="margin-top:10px">
+ ${st(true,1,'Encaminhamento à clínica',`<p class="sm muted" style="margin:0 0 8px">Guia com dados da empresa, riscos e exames, o formulário do ASO e o checklist psicossocial em um único arquivo.</p><div class="row"><button class="btn s p" data-a="docPacote" data-id="${s.id}">Gerar pacote completo</button><button class="btn s" data-a="docGuia" data-id="${s.id}">Só a guia</button></div>`)}
+ ${st(!!s.psico,2,'Checklist psicossocial do colaborador',`<p class="sm muted" style="margin:0 0 8px">${s.psico?'Respondido em '+fd(s.psico.data)+'.':'O colaborador responde no sistema ou em papel.'}</p><div class="row">${canEm||canCl?`<button class="btn s" data-a="psico" data-id="${s.id}">${s.psico?'Ver / editar respostas':'Preencher agora'}</button>`:''}<button class="btn s" data-a="docPsico" data-id="${s.id}">Imprimir</button></div>${s.psico?`<div class="row" style="gap:5px;margin-top:8px">${psicoResumo(s.psico).map(r=>`<span class="chip ${r.k}">${r.d}: ${r.t}</span>`).join('')}</div>`:''}`)}
+ ${st(!!a.data,3,'Dados do ASO (clínica)',`<p class="sm muted" style="margin:0 0 8px">${a.data?'Exame em '+fd(a.data)+' · '+esc(a.resultado||'')+' · '+esc(a.medico_nome||''):'A clínica edita os campos do ASO e imprime.'}</p><div class="row">${canCl?`<button class="btn s ${a.data?'':'p'}" data-a="aso" data-id="${s.id}">${a.data?'Editar dados':'Preencher ASO'}</button>`:''}<button class="btn s" data-a="docAso" data-id="${s.id}">${ic('print')}${a.data?'Imprimir ASO':'ASO em branco'}</button></div>`)}
+ ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF ou foto, até 3 MB) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
+ </div></div><footer>
+ ${canCl?`<select data-c="solSt" data-id="${s.id}" aria-label="Situação" style="width:auto">${opts(STATUS,s.status)}</select>`:''}
+ ${canEm?`<button class="btn s" data-a="editSol" data-id="${s.id}">${ic('edit')}Editar</button><button class="btn s d" data-a="delSol" data-id="${s.id}">${ic('trash')}Excluir</button>`:''}
+ <button class="btn p" data-a="closeDet">Fechar</button></footer></div></div>`;
+}
+
+/* ficha do colaborador: PGR -> PCMSO -> exames -> clínica */
+function renderFicha(){
+ const c=G('colaboradores',S.ficha);if(!c){S.ficha=null;$('#modal-root').innerHTML='';return}
+ const e=G('empresas',c.empresaId)||{};
+ const rs=riscosDoColab(c).sort((a,b)=>nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v),m=examesDe(rs),ks=chavesOrd(m);
+ const sols=L('solicitacoes').filter(s=>s.colabId===c.id).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
+ const canReq=S.role!=='clinica';
+ const pend=ks.filter(k=>statusExame(c,k,m).k!=='low').length;
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header><h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <div class="kv"><div><span>Empresa</span>${esc(e.razao||'—')}</div><div><span>Função</span>${esc(c.funcao||'—')}</div><div><span>Setor / GHE</span>${esc(c.setor||'—')}</div><div><span>CPF</span>${esc(c.cpf||'—')}</div><div><span>Admissão</span>${fd(c.admissao)}</div><div><span>Nascimento</span>${fd(c.nasc)}</div></div>
+ <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
+ ${rs.length?'':`<div class="note-w card" style="border-color:var(--high);margin-bottom:14px"><b>Nenhum risco do PGR vinculado.</b><p class="sm muted" style="margin:4px 0 0">Os exames dependem do inventário de riscos. Confira se o setor <b>${esc(c.setor||'—')}</b> ou a função <b>${esc(c.funcao||'—')}</b> aparecem nos riscos da empresa (campo "Funções expostas"). Enquanto isso, só o exame clínico é exigido.</p>${isC()?`<button class="btn s" style="margin-top:8px" data-a="fichaRiscos" data-id="${c.empresaId}">Abrir inventário de riscos</button>`:''}</div>`}
+ <h3 style="font-size:15px;margin:0 0 8px">1. Riscos ocupacionais (PGR)</h3>
+ ${rs.length?tbl([{h:'Risco',f:r=>`<b>${esc(r.perigo)}</b><br><span class="muted sm">${esc(CATS[r.cat]||'')} · setor ${esc(r.setor||'—')}</span>`},{h:'Nível',f:r=>{const n=nivel(r.sev,r.prob);return `<span class="chip ${n.k}">${n.n} · ${n.v}</span>`}},{h:'Exames que este risco exige',f:r=>(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join(' ')||'—'}],rs):'<p class="muted sm">Sem riscos vinculados.</p>'}
+ <h3 style="font-size:15px;margin:18px 0 4px">2. Exames exigidos pelo PCMSO ${pend?`<span class="chip med">${pend} pendente(s)</span>`:'<span class="chip low">tudo em dia</span>'}</h3>
+ <p class="muted sm" style="margin:0 0 8px">Definidos pelos riscos acima. A periodicidade vale a menor entre os riscos que exigem o exame.</p>
+ ${tbl([{h:'Exame',f:k=>`<b>${esc(EXAMES[k].n)}</b>`},{h:'Motivo (PGR)',f:k=>`<span class="sm">${esc(origemExame(rs,k).join('; '))}</span>`},{h:'Periodicidade',f:k=>m[k]+' meses'},{h:'Último',f:k=>fd(statusExame(c,k,m).last)},{h:'Vence em',f:k=>fd(statusExame(c,k,m).due)},{h:'Situação',f:k=>{const s=statusExame(c,k,m);return `<span class="chip ${s.k==='gray'?'gray':s.k}">${s.t}</span>`}}],ks)}
+ <h3 style="font-size:15px;margin:18px 0 8px">3. Pedidos de exame e ASOs</h3>
+ ${sols.length?tbl([{h:'Data',f:s=>fd(s.dataSolic)},{h:'Exame',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'ASO',f:s=>s.aso&&s.aso.data?esc(s.aso.resultado||'')+' · '+fd(s.aso.data):'—'},{h:'Situação',f:s=>`<span class="chip ${s.status==='Realizado'?'low':''}">${s.status}</span>${s.arquivo?' <span class="chip low">arquivo</span>':''}`}],sols,s=>`class="click" data-a="det" data-id="${s.id}"`):'<p class="muted sm">Nenhum pedido ainda. Use "Enviar pedido de exame à clínica".</p>'}
+ </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
+}
+
+/* ====================== DOCUMENTOS ====================== */
+const DOC_CSS=`
+@page{size:A4;margin:14mm 14mm 16mm}
+.paper{background:#fff;color:#141414;max-width:210mm;margin:0 auto;padding:16mm;font:10.5pt/1.5 Georgia,'Times New Roman',serif;box-shadow:0 8px 30px rgba(0,0,0,.4);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.paper *{box-sizing:border-box}
+.paper h1{font:700 26pt Arial,Helvetica,sans-serif;margin:0 0 4pt;color:#0B3B42;letter-spacing:-.01em}
+.paper h2{font:700 12.5pt Arial,Helvetica,sans-serif;color:#0B3B42;border-bottom:1.5px solid #0B3B42;padding-bottom:3pt;margin:18pt 0 8pt;break-after:avoid}
+.paper h3{font:700 10.5pt Arial,Helvetica,sans-serif;margin:12pt 0 4pt;break-after:avoid}
+.paper p{margin:0 0 6pt;text-align:justify}
+.paper ul,.paper ol{margin:0 0 6pt;padding-left:18pt}.paper li{margin-bottom:2pt}
+.paper table{width:100%;border-collapse:collapse;margin:4pt 0 10pt;font:9pt/1.35 Arial,Helvetica,sans-serif}
+.paper th{background:#E4EEEF;text-align:left;font-weight:700;padding:4pt 5pt;border:.6pt solid #7C9599}
+.paper td{padding:4pt 5pt;border:.6pt solid #7C9599;vertical-align:top}
+.paper tr{break-inside:avoid}
+.paper td.k{background:#F2F6F6;font-weight:700;width:30%}
+.ph{display:flex;justify-content:space-between;gap:12pt;align-items:center;border-bottom:2pt solid #0B3B42;padding-bottom:8pt;margin-bottom:14pt;font:9pt Arial,Helvetica,sans-serif}
+.ph-l{display:flex;gap:8pt;align-items:center}.ph-r{text-align:right}
+.ph .logo{max-height:38pt;max-width:90pt;object-fit:contain}
+.cover{padding:30mm 0 10mm;min-height:200mm}
+.cover .kk{font:600 11pt Arial,sans-serif;color:#0B3B42;margin:0 0 6pt}
+.cover .sub{font:11pt Arial,sans-serif;color:#444;margin:0 0 28pt}
+.cover .emp{border-left:5pt solid #F0B429;padding:2pt 0 2pt 10pt;margin:0 0 24pt;font:11pt/1.5 Arial,sans-serif}
+.cover .emp b{font-size:15pt;display:block}
+.pb{break-before:page;page-break-before:always;height:0}
+.blank{display:inline-block;min-width:38mm;border-bottom:.7pt solid #444;height:11pt;vertical-align:bottom}
+.blank.l{min-width:90mm}
+.sig{display:grid;grid-template-columns:1fr 1fr;gap:26pt 30pt;margin-top:34pt;font:9pt Arial,sans-serif;break-inside:avoid}
+.sig div{border-top:.8pt solid #222;padding-top:3pt;text-align:center}
+.sig span{display:block;color:#444}
+.mx{width:auto!important;margin:6pt 0}
+.mx td{width:34pt;height:24pt;text-align:center;font-weight:700;border:.6pt solid #fff}
+.mx td.h{background:none;color:#333;font-weight:600;border:0}
+.m-low{background:#C7E6D1}.m-med{background:#F6E7A6}.m-high{background:#F7CDAB}.m-crit{background:#F1B3AE}
+.tag{display:inline-block;padding:0 5pt;border-radius:3pt;font-weight:700;font-size:8.5pt}
+.note{border:.7pt solid #9FB4B7;background:#F5F9F9;padding:6pt 8pt;font:8.5pt/1.4 Arial,sans-serif;margin:6pt 0}
+.box{font-size:12pt;font-family:Arial,sans-serif}
+.small{font:8.5pt/1.4 Arial,sans-serif;color:#444}
+.q td{padding:3pt 5pt}
+.q td.c{text-align:center;width:40pt}
+@media screen and (max-width:820px){.paper{padding:16px;font-size:10pt}.paper h1{font-size:22pt}.paper table{display:block;overflow-x:auto;white-space:normal}.cover{padding:16px 0;min-height:0}}
+@media print{.paper{box-shadow:none;max-width:none;padding:0;margin:0}}
+`;
+document.getElementById('doc-css').textContent=DOC_CSS;
+const standalone=(t,h)=>`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(t)}</title><style>body{margin:0;background:#e9eeee}${DOC_CSS}@media screen{body{padding:16px 0}}</style></head><body><div class="paper">${h}</div></body></html>`;
+const B=v=>v?esc(v):'<span class="blank"></span>';
+const BL=v=>v?esc(v):'<span class="blank l"></span>';
+const chk=on=>on?'☒':'☐';
+function dHead(t,sub){
+ const c=CFG();
+ return `<div class="ph"><div class="ph-l">${c.logo?`<img class="logo" src="${c.logo}" alt="">`:''}<div><b>${esc(c.nome||'')}</b><br>${esc(c.cnpj||'')}</div></div><div class="ph-r"><b>${t}</b><br>${esc(sub||'')}</div></div>`;
+}
+const kv=(rows)=>`<table>${rows.map(r=>`<tr><td class="k">${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
+const lvl=(s,p)=>{const n=nivel(s,p);return `<span class="tag m-${n.k}">${n.n} (${n.v})</span>`};
+const endEmp=e=>[e.endereco,e.cidade&&(e.cidade+(e.uf?'/'+e.uf.toUpperCase():''))].filter(Boolean).join(' — ');
+function assin(e,extra){
+ const c=CFG();
+ return `<div class="sig"><div>${esc(e.tec_nome||'Responsável técnico')}<span>${esc(e.tec_reg||'Registro profissional')}</span><span>Responsável técnico</span></div><div>${esc(e.resp_nome||'Representante da empresa')}<span>${esc(e.resp_cargo||'')}</span><span>${esc(e.razao)}</span></div>${extra||''}</div>`;
+}
+function pontosMatriz(){
+ let h='<table class="mx"><tr><td class="h"></td>'+[1,2,3,4,5].map(p=>`<td class="h">P${p}</td>`).join('')+'</tr>';
+ for(let s=5;s>=1;s--){h+=`<tr><td class="h">S${s}</td>`+[1,2,3,4,5].map(p=>`<td class="m-${nivel(s,p).k}">${s*p}</td>`).join('')+'</tr>'}
+ return h+'</table>';
+}
+function gruposFuncao(e){
+ const cs=L('colaboradores').filter(c=>c.empresaId===e.id&&c.status!=='Desligado');
+ const m={};
+ cs.forEach(c=>{const k=norm(c.setor)+'|'+norm(c.funcao);(m[k]=m[k]||{setor:c.setor||'—',funcao:c.funcao||'—',n:0,c});m[k].n++});
+ let g=Object.values(m);
+ if(!g.length){
+  L('riscos').filter(r=>r.empresaId===e.id).forEach(r=>{String(r.funcoes||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).forEach(f=>{const k=norm(r.setor)+'|'+norm(f);if(!m[k])m[k]={setor:r.setor||'—',funcao:f,n:0,c:{empresaId:e.id,setor:r.setor,funcao:f}}})});
+  g=Object.values(m);
+ }
+ return g.sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||norm(a.funcao).localeCompare(norm(b.funcao)));
+}
+const per=m=>m===6?'semestral (6 meses)':m===24?'bienal (24 meses)':m===12?'anual (12 meses)':'a cada '+m+' meses';
+
+/* ---------- PGR ---------- */
+function docPGR(e,meta){
+ const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
+ const ac=L('acoes').filter(a=>a.empresaId===e.id).sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9'));
+ const sets=[...new Set(rs.map(r=>r.setor||'Sem setor'))];
+ const grp=gruposFuncao(e);
+ const c=CFG();
+ const cnt={low:0,med:0,high:0,crit:0};rs.forEach(r=>cnt[nivel(r.sev,r.prob).k]++);
+ const porCat=Object.entries(CATS).map(([k,n])=>[n,rs.filter(r=>r.cat===k).length]);
+ let h=dHead('PGR — Programa de Gerenciamento de Riscos','Rev. '+String(meta.rev).padStart(2,'0'));
+ h+=`<div class="cover"><p class="kk">Gerenciamento de Riscos Ocupacionais</p><h1>Programa de Gerenciamento de Riscos</h1><p class="sub">NR-1 (Gerenciamento de Riscos Ocupacionais — GRO / PGR) e NR-9 (agentes físicos, químicos e biológicos)</p><div class="emp"><b>${esc(e.razao)}</b>CNPJ ${esc(e.cnpj||'—')}<br>${esc(endEmp(e))}</div>${kv([['Revisão','Rev. '+String(meta.rev).padStart(2,'0')+(meta.rascunho?' — MINUTA (não emitida)':'')],['Data de emissão',fd(meta.emissao)],['Próxima revisão (no máximo)',fd(addM(meta.emissao,24))],['Elaborado por',esc(c.nome||'—')],['Responsável técnico',esc((e.tec_nome||'—')+(e.tec_reg?' — '+e.tec_reg:''))]])}</div>`;
+ h+='<div class="pb"></div>';
+ h+=`<h2>1. Identificação da organização</h2>${kv([['Razão social',esc(e.razao)],['Nome fantasia',esc(e.fantasia||'—')],['CNPJ',esc(e.cnpj||'—')],['CNAE / Grau de risco (NR-4)',esc((e.cnae||'—')+' / '+(e.grau||'—'))],['Endereço',esc(endEmp(e)||'—')],['Nº de trabalhadores',esc(e.funcionarios||L('colaboradores').filter(x=>x.empresaId===e.id&&x.status!=='Desligado').length)],['Jornada de trabalho',esc(e.jornada||'—')],['CIPA',esc(e.cipa||'—')],['Responsável pela empresa',esc((e.resp_nome||'—')+(e.resp_cargo?' — '+e.resp_cargo:''))],['Médico coordenador do PCMSO',esc((e.medico_nome||'—')+(e.medico_crm?' — '+e.medico_crm:''))]])}`;
+ h+=`<h2>2. Objetivo e campo de aplicação</h2><p>Este Programa de Gerenciamento de Riscos (PGR) estabelece a sistemática de identificação de perigos, avaliação de riscos ocupacionais e definição de medidas de prevenção da organização, integrando o Gerenciamento de Riscos Ocupacionais (GRO) previsto na NR-1. Aplica-se a todos os setores, atividades e trabalhadores do estabelecimento, incluindo, quando pertinente, terceirizados e visitantes expostos aos mesmos riscos.</p><p>O PGR é composto pelo inventário de riscos ocupacionais e pelo plano de ação, e serve de base para o Programa de Controle Médico de Saúde Ocupacional (PCMSO), elaborado conforme a NR-7.</p>`;
+ h+=`<h2>3. Referências normativas</h2><ul><li>NR-1 — Disposições gerais e Gerenciamento de Riscos Ocupacionais (GRO / PGR), incluindo a consideração dos fatores de risco psicossociais relacionados ao trabalho;</li><li>NR-4 — Serviços Especializados em Segurança e em Medicina do Trabalho;</li><li>NR-5 — Comissão Interna de Prevenção de Acidentes e de Assédio (CIPA);</li><li>NR-6 — Equipamentos de Proteção Individual;</li><li>NR-7 — Programa de Controle Médico de Saúde Ocupacional (PCMSO);</li><li>NR-9 — Avaliação e controle das exposições ocupacionais a agentes físicos, químicos e biológicos;</li><li>NR-15 e NR-16 — Atividades e operações insalubres e perigosas, quando aplicável;</li><li>NR-17 — Ergonomia; e demais normas regulamentadoras aplicáveis às atividades da organização.</li></ul>`;
+ h+=`<h2>4. Responsabilidades</h2><h3>Da organização</h3><ul><li>Implementar o PGR, disponibilizar recursos e cumprir o plano de ação nos prazos definidos;</li><li>Informar os trabalhadores sobre os riscos ocupacionais e as medidas de prevenção, e garantir treinamentos;</li><li>Fornecer gratuitamente os EPIs adequados e exigir seu uso, quando as medidas coletivas não forem suficientes.</li></ul><h3>Do responsável técnico</h3><ul><li>Elaborar e revisar o inventário de riscos e o plano de ação, mantendo o histórico das versões;</li><li>Acompanhar a eficácia das medidas de prevenção e recomendar melhorias.</li></ul><h3>Dos trabalhadores</h3><ul><li>Cumprir as orientações de segurança, utilizar corretamente os EPIs e comunicar situações de risco grave e iminente.</li></ul>`;
+ h+=`<h2>5. Metodologia de avaliação de riscos</h2><p>Os perigos são identificados por análise das atividades, inspeção dos locais de trabalho, consulta aos trabalhadores e registros da organização. Cada risco é classificado pelo produto entre a <b>severidade</b> (gravidade provável do dano) e a <b>probabilidade</b> (chance de ocorrência considerando as medidas existentes), em escala de 1 a 5.</p><table><tr><th>Nível</th><th>Severidade (S)</th><th>Probabilidade (P)</th></tr><tr><td>1</td><td>Leve — sem afastamento</td><td>Rara</td></tr><tr><td>2</td><td>Baixa — primeiros socorros</td><td>Pouco provável</td></tr><tr><td>3</td><td>Moderada — lesão com afastamento temporário</td><td>Possível</td></tr><tr><td>4</td><td>Grave — lesão ou doença com sequela</td><td>Provável</td></tr><tr><td>5</td><td>Gravíssima — invalidez ou óbito</td><td>Quase certa</td></tr></table>${pontosMatriz()}<table><tr><th>Nível de risco</th><th>Pontuação</th><th>Conduta</th></tr><tr><td><span class="tag m-low">Baixo</span></td><td>1 a 4</td><td>Manter as medidas existentes e monitorar.</td></tr><tr><td><span class="tag m-med">Médio</span></td><td>5 a 9</td><td>Planejar melhorias e monitorar periodicamente.</td></tr><tr><td><span class="tag m-high">Alto</span></td><td>10 a 15</td><td>Ação prioritária, com prazo curto e acompanhamento.</td></tr><tr><td><span class="tag m-crit">Crítico</span></td><td>16 a 25</td><td>Ação imediata; avaliar a interrupção da atividade até o controle do risco.</td></tr></table><p>Para agentes físicos, químicos e biológicos, a avaliação qualitativa é complementada por avaliação quantitativa quando necessário, com registro no campo "Avaliação" do inventário, considerando os limites de exposição e os critérios da NR-9 e das normas técnicas aplicáveis.</p>`;
+ h+=`<h2>6. Caracterização da organização</h2><h3>Atividades e processo produtivo</h3><p>${e.atividades?nl(e.atividades):'<span class="blank l"></span>'}</p><h3>Estabelecimento e instalações</h3><p>${e.instal?nl(e.instal):'<span class="blank l"></span>'}</p><h3>Setores e funções</h3>${grp.length?`<table><tr><th>Setor / GHE</th><th>Função</th><th>Trabalhadores</th></tr>${grp.map(g=>`<tr><td>${esc(g.setor)}</td><td>${esc(g.funcao)}</td><td>${g.n||'—'}</td></tr>`).join('')}</table>`:'<p class="small">Nenhum colaborador cadastrado.</p>'}`;
+ h+=`<h2>7. Inventário de riscos ocupacionais</h2>`;
+ if(!rs.length)h+='<p class="small">Nenhum risco cadastrado no inventário.</p>';
+ sets.forEach(s=>{
+  h+=`<h3>Setor / GHE: ${esc(s)}</h3><table><tr><th style="width:15%">Funções e atividades</th><th style="width:22%">Perigo e fonte geradora</th><th style="width:16%">Danos à saúde</th><th style="width:16%">Exposição e avaliação</th><th style="width:19%">Medidas existentes</th><th style="width:12%">Risco (S×P)</th></tr>`+
+  rs.filter(r=>(r.setor||'Sem setor')===s).map(r=>`<tr><td>${esc(r.funcoes||'Todo o setor')}${r.atividades?'<br><span class="small">'+esc(r.atividades)+'</span>':''}</td><td><b>${esc(r.perigo)}</b><br><span class="small">${esc(CATS[r.cat]||'')}${r.fonte?' — '+esc(r.fonte):''}</span></td><td>${esc(r.danos||'—')}</td><td>${esc(r.exposicao||'—')}${r.aval?'<br><span class="small">'+esc(r.aval)+'</span>':''}</td><td>${esc(r.medidas||'—')}</td><td>${lvl(r.sev,r.prob)}<br><span class="small">S${esc(r.sev)} × P${esc(r.prob)}</span></td></tr>`).join('')+'</table>';
+ });
+ if(rs.length)h+=`<h3>Resumo</h3><table><tr><th>Baixo</th><th>Médio</th><th>Alto</th><th>Crítico</th><th>Total</th></tr><tr><td>${cnt.low}</td><td>${cnt.med}</td><td>${cnt.high}</td><td>${cnt.crit}</td><td>${rs.length}</td></tr></table><table><tr>${porCat.map(p=>`<th>${p[0]}</th>`).join('')}</tr><tr>${porCat.map(p=>`<td>${p[1]}</td>`).join('')}</tr></table>`;
+ h+=`<h2>8. Plano de ação</h2><p>As medidas de prevenção seguem a hierarquia: eliminação dos fatores de risco, minimização e controle na fonte, medidas coletivas, medidas administrativas ou de organização do trabalho e, por último, EPIs.</p>`;
+ h+=ac.length?`<table><tr><th style="width:4%">Nº</th><th>Ação / medida de prevenção</th><th style="width:16%">Responsável</th><th style="width:12%">Prazo</th><th style="width:13%">Situação</th></tr>${ac.map((a,i)=>`<tr><td>${i+1}</td><td>${nl(a.acao)}${a.result?'<br><span class="small">Acompanhamento: '+esc(a.result)+'</span>':''}</td><td>${esc(a.responsavel||'—')}</td><td>${fd(a.prazo)}</td><td>${esc(a.status)}</td></tr>`).join('')}</table>`:'<p class="small">Nenhuma ação cadastrada. Riscos classificados como Alto ou Crítico exigem plano de ação com prazo e responsável.</p>';
+ h+=`<p>O acompanhamento é feito pelo responsável técnico em conjunto com a organização, com registro da situação de cada ação e verificação da eficácia das medidas após a implantação.</p>`;
+ h+=`<h2>9. Preparação para emergências</h2><p>${e.emerg?nl(e.emerg):'A organização deve manter procedimentos de resposta a emergências, incluindo primeiros socorros, combate a princípio de incêndio, evacuação e acionamento de serviços externos, com treinamentos e simulados periódicos.'}</p>`;
+ h+=`<h2>10. Comunicação, monitoramento e revisão</h2><ul><li>Os trabalhadores são informados sobre os riscos de suas atividades e sobre as medidas de prevenção, por ordens de serviço, treinamentos e diálogos de segurança;</li><li>O PGR é mantido à disposição dos trabalhadores e da fiscalização e integra-se às ações do PCMSO e da CIPA;</li><li>A análise crítica do programa e a revisão do inventário e do plano de ação ocorrem, no máximo, a cada 2 (dois) anos, e sempre que houver mudança nos processos, ambientes, equipamentos ou substâncias, após acidentes ou doenças ocupacionais, ou quando a avaliação indicar necessidade;</li><li>Registros de versões anteriores são mantidos pela organização pelo prazo previsto na NR-1.</li></ul>`;
+ h+=`<div class="note">Este documento foi elaborado com base nas informações fornecidas pela organização e nas avaliações registradas no inventário. Deve ser validado e assinado por profissional legalmente habilitado.</div>`;
+ h+=`<h2>11. Aprovação</h2><p>Local e data: ${esc(e.cidade||'__________________')}, ${fd(meta.emissao)}.</p>${assin(e)}`;
+ return h;
+}
+
+/* ---------- PCMSO ---------- */
+function docPCMSO(e,meta){
+ const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor)));
+ const grp=gruposFuncao(e);const c=CFG();
+ const cols=L('colaboradores').filter(x=>x.empresaId===e.id&&x.status!=='Desligado');
+ const ano=L('solicitacoes').filter(s=>s.empresaId===e.id&&s.status==='Realizado'&&s.aso&&s.aso.data&&dias(s.aso.data)>=-365);
+ const cl=[...new Set(L('solicitacoes').filter(s=>s.empresaId===e.id).map(s=>s.clinicaId))].map(id=>G('clinicas',id)).filter(Boolean);
+ let h=dHead('PCMSO — Programa de Controle Médico de Saúde Ocupacional','Rev. '+String(meta.rev).padStart(2,'0'));
+ h+=`<div class="cover"><p class="kk">Vigilância da saúde dos trabalhadores</p><h1>Programa de Controle Médico de Saúde Ocupacional</h1><p class="sub">NR-7 — Programa de Controle Médico de Saúde Ocupacional (PCMSO)</p><div class="emp"><b>${esc(e.razao)}</b>CNPJ ${esc(e.cnpj||'—')}<br>${esc(endEmp(e))}</div>${kv([['Revisão','Rev. '+String(meta.rev).padStart(2,'0')+(meta.rascunho?' — MINUTA (não emitida)':'')],['Data de emissão',fd(meta.emissao)],['Vigência até',fd(addM(meta.emissao,12))],['Médico coordenador',esc((e.medico_nome||'—')+(e.medico_crm?' — '+e.medico_crm:''))],['Elaborado por',esc(c.nome||'—')]])}</div>`;
+ h+='<div class="pb"></div>';
+ h+=`<h2>1. Identificação</h2>${kv([['Razão social',esc(e.razao)],['CNPJ',esc(e.cnpj||'—')],['CNAE / Grau de risco',esc((e.cnae||'—')+' / '+(e.grau||'—'))],['Endereço',esc(endEmp(e)||'—')],['Nº de trabalhadores',esc(e.funcionarios||cols.length)],['Jornada',esc(e.jornada||'—')],['Médico coordenador do PCMSO',esc((e.medico_nome||'—')+(e.medico_crm?' — '+e.medico_crm:''))],['Clínicas / médicos examinadores',cl.length?cl.map(x=>esc(x.nome)+(x.medico_nome?' ('+esc(x.medico_nome)+')':'')).join('; '):'A definir pela organização']])}`;
+ h+=`<h2>2. Objetivo e diretrizes</h2><p>O PCMSO tem por objetivo a promoção e a preservação da saúde dos trabalhadores, por meio da prevenção, rastreamento e diagnóstico precoce de agravos relacionados ao trabalho, inclusive de natureza subclínica, além da constatação da existência de casos de doenças profissionais ou danos irreversíveis à saúde.</p><p>O programa é planejado e implantado com base nos riscos ocupacionais identificados no Programa de Gerenciamento de Riscos (PGR) da organização, e é atualizado sempre que houver alteração relevante no inventário de riscos. Tem caráter de prevenção e integra o conjunto de medidas de saúde e segurança da organização.</p>`;
+ h+=`<h2>3. Responsabilidades</h2><ul><li><b>Organização:</b> custear e garantir a execução do PCMSO, sem ônus para o trabalhador; encaminhar os trabalhadores aos exames nos prazos; fornecer ao médico as informações sobre riscos e processos; manter os ASOs arquivados;</li><li><b>Médico coordenador:</b> planejar e coordenar o programa; definir exames complementares e periodicidades; analisar os resultados; elaborar o relatório analítico; orientar condutas após afastamentos e agravos;</li><li><b>Médico examinador:</b> realizar o exame clínico ocupacional, avaliar os exames complementares e emitir o ASO;</li><li><b>Trabalhador:</b> comparecer aos exames, informar seu histórico de saúde e seguir as orientações médicas.</li></ul>`;
+ h+=`<h2>4. Riscos ocupacionais de referência (PGR)</h2>${rs.length?`<table><tr><th>Setor / GHE</th><th>Perigo / fator de risco</th><th>Categoria</th><th>Risco</th></tr>${rs.map(r=>`<tr><td>${esc(r.setor||'—')}</td><td>${esc(r.perigo)}</td><td>${esc(CATS[r.cat]||'')}</td><td>${lvl(r.sev,r.prob)}</td></tr>`).join('')}</table>`:'<p class="small">Inventário de riscos ainda não cadastrado.</p>'}`;
+ h+=`<h2>5. Programa de exames por setor e função</h2><p>Os exames abaixo são indicados a partir dos riscos de cada função. Os exames complementares e sua periodicidade podem ser ajustados pelo médico coordenador, mediante justificativa técnica.</p>${grp.length?`<table><tr><th style="width:24%">Setor / função</th><th style="width:9%">Trab.</th><th>Exames e periodicidade</th></tr>${grp.map(g=>{const rr=riscosDoColab(g.c),m=examesDe(rr);return `<tr><td><b>${esc(g.funcao)}</b><br><span class="small">${esc(g.setor)}</span></td><td>${g.n||'—'}</td><td>${chavesOrd(m).map(k=>`${chk(true)} ${esc(EXAMES[k].n)} — ${per(m[k])}${k==='clinico'?'':'<span class="small"> (motivo: '+esc(origemExame(rr,k).join('; ')||'—')+')</span>'}`).join('<br>')}</td></tr>`}).join('')}</table>`:'<p class="small">Cadastre colaboradores e o inventário de riscos para gerar este quadro.</p>'}`;
+ h+=`<h2>6. Exames clínicos ocupacionais</h2><table><tr><th style="width:24%">Tipo</th><th>Momento de realização</th></tr><tr><td>Admissional</td><td>Antes de o trabalhador assumir suas atividades.</td></tr><tr><td>Periódico</td><td>Nos intervalos definidos no item 5 para cada função, conforme os riscos e a avaliação do médico coordenador.</td></tr><tr><td>Retorno ao trabalho</td><td>No primeiro dia de retorno de afastamento por doença ou acidente (ocupacional ou não) de 30 dias ou mais.</td></tr><tr><td>Mudança de risco ocupacional</td><td>Antes da data da mudança de função, setor ou condição que implique alteração de risco.</td></tr><tr><td>Demissional</td><td>Até a data da extinção do contrato, podendo ser dispensado quando o último exame ocupacional tiver sido realizado há menos de 135 dias (graus de risco 1 e 2) ou 90 dias (graus de risco 3 e 4).</td></tr></table>`;
+ h+=`<h2>7. Atestado de Saúde Ocupacional (ASO)</h2><p>Para cada exame clínico ocupacional realizado, o médico emite o ASO, contendo no mínimo: razão social e CNPJ da organização; nome, CPF e função do trabalhador; descrição dos perigos ou fatores de risco; indicação dos exames realizados e das datas; definição de apto ou inapto para a função; nome e CRM do médico coordenador e do médico examinador; data e assinatura do médico; e o tipo do exame.</p><p>O ASO é disponibilizado ao trabalhador, em meio físico ou digital, mediante recibo, e mantido arquivado pela organização à disposição da fiscalização.</p>`;
+ h+=`<h2>8. Condutas e encaminhamentos</h2><ul><li>Trabalhador considerado <b>inapto</b>: a organização avalia a mudança de função ou a adoção de medidas antes de manter o trabalhador na atividade;</li><li>Suspeita ou confirmação de doença relacionada ao trabalho: investigação, emissão da CAT quando aplicável, revisão do inventário de riscos e das medidas de prevenção;</li><li>Indicadores biológicos de exposição e demais parâmetros de controle seguem os critérios do Quadro 1 e do Quadro 2 da NR-7, quando aplicáveis.</li></ul>`;
+ h+=`<h2>9. Prontuário médico, sigilo e primeiros socorros</h2><p>Os dados clínicos são registrados em prontuário individual sob responsabilidade do médico, sujeitos ao sigilo profissional e ao tratamento conforme a Lei Geral de Proteção de Dados (LGPD), e conservados pelo prazo mínimo de 20 (vinte) anos após o desligamento do trabalhador. A organização mantém recursos e pessoal treinado para primeiros socorros, conforme a natureza das atividades.</p>`;
+ // relatório analítico
+ const tipos=TIPOS.map(t=>[t,ano.filter(s=>s.tipo===t).length]);
+ const ap=ano.filter(s=>s.aso.resultado==='Apto').length,ina=ano.filter(s=>s.aso.resultado==='Inapto').length;
+ const ex={};ano.forEach(s=>Object.keys(s.aso.exames||{}).forEach(k=>ex[k]=(ex[k]||0)+1));
+ h+=`<h2>10. Relatório analítico (últimos 12 meses)</h2><p>Consolidado dos exames registrados no sistema entre ${fd(addM(meta.emissao,-12))} e ${fd(meta.emissao)}. Deve ser complementado pelo médico coordenador com a análise crítica e o planejamento do próximo período.</p><table><tr>${tipos.map(t=>`<th>${t[0]}</th>`).join('')}<th>Total</th></tr><tr>${tipos.map(t=>`<td>${t[1]}</td>`).join('')}<td>${ano.length}</td></tr></table><table><tr><th>Aptos</th><th>Inaptos</th><th>Trabalhadores ativos</th><th>Sem ASO registrado</th></tr><tr><td>${ap}</td><td>${ina}</td><td>${cols.length}</td><td>${cols.filter(x=>!ultimoAso(x.id)).length}</td></tr></table>${Object.keys(ex).length?`<table><tr><th>Exame complementar</th><th>Realizados</th></tr>${Object.keys(ex).map(k=>`<tr><td>${esc((EXAMES[k]||{n:k}).n)}</td><td>${ex[k]}</td></tr>`).join('')}</table>`:''}<h3>Análise crítica do médico coordenador</h3><p><span class="blank l"></span></p><p><span class="blank l"></span></p><p><span class="blank l"></span></p>`;
+ // cronograma
+ const meses=[];for(let i=0;i<12;i++){const d=addM(today(),i).slice(0,7);meses.push({m:d,n:0})}
+ let semAso=0;cols.forEach(x=>{const p=proximo(x);if(!p){semAso++;return}const m=meses.find(o=>o.m===p.slice(0,7));if(m)m.n++;else if(p<today()&&meses[0])meses[0].n++});
+ h+=`<h2>11. Cronograma anual de exames periódicos</h2><p>Previsão calculada a partir da data do último ASO e da periodicidade de cada função. Exames vencidos são alocados no primeiro mês.</p><table><tr>${meses.map(o=>`<th>${o.m.slice(5)}/${o.m.slice(2,4)}</th>`).join('')}</tr><tr>${meses.map(o=>`<td>${o.n}</td>`).join('')}</tr></table>${semAso?`<p class="small">${semAso} trabalhador(es) sem ASO registrado no sistema: programar exame conforme o tipo aplicável.</p>`:''}`;
+ h+=`<div class="note">Documento elaborado com base no inventário de riscos do PGR e nos dados informados pela organização. Deve ser validado e assinado pelo médico coordenador.</div><h2>12. Aprovação</h2><p>Local e data: ${esc(e.cidade||'__________________')}, ${fd(meta.emissao)}.</p><div class="sig"><div>${esc(e.medico_nome||'Médico coordenador do PCMSO')}<span>${esc(e.medico_crm||'CRM')}</span><span>Médico coordenador</span></div><div>${esc(e.resp_nome||'Representante da empresa')}<span>${esc(e.resp_cargo||'')}</span><span>${esc(e.razao)}</span></div></div>`;
+ return h;
+}
+
+/* ---------- ASO, guia e checklist ---------- */
+function docAso(s){
+ const c=(s&&G('colaboradores',s.colabId))||{},e=(s&&G('empresas',s.empresaId))||{};
+ const a=(s&&s.aso)||{},rs=s?riscosDoColab(c):[];
+ const ex=s?(s.exames||['clinico']):['clinico'];
+ const riscosTxt=a.riscos!=null?a.riscos:(rs.map(r=>r.perigo).join('; '));
+ let h=dHead('ASO — Atestado de Saúde Ocupacional','NR-7');
+ h+=`<h1 style="font-size:18pt">Atestado de Saúde Ocupacional (ASO)</h1>`;
+ h+=`<h2>1. Empresa</h2>${kv([['Razão social',BL(e.razao)],['CNPJ',B(e.cnpj)],['Endereço',BL(endEmp(e))]])}`;
+ h+=`<h2>2. Trabalhador</h2>${kv([['Nome',BL(c.nome)],['CPF',B(c.cpf)],['Data de nascimento',c.nasc?fd(c.nasc):B('')],['Função',B(c.funcao)],['Setor',B(c.setor)]])}`;
+ h+=`<h2>3. Tipo de exame</h2><p class="box">${TIPOS.map(t=>`${chk(s&&s.tipo===t)} ${t}`).join('&nbsp;&nbsp; ')}</p>`;
+ h+=`<h2>4. Perigos ou fatores de risco ocupacionais</h2><p>${riscosTxt?esc(riscosTxt):'<span class="blank l"></span><br><br><span class="blank l"></span>'}</p>`;
+ h+=`<h2>5. Exames realizados</h2><table><tr><th>Exame</th><th style="width:22%">Data</th></tr><tr><td>${esc(EXAMES.clinico.n)}</td><td>${a.data?fd(a.data):'&nbsp;'}</td></tr>${(s?ex.filter(k=>k!=='clinico'):[]).map(k=>`<tr><td>${esc((EXAMES[k]||{n:k}).n)}</td><td>${(a.exames||{})[k]?fd(a.exames[k]):'&nbsp;'}</td></tr>`).join('')}${s?'':'<tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr>'}</table>`;
+ h+=`<h2>6. Conclusão</h2><p class="box">${chk(a.resultado==='Apto')} <b>Apto</b> para a função &nbsp;&nbsp;&nbsp; ${chk(a.resultado==='Inapto')} <b>Inapto</b> para a função</p>${a.obs?`<p><b>Observações:</b> ${nl(a.obs)}</p>`:'<p><b>Observações:</b> <span class="blank l"></span></p>'}<p><b>Próximo exame periódico até:</b> ${a.data?fd(a.proximo||addM(a.data,examesDe(rs).clinico||12)):'<span class="blank"></span>'}</p>`;
+ h+=`<h2>7. Médicos responsáveis</h2>${kv([['Médico coordenador do PCMSO',BL((e.medico_nome||'')+(e.medico_crm?' — '+e.medico_crm:''))],['Médico examinador',BL((a.medico_nome||'')+(a.medico_crm?' — '+a.medico_crm:''))],['Data do exame',a.data?fd(a.data):B('')]])}`;
+ h+=`<div class="sig"><div>Assinatura e carimbo do médico examinador<span>Nome, CRM e data</span></div><div>Ciência e recebimento do trabalhador<span>${esc(c.nome||'Nome')} — Data: ____/____/______</span></div></div>`;
+ h+=`<p class="small" style="margin-top:14pt">Documento com dados de saúde sujeito a sigilo (LGPD). Uma via deve ser entregue ao trabalhador e outra arquivada pela organização.</p>`;
+ return h;
+}
+function docGuia(s){
+ const c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
+ const rs=riscosDoColab(c);
+ let h=dHead('Guia de encaminhamento para exame ocupacional',fd(s.dataSolic));
+ h+=`<h1 style="font-size:18pt">Guia de encaminhamento</h1><p class="small">Solicitação de exame ocupacional — ${esc(s.tipo)}</p>`;
+ h+=`<h2>Clínica</h2>${kv([['Clínica',esc(cl.nome||'—')],['Endereço / contato',esc([cl.endereco,cl.telefone,cl.email].filter(Boolean).join(' · ')||'—')],['Data agendada',s.dataAgend?fd(s.dataAgend):'A combinar com a empresa']])}`;
+ h+=`<h2>Empresa solicitante</h2>${kv([['Razão social',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Endereço',esc(endEmp(e)||'—')],['Contato',esc([e.resp_nome,e.telefone,e.email].filter(Boolean).join(' · ')||'—')],['Médico coordenador do PCMSO',esc((e.medico_nome||'—')+(e.medico_crm?' — '+e.medico_crm:''))]])}`;
+ h+=`<h2>Trabalhador</h2>${kv([['Nome',esc(c.nome||'—')],['CPF',esc(c.cpf||'—')],['Nascimento / sexo',esc((c.nasc?fd(c.nasc):'—')+' / '+(c.sexo||'—'))],['Função / setor',esc((c.funcao||'—')+(c.setor?' · '+c.setor:''))],['Admissão',c.admissao?fd(c.admissao):'—']])}`;
+ h+=`<h2>Exames solicitados</h2><table><tr><th style="width:8%">Feito</th><th>Exame</th><th style="width:38%">Motivo (riscos do PGR / PCMSO)</th></tr>${(s.exames||[]).map(k=>`<tr><td class="box">☐</td><td>${esc((EXAMES[k]||{n:k}).n)}</td><td class="small">${esc(origemExame(rs,k).join('; ')||'—')}</td></tr>`).join('')}</table>`;
+ h+=`<h2>Riscos ocupacionais da função</h2>${rs.length?`<table><tr><th>Perigo / fator de risco</th><th>Categoria</th></tr>${rs.map(r=>`<tr><td>${esc(r.perigo)}</td><td>${esc(CATS[r.cat]||'')}</td></tr>`).join('')}</table>`:'<p class="small">Sem riscos específicos cadastrados para a função.</p>'}`;
+ h+=`<h2>Instruções à clínica</h2><ol><li>Editar e preencher os campos do ASO em anexo e emitir o documento assinado;</li><li>Registrar o checklist psicossocial preenchido pelo trabalhador junto ao prontuário;</li><li>Enviar o ASO assinado à empresa solicitante pelo sistema (anexo do ASO) ou por e-mail.</li></ol>${s.obs?`<p><b>Observações da empresa:</b> ${nl(s.obs)}</p>`:''}<p class="small">O trabalhador deve levar documento oficial com foto e, se houver, exames anteriores.</p>`;
+ h+=`<div class="sig"><div>${esc(e.resp_nome||'Responsável pela empresa')}<span>${esc(e.razao||'')}</span></div><div>Recebimento pela clínica<span>Data: ____/____/______</span></div></div>`;
+ return h;
+}
+function docPsico(s){
+ const c=(s&&G('colaboradores',s.colabId))||{},e=(s&&G('empresas',s.empresaId))||{},p=s&&s.psico;
+ let n=0;
+ let h=dHead('Checklist psicossocial','Triagem organizacional');
+ h+=`<h1 style="font-size:18pt">Checklist psicossocial do trabalhador</h1><p class="small">Instrumento de triagem sobre fatores psicossociais do trabalho. Não é diagnóstico. As respostas são sigilosas, sujeitas ao sigilo médico e utilizadas para orientar a vigilância da saúde e o gerenciamento de riscos. Responda pensando nos últimos 3 meses.</p>`;
+ h+=`${kv([['Trabalhador',BL(c.nome)],['Empresa',BL(e.razao)],['Função / setor',B((c.funcao||'')+(c.setor?' · '+c.setor:''))],['Data',p?fd(p.data):B('')]])}`;
+ PSICO.forEach(g=>{
+  h+=`<h3>${g.d}</h3><table class="q"><tr><th>Afirmação</th>${ESCALA.map(l=>`<th class="c" style="font-size:7pt">${l}</th>`).join('')}</tr>`+g.q.map(t=>{const i=n++,tx=t.split('|')[0];return `<tr><td>${i+1}. ${esc(tx)}</td>${ESCALA.map((l,k)=>`<td class="c box">${p&&p.resp['q'+i]==String(k)?'☒':'☐'}</td>`).join('')}</tr>`}).join('')+'</table>';
+ });
+ h+=`<p><b>Comentários:</b> ${p&&p.obs?esc(p.obs):'<span class="blank l"></span>'}</p>`;
+ if(p)h+=`<h3>Resumo para o médico (uso da clínica)</h3><table><tr><th>Dimensão</th><th>Média (0 a 4)</th><th>Indicativo</th></tr>${psicoResumo(p).map(r=>`<tr><td>${r.d}</td><td>${r.m.toFixed(1)}</td><td><span class="tag m-${r.k}">${r.t}</span></td></tr>`).join('')}</table><p class="small">Nas afirmações positivas (autonomia, apoio, pausas), a pontuação é invertida no cálculo. Médias a partir de 1,5 indicam atenção; a partir de 2,5, atenção elevada. Interpretação por profissional habilitado.</p>`;
+ h+=`<div class="sig"><div>Assinatura do trabalhador<span>Declaro que respondi com sinceridade</span></div><div>Profissional que recebeu<span>Nome, registro e data</span></div></div>`;
+ return h;
+}
+
+/* ---------- visualizador ---------- */
+function openDoc(d){
+ S.doc=d;const r=$('#doc-root');
+ r.innerHTML=`<div class="doc-bar"><b>${esc(d.title)}</b><button class="btn s p" data-a="dPrint">${ic('print')}Imprimir</button><button class="btn s" data-a="dSave">${ic('down')}Baixar</button><button class="btn s" data-a="dSend">${ic('send')}Enviar</button><button class="btn s" data-a="dClose">${ic('x')}Fechar</button></div><div class="doc-wrap"><div class="paper">${d.html}</div></div>`;
+ r.classList.add('on');r.scrollTop=0;
+}
+function closeDoc(){S.doc=null;const r=$('#doc-root');r.classList.remove('on');r.innerHTML=''}
+async function sendDoc(){
+ const d=S.doc;if(!d)return;const html=standalone(d.title,d.html);
+ try{const f=new File([html],d.filename,{type:'text/html'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:d.title,text:d.corpo});return}}catch(e){if(e&&e.name==='AbortError')return}
+ const ok=await saveAs(d.filename,html);
+ const a=document.createElement('a');a.href='mailto:'+(d.para||'')+'?subject='+encodeURIComponent(d.assunto||d.title)+'&body='+encodeURIComponent(d.corpo||'');a.target='_blank';document.body.appendChild(a);a.click();a.remove();
+ if(ok)toast('Arquivo salvo. Anexe-o ao e-mail que foi aberto.',5000);
+}
+const slug=t=>norm(t).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+function docMeta(e,tipo,d){
+ const hist=L('documentos').filter(x=>x.empresaId===e.id&&x.tipo===tipo);
+ if(d)return{rev:d.rev,emissao:d.emissao};
+ const ult=hist.sort((a,b)=>b.rev-a.rev)[0];
+ return{rev:ult?ult.rev+1:1,emissao:today(),rascunho:true};
+}
+function abrirDocEmpresa(tipo,meta,e){
+ const html=tipo==='PGR'?docPGR(e,meta):docPCMSO(e,meta);
+ const nome=tipo+'-'+slug(e.razao)+'-rev'+String(meta.rev).padStart(2,'0')+'.html';
+ openDoc({title:tipo+' — '+e.razao,html,filename:nome,para:e.email||'',assunto:tipo+' — '+e.razao+' (Rev. '+String(meta.rev).padStart(2,'0')+')',corpo:'Olá,\n\nSegue em anexo o '+tipo+' da empresa '+e.razao+', revisão '+String(meta.rev).padStart(2,'0')+', emitido em '+fd(meta.emissao)+'.\n\nAtenciosamente,\n'+(CFG().nome||'')});
+}
+
+function docFicha(c){
+ const e=G('empresas',c.empresaId)||{},rs=riscosDoColab(c).sort((a,b)=>nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v),m=examesDe(rs),ks=chavesOrd(m);
+ const sols=L('solicitacoes').filter(s=>s.colabId===c.id).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
+ let h=dHead('Ficha de controle de exames ocupacionais','Emitida em '+fd(today()));
+ h+=`<h1 style="font-size:18pt">Ficha do colaborador — vigilância da saúde</h1><p class="small">Vínculo entre o inventário de riscos (PGR), o programa de exames (PCMSO) e os ASOs emitidos.</p>`;
+ h+=kv([['Colaborador',esc(c.nome)],['CPF / nascimento',esc((c.cpf||'—')+' / '+(c.nasc?fd(c.nasc):'—'))],['Empresa',esc(e.razao||'—')],['Função / setor',esc((c.funcao||'—')+(c.setor?' · '+c.setor:''))],['Admissão',c.admissao?fd(c.admissao):'—']]);
+ h+=`<h2>1. Riscos ocupacionais (PGR)</h2>${rs.length?`<table><tr><th>Perigo / fator de risco</th><th>Categoria</th><th>Risco</th></tr>${rs.map(r=>`<tr><td>${esc(r.perigo)}</td><td>${esc(CATS[r.cat]||'')}</td><td>${lvl(r.sev,r.prob)}</td></tr>`).join('')}</table>`:'<p class="small">Nenhum risco específico vinculado à função.</p>'}`;
+ h+=`<h2>2. Exames exigidos (PCMSO)</h2><table><tr><th>Exame</th><th>Motivo</th><th>Period.</th><th>Último</th><th>Vence em</th><th>Situação</th></tr>${ks.map(k=>{const s=statusExame(c,k,m);return `<tr><td>${esc(EXAMES[k].n)}</td><td class="small">${esc(origemExame(rs,k).join('; '))}</td><td>${m[k]} m</td><td>${fd(s.last)}</td><td>${fd(s.due)}</td><td>${esc(s.t)}</td></tr>`}).join('')}</table>`;
+ h+=`<h2>3. Histórico de exames ocupacionais</h2>${sols.length?`<table><tr><th>Data</th><th>Tipo</th><th>Clínica</th><th>Resultado</th></tr>${sols.map(s=>`<tr><td>${fd(s.aso&&s.aso.data||s.dataSolic)}</td><td>${esc(s.tipo)}</td><td>${esc(nCli(s.clinicaId))}</td><td>${esc(s.aso&&s.aso.resultado||s.status)}</td></tr>`).join('')}</table>`:'<p class="small">Sem registros.</p>'}`;
+ h+=`<p class="small">Documento com dados de saúde, sujeito a sigilo (LGPD).</p>`;
+ openDoc({title:'Ficha — '+c.nome,html:h,filename:'ficha-'+slug(c.nome)+'.html',assunto:'Ficha de exames — '+c.nome,corpo:'Segue a ficha de controle de exames ocupacionais de '+c.nome+'.'});
+}
+
+/* ====================== RENDER E EVENTOS ====================== */
+function roleSel(){
+ let h=`<select id="role" data-c="role" aria-label="Perfil de visualização">${opts([['consultoria','Consultoria SST'],['clinica','Clínica'],['empresa','Empresa cliente']],S.role)}</select>`;
+ if(S.role==='clinica')h+=`<select id="rid" data-c="rid" aria-label="Clínica">${opts(L('clinicas').sort(byN).map(c=>[c.id,c.nome]),S.rid,L('clinicas').length?'':'(cadastre uma clínica)')}</select>`;
+ if(S.role==='empresa')h+=`<select id="rid" data-c="rid" aria-label="Empresa">${opts(L('empresas').sort(byN).map(c=>[c.id,c.razao]),S.rid,L('empresas').length?'':'(cadastre uma empresa)')}</select>`;
+ return h;
+}
+function shell(){
+ const nav=NAV[S.role];if(!nav.some(n=>n[0]===S.view))S.view=nav[0][0];
+ const tt=(nav.find(n=>n[0]===S.view)||[])[1]||'';
+ const al=alertas();
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${nav.map(n=>`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${ic(n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('')}<div class="sp"></div><small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${VIEWS[S.view]()}</main></div></div>`;
+}
+function render(){
+ if(!S.ready)return;
+ const f=document.activeElement;const fid=f&&f.id&&f.tagName==='INPUT'&&$('#app').contains(f)?f.id:null;const pos=fid?f.selectionStart:0;
+ const sc=window.scrollY;
+ $('#app').innerHTML=shell();
+ if(fid){const n=document.getElementById(fid);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}
+ if(S.det&&!S.form)renderDetalhe();else if(S.ficha&&!S.form&&!S.det)renderFicha();
+}
+function setRole(r){
+ S.role=r;S.view=NAV[r][0][0];S.sst='Todas';S.q='';S.det=null;$('#modal-root').innerHTML='';
+ S.rid=r==='clinica'?(L('clinicas').sort(byN)[0]||{}).id||'':r==='empresa'?(L('empresas').sort(byN)[0]||{}).id||'':'';
+}
+function docDe(s,kind){
+ const c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
+ const base='-'+slug(c.nome)+'.html';
+ const corpo='Olá,\n\nSegue em anexo o encaminhamento para exame ocupacional ('+s.tipo+') do(a) colaborador(a) '+(c.nome||'')+', da empresa '+(e.razao||'')+'.\nApós o atendimento, enviar o ASO assinado para a empresa.\n\nAtenciosamente,\n'+(e.razao||'');
+ const m={
+  pacote:{t:'Encaminhamento completo — '+c.nome,h:docGuia(s)+'<div class="pb"></div>'+docAso(s)+'<div class="pb"></div>'+docPsico(s),f:'encaminhamento'+base},
+  guia:{t:'Guia de encaminhamento — '+c.nome,h:docGuia(s),f:'guia'+base},
+  aso:{t:'ASO — '+c.nome,h:docAso(s),f:'aso'+base},
+  psico:{t:'Checklist psicossocial — '+c.nome,h:docPsico(s),f:'checklist'+base}}[kind];
+ openDoc({title:m.t,html:m.h,filename:m.f,para:kind==='aso'?(e.email||''):(cl.email||''),assunto:m.t,corpo});
+}
+const A={
+nav(){S.nav=!S.nav;render()},
+go(d){S.view=d.v;S.nav=false;S.q='';window.scrollTo(0,0);render()},
+goEmp(d){S.emp=d.id;S.view=d.v;render()},
+closeForm(){closeForm()},
+closeDet(){S.det=null;$('#modal-root').innerHTML='';if(S.ficha)renderFicha()},
+ficha(d,t,e){e.preventDefault();S.ficha=d.id;renderFicha()},
+closeFicha(){S.ficha=null;$('#modal-root').innerHTML=''},
+fichaSol(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:ultimoAso(c.id)?'Periódico':'Admissional',exames:examesPend(c),_enviar:true})},
+fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='riscos';render()},
+docFicha(d){docFicha(G('colaboradores',d.id))},
+new(d){abrirEnt(d.e)},
+edit(d){abrirEnt(d.e,d.id)},
+newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},
+dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
+delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
+delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
+delEmp(d){ask('Excluir a empresa e TODOS os colaboradores, riscos, ações, solicitações e documentos dela?','Excluir tudo',()=>{
+ delMany('colaboradores',x=>x.empresaId===d.id);delMany('riscos',x=>x.empresaId===d.id);delMany('acoes',x=>x.empresaId===d.id);delMany('solicitacoes',x=>x.empresaId===d.id);delMany('documentos',x=>x.empresaId===d.id);del('empresas',d.id);toast('Empresa excluída.')})},
+delCol(d){ask('Excluir este colaborador e as solicitações de exame dele?','Excluir',()=>{delMany('solicitacoes',x=>x.colabId===d.id);del('colaboradores',d.id)})},
+delCli(d){if(L('solicitacoes').some(s=>s.clinicaId===d.id)){toast('Esta clínica tem solicitações vinculadas e não pode ser excluída.');return}ask('Excluir esta clínica?','Excluir',()=>del('clinicas',d.id))},
+impAcoes(){
+ const e=empAtual();if(!e)return;let n=0;
+ L('riscos').filter(r=>r.empresaId===e.id&&r.proposta&&!L('acoes').some(a=>a.riscoId===r.id)).forEach(r=>{save('acoes',{empresaId:e.id,riscoId:r.id,acao:r.proposta+' ('+r.perigo+')',responsavel:'',prazo:'',status:'Pendente'},true);n++});
+ render();toast(n?n+' ação(ões) importada(s) para o plano.':'Nenhuma proposta nova para importar.');
+},
+newSol(){abrirSol()},editSol(d){abrirSol(d.id)},
+solPara(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:'Periódico',exames:chavesOrd(examesDe(riscosDoColab(c)))})},
+delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const s=G('solicitacoes',d.id);delFile(s&&s.arquivo);S.det=null;$('#modal-root').innerHTML='';del('solicitacoes',d.id)})},
+stf(d){S.sst=d.v;render()},
+det(d){S.det=d.id;renderDetalhe()},
+docPacote(d){docDe(G('solicitacoes',d.id),'pacote')},docGuia(d){docDe(G('solicitacoes',d.id),'guia')},
+docAso(d){docDe(G('solicitacoes',d.id),'aso')},docPsico(d){docDe(G('solicitacoes',d.id),'psico')},
+psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
+pickAso(){const i=$('#aso-f');if(i)i.click()},
+async getAso(d){const s=G('solicitacoes',d.id);try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},
+rmAso(d){ask('Remover o arquivo do ASO?','Remover',async()=>{const s=clone(G('solicitacoes',d.id));await delFile(s.arquivo);delete s.arquivo;save('solicitacoes',s)})},
+verDoc(d){const e=empAtual();abrirDocEmpresa(d.t,docMeta(e,d.t),e)},
+emitDoc(d){const e=empAtual();const m=docMeta(e,d.t);m.rascunho=false;save('documentos',{empresaId:e.id,tipo:d.t,rev:m.rev,emissao:m.emissao});abrirDocEmpresa(d.t,m,e);toast('Revisão emitida. Use Baixar para guardar a cópia.')},
+reabrirDoc(d){const x=G('documentos',d.id);abrirDocEmpresa(x.tipo,{rev:x.rev,emissao:x.emissao},G('empresas',x.empresaId))},
+blank(d){const aso=d.t==='aso';openDoc({title:aso?'ASO em branco':'Checklist psicossocial em branco',html:aso?docAso(null):docPsico(null),filename:(aso?'aso':'checklist-psicossocial')+'-em-branco.html',assunto:aso?'Modelo de ASO':'Checklist psicossocial',corpo:'Segue o modelo em anexo.'})},
+dPrint(){let ok=false;const f=()=>{ok=true};window.addEventListener('beforeprint',f,{once:true});try{window.print()}catch(e){}setTimeout(()=>{window.removeEventListener('beforeprint',f);if(!ok)toast('A impressão não abriu aqui. Use Baixar e imprima o arquivo salvo.',5000)},1200)},
+async dSave(){const d=S.doc;if(d&&await saveAs(d.filename,standalone(d.title,d.html)))toast('Arquivo salvo.')},
+dSend(){sendDoc()},dClose(){closeDoc()},
+cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'}],save:v=>{save('config',Object.assign({},c,v,{id:'main'}))}})},
+logo(){$('#logo-f').click()},
+logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:'main'}))},
+async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j))toast('Backup salvo.')},
+restore(){$('#bk-f').click()},
+wipe(){ask('Apagar TODOS os dados do sistema? Faça um backup antes.','Apagar tudo',()=>{COLS.forEach(c=>delMany(c,()=>true));toast('Dados apagados.')})},
+demo(){carregarDemo()}
+};
+const C={
+role(t){setRole(t.value);render()},
+rid(t){S.rid=t.value;S.det=null;render()},
+q(t){S.q=t.value;render()},
+fEmp(t){S.fEmp=t.value;render()},
+ef(t){S.emp=t.value;render()},
+acaoSt(t){const a=clone(G('acoes',t.dataset.id));a.status=t.value;save('acoes',a)},
+solSt(t){const s=clone(G('solicitacoes',t.dataset.id));s.status=t.value;save('solicitacoes',s)},
+solEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOpts(t.value),'','Selecione')},
+solCol(){preencherExames()},
+solTipo(){preencherExames()},
+nvl(){nvlUpd()},
+modelo(t){aplicarModelo(t.value)},
+async asoF(t){
+ const f=t.files[0];if(!f)return;const id=t.dataset.id;
+ try{toast('Enviando arquivo…',2000);const meta=await putFile(f);const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.')}
+ catch(e){toast(e.message||'Falha ao enviar o arquivo.',5000)}
+},
+logoF(t){
+ const f=t.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/im.width),cv=document.createElement('canvas');cv.width=im.width*k;cv.height=im.height*k;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);let u=cv.toDataURL('image/png');if(u.length>150000)u=cv.toDataURL('image/jpeg',.8);save('config',Object.assign({},CFG(),{logo:u,id:'main'}));toast('Logotipo salvo.')};im.src=r.result};r.readAsDataURL(f);
+},
+bkF(t){
+ const f=t.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{try{const j=JSON.parse(r.result);let n=0;COLS.forEach(c=>Object.values((j.data||{})[c]||{}).forEach(x=>{save(c,x,true);n++}));render();toast(n+' registros restaurados.')}catch(e){toast('Arquivo de backup inválido.')}};r.readAsText(f);
+}
+};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t||t.tagName==='OPTION')return;const f=A[t.dataset.a];if(f){if(t.closest('.scrim')&&e.target!==t)return;f(t.dataset,t,e)}});
+document.addEventListener('change',e=>{const t=e.target;if(t.matches('input[type=search]'))return;const k=t.dataset&&t.dataset.c;if(k&&C[k])C[k](t,e)});
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.mask&&mask[t.dataset.mask])t.value=mask[t.dataset.mask](t.value);if(t.matches('input[type=search]')&&t.dataset.c&&C[t.dataset.c])C[t.dataset.c](t,e)});
+document.addEventListener('submit',e=>{if(e.target.id==='fm')submitForm(e);else if(e.target.id==='psf')salvarPsico(e)});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(S.doc)closeDoc();else if(S.form)closeForm();else if(S.det){A.closeDet()}else if(S.ficha){A.closeFicha()}else if(S.nav){S.nav=false;render()}});
+
+/* ====================== DADOS DE EXEMPLO ====================== */
+function carregarDemo(){
+ const e=save('empresas',{razao:'Metalúrgica Exemplo Ltda',fantasia:'Metal Exemplo',cnpj:'12.345.678/0001-90',cnae:'25.11-0-00',grau:'3',funcionarios:'38',jornada:'07h às 16h48, segunda a sexta',cipa:'CIPA constituída',endereco:'Rua das Indústrias, 450',cidade:'Curitiba',uf:'PR',telefone:'(41) 3000-0000',email:'contato@exemplo.com.br',resp_nome:'Carlos Souza',resp_cargo:'Gerente industrial',medico_nome:'Dra. Ana Ribeiro',medico_crm:'CRM/PR 00000',tec_nome:'Marcos Lima',tec_reg:'CREA/PR 00000',atividades:'Fabricação de estruturas metálicas: corte, usinagem CNC, soldagem, pintura e expedição. Setor administrativo de apoio.',instal:'Galpão industrial de 2.400 m² com pé-direito de 8 m, escritório em bloco anexo, refeitório e vestiários.',emerg:'Extintores distribuídos e sinalizados, saídas de emergência, brigada de incêndio treinada, kit de primeiros socorros e contato do SAMU no mural.'},true);
+ const cl=save('clinicas',{nome:'Clínica Saúde Ocupacional Exemplo',cnpj:'98.765.432/0001-10',endereco:'Av. Central, 1200',cidade:'Curitiba',telefone:'(41) 3222-0000',email:'aso@clinicaexemplo.com.br',medico_nome:'Dr. Paulo Mendes',medico_crm:'CRM/PR 11111',exames:'Clínico, audiometria, espirometria, ECG, EEG, laboratório, Rx'},true);
+ const H=id=>HAZ.find(h=>h.id===id);
+ const mk=(id,setor,funcoes,ativ,extra)=>{const h=H(id);save('riscos',Object.assign({empresaId:e.id,setor,funcoes,atividades:ativ,cat:h.cat,exposicao:'Habitual e permanente',perigo:h.perigo,fonte:h.fonte,danos:h.danos,medidas:h.medidas,sev:String(h.s),prob:String(h.p),exames:h.ex,per:'12'},extra||{}),true)};
+ mk('ruido','Produção','Soldador, Operador de CNC','Operação de máquinas e soldagem',{aval:'Dosimetria: 88 dB(A) — jan/2026',proposta:'Instalar cabine acústica na serra de fita e reavaliar o ruído'});
+ mk('fumos','Produção','Soldador','Soldagem MIG/MAG',{proposta:'Instalar exaustão localizada nos postos de solda'});
+ mk('radnaoion','Produção','Soldador','Soldagem',{});
+ mk('carga','Produção','Soldador, Operador de CNC','Movimentação manual de peças',{sev:'3',prob:'4'});
+ mk('maquinas','Produção','Operador de CNC','Operação de tornos e centros de usinagem',{});
+ mk('veiculos','Logística','Operador de empilhadeira','Movimentação de cargas',{proposta:'Revisar sinalização de tráfego interno e limite de velocidade'});
+ mk('eletrico','Manutenção','Eletricista','Manutenção de painéis e máquinas',{});
+ mk('altura','Manutenção','Eletricista','Manutenção em estruturas elevadas',{});
+ mk('postura','Administrativo','Auxiliar administrativo','Trabalho com computador',{});
+ mk('psi-carga','Administrativo','todas','Metas e prazos de entrega',{});
+ mk('psi-carga','Produção','todas','Metas de produção',{sev:'2',prob:'3'});
+ save('acoes',{empresaId:e.id,acao:'Instalar exaustão localizada nos postos de solda',responsavel:'Marcos Lima',prazo:addM(today(),2),status:'Em andamento',result:'Inspeção visual e medição de vazão'},true);
+ save('acoes',{empresaId:e.id,acao:'Realizar treinamento de NR-35 para a equipe de manutenção',responsavel:'Carlos Souza',prazo:addM(today(),-1),status:'Pendente'},true);
+ save('acoes',{empresaId:e.id,acao:'Revisar sinalização de tráfego interno',responsavel:'Carlos Souza',prazo:addM(today(),3),status:'Pendente'},true);
+ const P=[['João Silva','123.456.789-00','Soldador','Produção'],['Maria Santos','234.567.890-11','Auxiliar administrativo','Administrativo'],['Pedro Alves','345.678.901-22','Operador de empilhadeira','Logística'],['Ana Costa','456.789.012-33','Operador de CNC','Produção'],['Lucas Rocha','567.890.123-44','Eletricista','Manutenção']];
+ const cs=P.map((p,i)=>save('colaboradores',{empresaId:e.id,nome:p[0],cpf:p[1],funcao:p[2],setor:p[3],status:'Ativo',sexo:i===1||i===3?'Feminino':'Masculino',nasc:(1980+i*3)+'-0'+(i+2)+'-1'+i,admissao:(2019+i)+'-03-01'},true));
+ const a=cs[0];
+ save('solicitacoes',{empresaId:e.id,colabId:a.id,clinicaId:cl.id,tipo:'Periódico',status:'Realizado',dataSolic:addM(today(),-11),dataAgend:addM(today(),-11),exames:chavesOrd(examesDe(riscosDoColab(a))),aso:{data:addM(today(),-11),medico_nome:'Dr. Paulo Mendes',medico_crm:'CRM/PR 11111',resultado:'Apto',riscos:'Ruído; fumos metálicos; radiação não ionizante; carga manual',obs:'',exames:{audiometria:addM(today(),-11),espirometria:addM(today(),-11),rxtorax:addM(today(),-11)}}},true);
+ save('solicitacoes',{empresaId:e.id,colabId:cs[2].id,clinicaId:cl.id,tipo:'Admissional',status:'Agendado',dataSolic:today(),dataAgend:addM(today(),0),exames:chavesOrd(examesDe(riscosDoColab(cs[2])))},true);
+ S.emp=e.id;render();toast('Exemplo carregado. Vá em "PGR, PCMSO e modelos" para gerar os documentos.',5000);
+}
+
+/* ====================== INÍCIO ====================== */
+(async()=>{
+ $('#app').innerHTML='<div class="content"><p class="muted">Carregando…</p></div>';
+ S.cloud=await initData();
+ if(DB.db)await new Promise(r=>setTimeout(r,800));
+ S.ready=true;render();
+})();
+</script>
+</body>
+</html>
