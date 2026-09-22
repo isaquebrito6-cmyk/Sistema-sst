@@ -443,7 +443,7 @@ const ENT={
 empresa:{col:'empresas',t:'empresa',f:()=>[
  {sec:'Identificação'},
  {k:'razao',l:'Razão social',r:1,w:4},{k:'fantasia',l:'Nome fantasia',w:2},
- {k:'cnpj',l:'CNPJ',r:1,w:3,m:'cnpj',inp:'numeric'},{k:'cnae',l:'CNAE principal',w:3,h:'Ex.: 25.11-0-00'},
+ {k:'cnpj',l:'CNPJ',r:1,w:3,m:'cnpj',inp:'numeric',c:'cnpj',h:'Digite e os dados da Receita preenchem sozinhos'},{k:'cnae',l:'CNAE principal',w:3,h:'Ex.: 25.11-0-00'},
  {k:'grau',l:'Grau de risco (NR-4)',t:'select',o:[['1','1'],['2','2'],['3','3'],['4','4']],w:3,h:'Conforme o CNAE, no Quadro I da NR-4'},
  {k:'funcionarios',l:'Nº de trabalhadores',t:'number',w:3,inp:'numeric'},
  {k:'jornada',l:'Jornada e turnos',w:3,h:'Ex.: 08h às 17h, segunda a sexta'},{k:'cipa',l:'CIPA',t:'select',o:['CIPA constituída','Designado da CIPA','Não obrigatória'],w:3},
@@ -457,7 +457,7 @@ empresa:{col:'empresas',t:'empresa',f:()=>[
  {k:'instal',l:'Descrição do estabelecimento e das instalações',t:'textarea'},
  {k:'emerg',l:'Recursos para emergência',t:'textarea',h:'Extintores, hidrantes, brigada, saídas de emergência, primeiros socorros'}]},
 clinica:{col:'clinicas',t:'clínica',f:()=>[
- {k:'nome',l:'Nome da clínica',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',inp:'numeric'},
+ {k:'nome',l:'Nome da clínica',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',inp:'numeric',c:'cnpj',h:'Preenche o nome e o endereço'},
  {k:'cep',l:'CEP',w:2,m:'cep',inp:'numeric',c:'cep',h:'Digite o CEP e o endereço preenche sozinho'},{k:'endereco',l:'Endereço',w:4,h:'Rua, número e complemento'},{k:'cidade',l:'Cidade',w:2},
  {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail para receber as guias',t:'email',w:3},
  {k:'medico_nome',l:'Médico responsável',w:3},{k:'medico_crm',l:'CRM',w:3},
@@ -1223,6 +1223,28 @@ async cep(t){
   const uf=g('uf');if(uf)uf.value=j.uf||uf.value;
   toast('Endereço preenchido a partir do CEP.');
  }catch(e){toast('Não consegui buscar o endereço pelo CEP agora — pode preencher manualmente.',4000)}
+},
+async cnpj(t){
+ const digits=t.value.replace(/\D/g,'');if(digits.length!==14)return;
+ const key=t.id.replace(/^f_/,'');const prefix=key.slice(0,-4);
+ const g=f=>document.getElementById('f_'+prefix+f);
+ try{
+  const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+digits);
+  if(!r.ok){toast('CNPJ não encontrado na Receita Federal.');return}
+  const j=await r.json();
+  const set=(f,v)=>{const e=g(f);if(e&&v)e.value=v};
+  const nomeF=g('razao')||g('nome');if(nomeF&&j.razao_social)nomeF.value=j.razao_social;
+  set('fantasia',j.nome_fantasia);
+  set('cnae',[j.cnae_fiscal,j.cnae_fiscal_descricao].filter(Boolean).join(' - '));
+  const end=[j.descricao_tipo_de_logradouro,j.logradouro,j.numero].filter(Boolean).join(' ')+(j.complemento?', '+j.complemento:'')+(j.bairro?' - '+j.bairro:'');
+  set('endereco',end.trim());
+  set('cidade',j.municipio);
+  set('uf',j.uf);
+  if(j.cep)set('cep',mask.cep(String(j.cep)));
+  if(j.ddd_telefone_1)set('telefone',mask.tel(j.ddd_telefone_1));
+  set('email',j.email);
+  toast('Dados preenchidos a partir do CNPJ.');
+ }catch(e){toast('Não consegui buscar os dados pelo CNPJ agora — pode preencher manualmente.',4000)}
 },
 modelo(t){aplicarModelo(t.value)},
 async asoF(t){
