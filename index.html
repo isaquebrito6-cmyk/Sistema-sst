@@ -188,7 +188,8 @@ const dias=iso=>Math.round((new Date(iso+'T12:00:00')-new Date(today()+'T12:00:0
 const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const mask={cpf:v=>v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2'),
 cnpj:v=>v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2'),
-tel:v=>{v=v.replace(/\D/g,'').slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v.replace(/(\d{2})(\d*)/,'($1) $2')}};
+tel:v=>{v=v.replace(/\D/g,'').slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v.replace(/(\d{2})(\d*)/,'($1) $2')},
+cep:v=>v.replace(/\D/g,'').slice(0,8).replace(/(\d{5})(\d)/,'$1-$2')};
 const IC={
 home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
 build:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/>',
@@ -401,7 +402,7 @@ function fieldHTML(f,v){
  if(f.t==='select')inner=`<select id="${id}" name="${f.k}"${at}>${opts(typeof f.o==='function'?f.o():f.o,v,f.ph)}</select>`;
  else if(f.t==='textarea')inner=`<textarea id="${id}" name="${f.k}" rows="${f.rows||3}"${at}>${esc(v)}</textarea>`;
  else if(f.t==='checks'){const sel=v||[];inner=`<div class="checks" id="${id}">${f.o.map(([k,l])=>`<label class="chk"><input type="checkbox" name="${f.k}" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}</div>`}
- else inner=`<input id="${id}" name="${f.k}" type="${f.t||'text'}" value="${esc(v)}"${f.max?` maxlength="${f.max}"`:''}${f.min!=null?` min="${f.min}" max="${f.mx}"`:''}${f.inp?` inputmode="${f.inp}"`:''}${at} autocomplete="off">`;
+ else{const dl=f.dl&&f.dl.length?` list="dl_${id}"`:'';inner=`<input id="${id}" name="${f.k}" type="${f.t||'text'}" value="${esc(v)}"${f.max?` maxlength="${f.max}"`:''}${f.min!=null?` min="${f.min}" max="${f.mx}"`:''}${f.inp?` inputmode="${f.inp}"`:''}${at}${dl} autocomplete="off">${f.dl&&f.dl.length?`<datalist id="dl_${id}">${f.dl.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`:''}`;}
  return `<div class="fld ${f.w?'w'+f.w:''}" id="w_${f.k}"><label for="${id}">${esc(f.l)}${f.r?' *':''}</label>${inner}${f.h?`<small>${esc(f.h)}</small>`:''}</div>`;
 }
 function openForm(cfg){
@@ -430,6 +431,13 @@ function ask(msg,label,fn){
 }
 
 /* ====================== ENTIDADES ====================== */
+const UFS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+function distVals(empId,campo){
+ const set=new Set();
+ L('riscos').filter(r=>r.empresaId===empId&&r[campo]).forEach(r=>String(r[campo]).split(/[,;\n]/).forEach(v=>{v=v.trim();if(v)set.add(v)}));
+ L('colaboradores').filter(c=>c.empresaId===empId&&c[campo]).forEach(c=>set.add(c[campo]));
+ return [...set].sort((a,b)=>norm(a).localeCompare(norm(b)));
+}
 const empOpts=()=>{let l=L('empresas').sort(byN);if(S.role==='empresa')l=l.filter(e=>e.id===S.rid);return l.map(e=>[e.id,e.razao])};
 const ENT={
 empresa:{col:'empresas',t:'empresa',f:()=>[
@@ -439,7 +447,7 @@ empresa:{col:'empresas',t:'empresa',f:()=>[
  {k:'grau',l:'Grau de risco (NR-4)',t:'select',o:[['1','1'],['2','2'],['3','3'],['4','4']],w:3,h:'Conforme o CNAE, no Quadro I da NR-4'},
  {k:'funcionarios',l:'Nº de trabalhadores',t:'number',w:3,inp:'numeric'},
  {k:'jornada',l:'Jornada e turnos',w:3,h:'Ex.: 08h às 17h, segunda a sexta'},{k:'cipa',l:'CIPA',t:'select',o:['CIPA constituída','Designado da CIPA','Não obrigatória'],w:3},
- {k:'endereco',l:'Endereço',w:4},{k:'cidade',l:'Cidade',w:2},{k:'uf',l:'UF',w:2,max:2},{k:'telefone',l:'Telefone',w:2,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:2},
+ {k:'cep',l:'CEP',w:2,m:'cep',inp:'numeric',c:'cep',h:'Digite o CEP e o endereço preenche sozinho'},{k:'endereco',l:'Endereço',w:4,h:'Rua, número e complemento'},{k:'cidade',l:'Cidade',w:3},{k:'uf',l:'UF',t:'select',o:UFS,w:1,ph:'UF'},{k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:3},
  {sec:'Responsáveis'},
  {k:'resp_nome',l:'Responsável pela empresa',w:3},{k:'resp_cargo',l:'Cargo',w:3},
  {k:'medico_nome',l:'Médico coordenador do PCMSO',w:3},{k:'medico_crm',l:'CRM',w:3,h:'Ex.: CRM/PR 00000'},
@@ -450,7 +458,7 @@ empresa:{col:'empresas',t:'empresa',f:()=>[
  {k:'emerg',l:'Recursos para emergência',t:'textarea',h:'Extintores, hidrantes, brigada, saídas de emergência, primeiros socorros'}]},
 clinica:{col:'clinicas',t:'clínica',f:()=>[
  {k:'nome',l:'Nome da clínica',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',inp:'numeric'},
- {k:'endereco',l:'Endereço',w:4},{k:'cidade',l:'Cidade',w:2},
+ {k:'cep',l:'CEP',w:2,m:'cep',inp:'numeric',c:'cep',h:'Digite o CEP e o endereço preenche sozinho'},{k:'endereco',l:'Endereço',w:4,h:'Rua, número e complemento'},{k:'cidade',l:'Cidade',w:2},
  {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail para receber as guias',t:'email',w:3},
  {k:'medico_nome',l:'Médico responsável',w:3},{k:'medico_crm',l:'CRM',w:3},
  {k:'exames',l:'Exames oferecidos',t:'textarea'}]},
@@ -466,8 +474,8 @@ acao:{col:'acoes',t:'ação',f:()=>[
  {k:'responsavel',l:'Responsável',w:3},{k:'prazo',l:'Prazo',t:'date',w:3},
  {k:'result',l:'Forma de acompanhamento e aferição de resultados',t:'textarea',rows:2}]}
 };
-function riscoFields(){return [
- {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'setor',l:'Setor / GHE',r:1,w:3,h:'Grupo homogêneo de exposição. Ex.: Produção, Escritório'},
+function riscoFields(empId){return [
+ {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'setor',l:'Setor / GHE',r:1,w:3,h:'Grupo homogêneo de exposição. Ex.: Produção, Escritório',dl:empId?distVals(empId,'setor'):[]},
  {k:'funcoes',l:'Funções expostas',w:6,h:'Separe por vírgula. Use "todas" para todo o setor. É o que define os exames de cada colaborador.'},
  {k:'atividades',l:'Atividades realizadas',t:'textarea',rows:2},
  {sec:'Perigo e exposição'},
@@ -489,12 +497,17 @@ function abrirEnt(kind,id,pre){
  if(kind==='colaborador'&&!rec.status)rec.status='Ativo';
  if(kind==='acao'&&!rec.status)rec.status='Pendente';
  if(kind==='empresa'&&!rec.grau)rec.grau='2';
- openForm({title:(id?'Editar ':'Nova ')+E.t,fields:E.f(),val:rec,save:v=>{save(E.col,Object.assign(rec,v));toast('Salvo.')}});
+ let fields=E.f();
+ if(kind==='colaborador'&&rec.empresaId){
+  const setores=distVals(rec.empresaId,'setor'),funcs=distVals(rec.empresaId,'funcao');
+  fields=fields.map(f=>f.k==='setor'?Object.assign({},f,{dl:setores}):f.k==='funcao'?Object.assign({},f,{dl:funcs}):f);
+ }
+ openForm({title:(id?'Editar ':'Nova ')+E.t,fields,val:rec,save:v=>{save(E.col,Object.assign(rec,v));toast('Salvo.')}});
 }
 function abrirRisco(id,pre){
  const rec=id?clone(G('riscos',id)):Object.assign({empresaId:S.emp,cat:'fisico',exposicao:'Habitual e permanente',sev:'3',prob:'3',per:'12',exames:['clinico']},pre||{});
  const pre_=`<div class="fld" style="margin-bottom:12px"><label for="modelo">Começar de um modelo do catálogo</label><select id="modelo" data-c="modelo"><option value="">Selecione um perigo comum para preencher automaticamente…</option>${Object.entries(CATS).map(([k,n])=>`<optgroup label="${n}">${HAZ.filter(h=>h.cat===k).map(h=>`<option value="${h.id}">${esc(h.perigo)}</option>`).join('')}</optgroup>`).join('')}</select></div><div id="nvl" style="margin-bottom:12px"></div>`;
- openForm({title:id?'Editar risco':'Novo risco no inventário',pre:pre_,fields:riscoFields(),val:rec,save:v=>{if(v.exposicao===''||!v.per)v.per='12';save('riscos',Object.assign(rec,v));toast('Risco salvo.')}});
+ openForm({title:id?'Editar risco':'Novo risco no inventário',pre:pre_,fields:riscoFields(rec.empresaId),val:rec,save:v=>{if(v.exposicao===''||!v.per)v.per='12';save('riscos',Object.assign(rec,v));toast('Risco salvo.')}});
  nvlUpd();
 }
 function nvlUpd(){
@@ -535,7 +548,7 @@ function renderFormPGR(){
  const rowHTML=(row,i)=>{const r=pgrRowData(row)||{};const rid='pr_'+row.key+'_';const n=nivel(r.sev,r.prob);
   return `<div class="pgr-row" id="row_${row.key}"><div class="pgr-rhead"><b>Risco ${i+1}${r.setor?' — '+esc(r.setor):''}</b><span class="row"><span class="chip ${n.k}" id="${rid}nvl">${n.n} (${n.v})</span><button type="button" class="btn s g d" data-a="pgrRemRow" data-row="${row.key}" aria-label="Remover risco">${ic('trash')}</button></span></div>
   <div class="fg">
-  <div class="fld w3"><label>Setor / GHE</label><input id="${rid}setor" value="${esc(r.setor||'')}"></div>
+  <div class="fld w3"><label>Setor / GHE</label><input id="${rid}setor" value="${esc(r.setor||'')}" list="dl_pgr_setores"></div>
   <div class="fld w3"><label>Funções expostas</label><input id="${rid}funcoes" value="${esc(r.funcoes||'')}" placeholder="separadas por vírgula, ou 'todas'"></div>
   <div class="fld w4"><label>Modelo do catálogo (opcional)</label><select id="${rid}modelo" onchange="pgrApplyModelo('${row.key}',this.value)">${modeloOpts}</select></div>
   <div class="fld w2"><label>Categoria</label><select id="${rid}cat">${opts(Object.entries(CATS),r.cat)}</select></div>
@@ -555,6 +568,17 @@ function renderFormPGR(){
  <div class="sec" style="margin-top:0">Dados da empresa</div>
  <div class="fg">${ef.map(f=>f.sec?'':fieldHTML(Object.assign({},f,{k:'emp_'+f.k}),emp[f.k])).join('')}</div>
  <div class="sec">Inventário de riscos ocupacionais</div>
+ <div class="card" style="margin-bottom:14px;background:var(--sf2)">
+ <b class="sm" style="color:var(--brand)">Adicionar vários riscos comuns de uma vez</b>
+ <p class="sm muted" style="margin:4px 0 10px">Escolha o setor e marque quantos perigos do catálogo quiser — cada um vira uma linha nova abaixo, já preenchida, pronta para você conferir.</p>
+ <div class="fg">
+ <div class="fld w3"><label for="pgr_bulk_setor">Setor</label><input id="pgr_bulk_setor" list="dl_pgr_setores" placeholder="Ex.: Produção"></div>
+ <div class="fld w3"><label for="pgr_bulk_func">Funções expostas (opcional)</label><input id="pgr_bulk_func" placeholder="Ex.: Soldador, Auxiliar"></div>
+ <div class="fld"><label>Riscos do catálogo</label><div class="checks" id="pgr_bulk_sel" style="max-height:180px;overflow:auto">${Object.entries(CATS).map(([ck,cn])=>HAZ.filter(h=>h.cat===ck).map(h=>`<label class="chk"><input type="checkbox" value="${h.id}"><span>${esc(cn)}: ${esc(h.perigo)}</span></label>`).join('')).join('')}</div></div>
+ </div>
+ <button type="button" class="btn p" data-a="pgrBulkAdd">${ic('plus')}Adicionar riscos marcados a este setor</button>
+ </div>
+ <datalist id="dl_pgr_setores">${[...new Set(st.rows.map(r=>(pgrRowData(r)||{}).setor).filter(Boolean).concat(distVals(emp.id||'','setor')))].map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
  <div id="pgr-rows">${st.rows.map((r,i)=>rowHTML(r,i)).join('')}</div>
  <button type="button" class="btn" data-a="pgrAddRow">${ic('plus')}Adicionar risco</button>
  </div></div><footer><button type="button" class="btn" data-a="pgrClose">Cancelar</button><button type="button" class="btn p" data-a="pgrSave">${ic('file')}Salvar e gerar PGR</button></footer></div></div>`;
@@ -571,6 +595,21 @@ function pgrApplyModelo(key,id){
  pgrNvl(key);
 }
 function pgrAddRow(){const st=S.pgrForm;if(!st)return;pgrSyncState();st.rows.push({id:null,key:uid()});renderFormPGR()}
+function pgrBulkAdd(){
+ const st=S.pgrForm;if(!st)return;
+ const setor=($('#pgr_bulk_setor')||{}).value||'';
+ const funcoes=($('#pgr_bulk_func')||{}).value||'';
+ const ids=[...document.querySelectorAll('#pgr_bulk_sel input:checked')].map(x=>x.value);
+ if(!ids.length){toast('Marque ao menos um risco do catálogo para adicionar.');return}
+ if(!setor){toast('Informe o setor para os riscos que serão adicionados.');const w=$('#pgr_bulk_setor');if(w)w.focus();return}
+ pgrSyncState();
+ ids.forEach(id=>{
+  const h=HAZ.find(x=>x.id===id);if(!h)return;
+  st.rows.push({id:null,key:uid(),data:{setor,funcoes,cat:h.cat,exposicao:'Habitual e permanente',perigo:h.perigo,fonte:h.fonte,danos:h.danos,medidas:h.medidas,sev:String(h.s),prob:String(h.p),per:'',exames:h.ex.slice()}});
+ });
+ toast(ids.length+' risco(s) adicionado(s) ao setor '+setor+'.');
+ renderFormPGR();
+}
 function pgrRemRow(key){
  const st=S.pgrForm;if(!st)return;pgrSyncState();
  const row=st.rows.find(r=>r.key===key);if(!row)return;
@@ -1111,7 +1150,7 @@ fichaSol(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId
 fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='riscos';render()},
 docFicha(d){docFicha(G('colaboradores',d.id))},
 formPGR(){abrirFormPGR(S.emp||null)},
-pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrRemRow(d){pgrRemRow(d.row)},
+pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(){pgrBulkAdd()},pgrRemRow(d){pgrRemRow(d.row)},
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
 newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},
@@ -1166,6 +1205,20 @@ solEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOpts(t.val
 solCol(){preencherExames()},
 solTipo(){preencherExames()},
 nvl(){nvlUpd()},
+async cep(t){
+ const digits=t.value.replace(/\D/g,'');if(digits.length!==8)return;
+ const key=t.id.replace(/^f_/,'');const prefix=key.slice(0,-3);
+ const g=f=>document.getElementById('f_'+prefix+f);
+ try{
+  const r=await fetch('https://viacep.com.br/ws/'+digits+'/json/');
+  const j=await r.json();
+  if(j.erro){toast('CEP não encontrado.');return}
+  const end=g('endereco');if(end)end.value=[j.logradouro,j.bairro].filter(Boolean).join(', ');
+  const cid=g('cidade');if(cid)cid.value=j.localidade||cid.value;
+  const uf=g('uf');if(uf)uf.value=j.uf||uf.value;
+  toast('Endereço preenchido a partir do CEP.');
+ }catch(e){toast('Não consegui buscar o endereço pelo CEP agora — pode preencher manualmente.',4000)}
+},
 modelo(t){aplicarModelo(t.value)},
 async asoF(t){
  const f=t.files[0];if(!f)return;const id=t.dataset.id;
