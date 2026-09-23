@@ -415,7 +415,8 @@ function fieldHTML(f,v){
  else if(f.t==='textarea'){const dl=f.dl&&f.dl.length?` list="dl_${id}"`:'';inner=`<textarea id="${id}" name="${f.k}" rows="${f.rows||3}"${at}${dl}>${esc(v)}</textarea>${f.dl&&f.dl.length?`<datalist id="dl_${id}">${f.dl.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`:''}`;}
  else if(f.t==='checks'){const sel=v||[];inner=`<div class="checks" id="${id}">${f.o.map(([k,l])=>`<label class="chk"><input type="checkbox" name="${f.k}" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}</div>`}
  else{const dl=f.dl&&f.dl.length?` list="dl_${id}"`:'';inner=`<input id="${id}" name="${f.k}" type="${f.t||'text'}" value="${esc(v)}"${f.max?` maxlength="${f.max}"`:''}${f.min!=null?` min="${f.min}" max="${f.mx}"`:''}${f.inp?` inputmode="${f.inp}"`:''}${at}${dl} autocomplete="off">${f.dl&&f.dl.length?`<datalist id="dl_${id}">${f.dl.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`:''}`;}
- return `<div class="fld ${f.w?'w'+f.w:''}" id="w_${f.k}"><label for="${id}">${esc(f.l)}${f.r?' *':''}</label>${inner}${f.h?`<small>${esc(f.h)}</small>`:''}</div>`;
+ const hide=f.hideUnless?' style="display:none"':'';
+ return `<div class="fld ${f.w?'w'+f.w:''}" id="w_${f.k}"${hide}><label for="${id}">${esc(f.l)}${f.r?' *':''}</label>${inner}${f.h?`<small>${esc(f.h)}</small>`:''}</div>`;
 }
 function openForm(cfg){
  S.form=cfg;const v=cfg.val||{};
@@ -486,9 +487,15 @@ acao:{col:'acoes',t:'ação',f:()=>[
  {k:'responsavel',l:'Responsável',w:3},{k:'prazo',l:'Prazo',t:'date',w:3},
  {k:'result',l:'Forma de acompanhamento e aferição de resultados',t:'textarea',rows:2}]}
 };
-function riscoFields(empId){return [
- {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'setor',l:'Setor(es) / GHE',r:1,w:3,h:'Um ou mais, separados por vírgula. Ex.: Produção, Manutenção',dl:empId?distVals(empId,'setor'):[]},
- {k:'funcoes',l:'Funções expostas',w:6,h:'Separe por vírgula. Use "todas" para todo o setor. É o que define os exames de cada colaborador.',dl:empId?distVals(empId,'funcao'):[]},
+function riscoFields(empId){
+ const setores=empId?distVals(empId,'setor'):[],funcs=empId?distVals(empId,'funcao'):[];
+ return [
+ {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},
+ {sec:'Setor(es) e função(ões) expostos'},
+ ...(setores.length?[{k:'setor_arr',l:'Setor(es) / GHE já cadastrados',t:'checks',w:6,o:setores.map(s=>[s,s]),h:'Marque um ou mais. Este risco será vinculado a todos os marcados.'}]:[]),
+ {k:'setorNovo',l:setores.length?'Adicionar outro setor (se não estiver na lista)':'Setor(es) / GHE',r:setores.length?0:1,w:setores.length?6:3,h:setores.length?'Separe por vírgula se forem vários novos.':'Grupo homogêneo de exposição. Ex.: Produção, Escritório'},
+ ...(funcs.length?[{k:'funcoes_arr',l:'Função(ões) já cadastradas',t:'checks',w:6,o:funcs.map(s=>[s,s]).concat([['todas','Todas as funções do(s) setor(es) marcado(s)']]),h:'Marque quais funções ficam expostas. Deixe tudo desmarcado + "todas" abaixo, se for o setor inteiro.'}]:[]),
+ {k:'funcoesNovo',l:funcs.length?'Adicionar outra função (se não estiver na lista)':'Funções expostas',w:funcs.length?6:3,h:funcs.length?'Separe por vírgula se forem várias novas.':'Separe por vírgula. Use "todas" para todo o setor.'},
  {k:'atividades',l:'Atividades realizadas',t:'textarea',rows:2},
  {sec:'Perigo e exposição'},
  {k:'cat',l:'Categoria',t:'select',r:1,o:Object.entries(CATS),w:3},{k:'exposicao',l:'Exposição',t:'select',o:['Habitual e permanente','Habitual e intermitente','Eventual'],w:3},
@@ -501,7 +508,7 @@ function riscoFields(empId){return [
  {k:'proposta',l:'Medidas propostas (plano de ação)',t:'textarea',rows:2,h:'Se preenchido, pode ser importado para o Plano de ação.'},
  {sec:'Vigilância médica (PCMSO)'},
  {k:'exames',l:'Exames indicados',t:'checks',o:Object.entries(EXAMES).map(([k,v])=>[k,v.n])},
- {k:'per',l:'Periodicidade dos exames (meses)',t:'select',o:[['6','6 meses'],['12','12 meses'],['24','24 meses']],w:3,h:'A definição final cabe ao médico coordenador.'}]}
+ {k:'per',l:'Periodicidade dos exames (meses)',t:'select',o:[['6','6 meses'],['12','12 meses'],['24','24 meses']],w:3,h:'A definição final cabe ao médico coordenador.'}];}
 
 function abrirEnt(kind,id,pre){
  const E=ENT[kind];const rec=id?clone(G(E.col,id)):Object.assign({},pre||{});
@@ -510,16 +517,33 @@ function abrirEnt(kind,id,pre){
  if(kind==='acao'&&!rec.status)rec.status='Pendente';
  if(kind==='empresa'&&!rec.grau)rec.grau='2';
  let fields=E.f();
- if(kind==='colaborador'&&rec.empresaId){
-  const setores=distVals(rec.empresaId,'setor'),funcs=distVals(rec.empresaId,'funcao');
-  fields=fields.map(f=>f.k==='setor'?Object.assign({},f,{dl:setores}):f.k==='funcao'?Object.assign({},f,{dl:funcs}):f);
+ if(kind==='colaborador'){
+  const eid=rec.empresaId;
+  const setores=eid?distVals(eid,'setor'):[],funcs=eid?distVals(eid,'funcao'):[];
+  const novo=[['__novo__','+ Novo…']];
+  fields=fields.flatMap(f=>{
+   if(f.k==='setor')return [Object.assign({},f,{t:setores.length?'select':undefined,o:setores.length?setores.map(s=>[s,s]).concat(novo):undefined,ph:setores.length?'Selecione ou crie':undefined,c:'colNovo',r:1}),
+     {k:'setorNovo',l:setores.length?'Nome do novo setor':'Setor / GHE',w:3,hideUnless:setores.length?'setor':null}];
+   if(f.k==='funcao')return [Object.assign({},f,{t:funcs.length?'select':undefined,o:funcs.length?funcs.map(s=>[s,s]).concat(novo):undefined,ph:funcs.length?'Selecione ou crie':undefined,c:'colNovo',r:1}),
+     {k:'funcaoNovo',l:funcs.length?'Nome da nova função':'Função / cargo',w:3,hideUnless:funcs.length?'funcao':null}];
+   return [f];
+  });
  }
  if(kind==='acao'&&rec.empresaId){
   const emp2=G('empresas',rec.empresaId);
   const nomes=[...new Set(L('colaboradores').filter(c=>c.empresaId===rec.empresaId).map(c=>c.nome).concat(emp2&&emp2.resp_nome?[emp2.resp_nome]:[]))].sort((a,b)=>norm(a).localeCompare(norm(b)));
   fields=fields.map(f=>f.k==='responsavel'?Object.assign({},f,{dl:nomes}):f);
  }
- openForm({title:(id?'Editar ':'Nova ')+E.t,fields,val:rec,save:v=>{save(E.col,Object.assign(rec,v));toast('Salvo.')}});
+ openForm({title:(id?'Editar ':'Nova ')+E.t,fields,val:rec,save:v=>{
+  if(kind==='colaborador'){
+   if(v.setor==='__novo__')v.setor=(v.setorNovo||'').trim();
+   if(v.funcao==='__novo__')v.funcao=(v.funcaoNovo||'').trim();
+   delete v.setorNovo;delete v.funcaoNovo;
+   if(!v.setor){toast('Informe o setor.');return false}
+   if(!v.funcao){toast('Informe a função.');return false}
+  }
+  save(E.col,Object.assign(rec,v));toast('Salvo.');
+ }});
 }
 function abrirRiscoLote(empId){
  const setoresExistentes=distVals(empId,'setor');
@@ -549,7 +573,22 @@ function riscoLoteSalvar(empId){
 function abrirRisco(id,pre){
  const rec=id?clone(G('riscos',id)):Object.assign({empresaId:S.emp,cat:'fisico',exposicao:'Habitual e permanente',sev:'3',prob:'3',per:'12',exames:['clinico']},pre||{});
  const pre_=`<div class="fld" style="margin-bottom:12px"><label for="modelo">Começar de um modelo do catálogo</label><select id="modelo" data-c="modelo"><option value="">Selecione um perigo comum para preencher automaticamente…</option>${Object.entries(CATS).map(([k,n])=>`<optgroup label="${n}">${HAZ.filter(h=>h.cat===k).map(h=>`<option value="${h.id}">${esc(h.perigo)}</option>`).join('')}</optgroup>`).join('')}</select></div><div id="nvl" style="margin-bottom:12px"></div>`;
- openForm({title:id?'Editar risco':'Novo risco no inventário',pre:pre_,fields:riscoFields(rec.empresaId),val:rec,save:v=>{if(v.exposicao===''||!v.per)v.per='12';save('riscos',Object.assign(rec,v));toast('Risco salvo.')}});
+ const setoresExistentes=rec.empresaId?distVals(rec.empresaId,'setor'):[],funcsExistentes=rec.empresaId?distVals(rec.empresaId,'funcao'):[];
+ const valForm=Object.assign({},rec,{
+  setor_arr:setoresDe(rec).filter(s=>s!=='Sem setor'&&setoresExistentes.includes(s)),
+  setorNovo:setoresDe(rec).filter(s=>s!=='Sem setor'&&!setoresExistentes.includes(s)).join(', '),
+  funcoes_arr:String(rec.funcoes||'').split(/[,;\n]/).map(s=>s.trim()).filter(s=>s&&funcsExistentes.concat('todas').includes(s)),
+  funcoesNovo:String(rec.funcoes||'').split(/[,;\n]/).map(s=>s.trim()).filter(s=>s&&!funcsExistentes.concat('todas').includes(s)).join(', ')
+ });
+ openForm({title:id?'Editar risco':'Novo risco no inventário',pre:pre_,fields:riscoFields(rec.empresaId),val:valForm,save:v=>{
+  const setorFinal=[...(v.setor_arr||[]),...(v.setorNovo||'').split(/[,;\n]/).map(s=>s.trim())].filter(Boolean).join(', ');
+  const funcoesFinal=[...(v.funcoes_arr||[]),...(v.funcoesNovo||'').split(/[,;\n]/).map(s=>s.trim())].filter(Boolean).join(', ');
+  if(!setorFinal){toast('Informe ao menos um setor / GHE.');return false}
+  delete v.setor_arr;delete v.setorNovo;delete v.funcoes_arr;delete v.funcoesNovo;
+  v.setor=setorFinal;v.funcoes=funcoesFinal;
+  if(v.exposicao===''||!v.per)v.per='12';
+  save('riscos',Object.assign(rec,v));toast('Risco salvo.');
+ }});
  nvlUpd();
 }
 function nvlUpd(){
@@ -1268,6 +1307,7 @@ solEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOpts(t.val
 solCol(){preencherExames()},
 solTipo(){preencherExames()},
 nvl(){nvlUpd()},
+colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
 async cep(t){
  const digits=t.value.replace(/\D/g,'');if(digits.length!==8)return;
  const key=t.id.replace(/^f_/,'');const prefix=key.slice(0,-3);
