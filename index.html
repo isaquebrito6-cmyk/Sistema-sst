@@ -695,24 +695,34 @@ function abrirSol(id,pre){
  const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid&&c.status!=='Desligado'||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
  window._colOpts=colOpts;
  openForm({title:id?'Editar solicitação':env?'Enviar pedido de exame à clínica':'Nova solicitação de exame',btn:env?'Criar e gerar pacote':'Salvar',val:rec,
+ pre:`<div id="sol_info"></div>`,
  fields:[
   {k:'empresaId',l:'Empresa solicitante',t:'select',r:1,o:empOpts,w:3,c:'solEmp',ph:'Selecione'},
   {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,c:'solCol',ph:'Selecione'},
   {k:'clinicaId',l:'Clínica',t:'select',r:1,o:()=>L('clinicas').sort(byN).map(c=>[c.id,c.nome]),w:3,ph:'Selecione'},
   {k:'tipo',l:'Tipo de exame',t:'select',o:TIPOS,w:3,c:'solTipo'},
   {k:'dataSolic',l:'Data da solicitação',t:'date',w:3},{k:'dataAgend',l:'Data agendada',t:'date',w:3},
-  {k:'exames',l:'Exames a realizar',t:'checks',o:Object.entries(EXAMES).map(([k,v])=>[k,v.n]),h:'Marcados automaticamente conforme o inventário de riscos da função. Ajuste se necessário.'},
+  {k:'exames',l:'Exames a realizar',t:'checks',o:Object.entries(EXAMES).map(([k,v])=>[k,v.n]),h:'Marcados automaticamente conforme o PCMSO, a partir do setor e dos riscos do PGR vinculados ao colaborador. Ajuste se necessário.'},
   {k:'obs',l:'Observações para a clínica',t:'textarea',rows:2}],
  save:v=>{
   if(!v.exames.includes('clinico'))v.exames.unshift('clinico');
   const novo=!rec.id;Object.assign(rec,v);if(v.dataAgend&&rec.status==='Solicitado')rec.status='Agendado';
   const r=save('solicitacoes',rec);toast(novo?'Solicitação criada. Abra-a para gerar a guia e o ASO.':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';if(env)setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
  }});
+ setTimeout(solInfoUpdate,0);
+}
+function solInfoUpdate(){
+ const el=$('#sol_info');if(!el)return;
+ const sel=$('#f_colabId');const c=sel?G('colaboradores',sel.value):null;
+ if(!c){el.innerHTML='';return}
+ const rs=riscosDoColab(c),m=examesDe(rs),ks=chavesOrd(m);
+ el.innerHTML=`<div class="card" style="background:var(--sf2);margin-bottom:14px"><b class="sm" style="color:var(--brand)">${esc(c.nome)} — ${esc(c.setor||'sem setor')} / ${esc(c.funcao||'sem função')}</b><p class="sm muted" style="margin:4px 0 8px">Exames exigidos pelo PCMSO, conforme os riscos do PGR vinculados a este colaborador:</p>${rs.length?`<div class="row" style="gap:5px;flex-wrap:wrap">${ks.map(k=>{const st=statusExame(c,k,m);return `<span class="chip ${st.k==='gray'?'gray':st.k}" title="${esc(origemExame(rs,k).join('; '))}">${esc(EXAMES[k].n.split(' (')[0])} — ${st.t}</span>`}).join('')}</div>`:'<p class="sm" style="margin:0">Nenhum risco vinculado ao setor/função — apenas o exame clínico é exigido. Confira o inventário de riscos se isso não for esperado.</p>'}</div>`;
 }
 function preencherExames(){
  const c=G('colaboradores',$('#f_colabId').value);if(!c)return;
  const m=examesDe(riscosDoColab(c));const tp=($('#f_tipo')||{}).value;const pend=tp==='Periódico'?examesPend(c):null;
  document.querySelectorAll('#fm input[name="exames"]').forEach(x=>x.checked=!!m[x.value]&&(!pend||pend.includes(x.value)));
+ solInfoUpdate();
 }
 /* ASO (clínica) */
 function abrirAso(id){
@@ -1253,7 +1263,7 @@ fEmp(t){S.fEmp=t.value;render()},
 ef(t){S.emp=t.value;render()},
 acaoSt(t){const a=clone(G('acoes',t.dataset.id));a.status=t.value;save('acoes',a)},
 solSt(t){const s=clone(G('solicitacoes',t.dataset.id));s.status=t.value;save('solicitacoes',s)},
-solEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOpts(t.value),'','Selecione')},
+solEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOpts(t.value),'','Selecione');solInfoUpdate();},
 solCol(){preencherExames()},
 solTipo(){preencherExames()},
 nvl(){nvlUpd()},
