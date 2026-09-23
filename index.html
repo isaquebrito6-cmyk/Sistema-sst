@@ -694,7 +694,7 @@ function abrirSol(id,pre){
  if(pre)Object.assign(rec,pre);
  const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid&&c.status!=='Desligado'||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
  window._colOpts=colOpts;
- openForm({title:id?'Editar solicitação':env?'Enviar pedido de exame à clínica':'Nova solicitação de exame',btn:env?'Criar e gerar pacote':'Salvar',val:rec,
+ openForm({title:id?'Editar solicitação':env?'Enviar pedido de exame à clínica':'Nova solicitação de exame',btn:id?'Salvar':'Salvar e gerar pacote',val:rec,
  pre:`<div id="sol_info"></div>`,
  fields:[
   {k:'empresaId',l:'Empresa solicitante',t:'select',r:1,o:empOpts,w:3,c:'solEmp',ph:'Selecione'},
@@ -707,7 +707,7 @@ function abrirSol(id,pre){
  save:v=>{
   if(!v.exames.includes('clinico'))v.exames.unshift('clinico');
   const novo=!rec.id;Object.assign(rec,v);if(v.dataAgend&&rec.status==='Solicitado')rec.status='Agendado';
-  const r=save('solicitacoes',rec);toast(novo?'Solicitação criada. Abra-a para gerar a guia e o ASO.':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';if(env)setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
+  const r=save('solicitacoes',rec);toast(novo?'Solicitação criada. Abrindo a guia, o ASO e o checklist para enviar…':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
  }});
  setTimeout(solInfoUpdate,0);
 }
