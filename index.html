@@ -282,6 +282,7 @@ const nivel=(s,p)=>{const v=(+s||0)*(+p||0);return v>=16?{k:'crit',n:'Crítico',
 const HAZ_FONTES=[...new Set(HAZ.map(h=>h.fonte))];
 const HAZ_DANOS=[...new Set(HAZ.map(h=>h.danos))];
 const HAZ_MEDIDAS=[...new Set(HAZ.map(h=>h.medidas))];
+const setoresDe=r=>{const l=String(r.setor||'').split(/[,;\n]/).map(s=>s.trim()).filter(Boolean);return l.length?l:['Sem setor']};
 
 /* ====================== CAMADA DE DADOS ====================== */
 const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos'];
@@ -362,7 +363,8 @@ function riscosDoColab(c){
   if(r.empresaId!==c.empresaId)return false;
   const fs=String(r.funcoes||'').split(/[,;\n]/).map(norm).filter(Boolean);
   if(fs.length)return fs.some(f=>f==='todas'||f==='todos'||(fc&&(f===fc||fc.includes(f)||f.includes(fc))));
-  return !!sc&&norm(r.setor)===sc;
+  const ss=String(r.setor||'').split(/[,;\n]/).map(norm).filter(Boolean);
+  return !!sc&&ss.some(s=>s===sc);
  });
 }
 function examesDe(rs){
@@ -484,7 +486,7 @@ acao:{col:'acoes',t:'ação',f:()=>[
  {k:'result',l:'Forma de acompanhamento e aferição de resultados',t:'textarea',rows:2}]}
 };
 function riscoFields(empId){return [
- {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'setor',l:'Setor / GHE',r:1,w:3,h:'Grupo homogêneo de exposição. Ex.: Produção, Escritório',dl:empId?distVals(empId,'setor'):[]},
+ {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'setor',l:'Setor(es) / GHE',r:1,w:3,h:'Um ou mais, separados por vírgula. Ex.: Produção, Manutenção',dl:empId?distVals(empId,'setor'):[]},
  {k:'funcoes',l:'Funções expostas',w:6,h:'Separe por vírgula. Use "todas" para todo o setor. É o que define os exames de cada colaborador.',dl:empId?distVals(empId,'funcao'):[]},
  {k:'atividades',l:'Atividades realizadas',t:'textarea',rows:2},
  {sec:'Perigo e exposição'},
@@ -517,6 +519,31 @@ function abrirEnt(kind,id,pre){
   fields=fields.map(f=>f.k==='responsavel'?Object.assign({},f,{dl:nomes}):f);
  }
  openForm({title:(id?'Editar ':'Nova ')+E.t,fields,val:rec,save:v=>{save(E.col,Object.assign(rec,v));toast('Salvo.')}});
+}
+function abrirRiscoLote(empId){
+ const setoresExistentes=distVals(empId,'setor');
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:720px" role="dialog" aria-modal="true"><header><h2>Adicionar vários riscos de uma vez</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <p class="muted sm" style="margin-top:0">Escolha o setor e marque quantos perigos do catálogo quiser — cada um vira um risco novo no inventário, já preenchido.</p>
+ <div class="fg">
+ <div class="fld w3"><label for="rl_setor">Setor(es) / GHE</label><input id="rl_setor" list="dl_rl_setores" placeholder="Ex.: Produção, Manutenção"></div>
+ <div class="fld w3"><label for="rl_func">Funções expostas (opcional)</label><input id="rl_func" placeholder="Ex.: Soldador, Auxiliar"></div>
+ <div class="fld"><label>Riscos do catálogo</label><div class="checks" id="rl_sel" style="max-height:280px;overflow:auto">${Object.entries(CATS).map(([ck,cn])=>HAZ.filter(h=>h.cat===ck).map(h=>`<label class="chk"><input type="checkbox" value="${h.id}"><span>${esc(cn)}: ${esc(h.perigo)}</span></label>`).join('')).join('')}</div></div>
+ </div>
+ <datalist id="dl_rl_setores">${setoresExistentes.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+ </div><footer><button type="button" class="btn" data-a="closeForm">Cancelar</button><button type="button" class="btn p" data-a="riscoLoteSalvar" data-id="${empId}">${ic('plus')}Adicionar riscos marcados</button></footer></div></div>`;
+}
+function riscoLoteSalvar(empId){
+ const setor=($('#rl_setor')||{}).value||'';
+ const funcoes=($('#rl_func')||{}).value||'';
+ const ids=[...document.querySelectorAll('#rl_sel input:checked')].map(x=>x.value);
+ if(!ids.length){toast('Marque ao menos um risco do catálogo.');return}
+ if(!setor){toast('Informe o setor para os riscos.');const w=$('#rl_setor');if(w)w.focus();return}
+ ids.forEach(id=>{
+  const h=HAZ.find(x=>x.id===id);if(!h)return;
+  save('riscos',{empresaId:empId,setor,funcoes,cat:h.cat,exposicao:'Habitual e permanente',perigo:h.perigo,fonte:h.fonte,danos:h.danos,medidas:h.medidas,sev:String(h.s),prob:String(h.p),per:'',exames:h.ex.slice()},true);
+ });
+ closeForm();render();
+ toast(ids.length+' risco(s) adicionado(s) ao inventário.');
 }
 function abrirRisco(id,pre){
  const rec=id?clone(G('riscos',id)):Object.assign({empresaId:S.emp,cat:'fisico',exposicao:'Habitual e permanente',sev:'3',prob:'3',per:'12',exames:['clinico']},pre||{});
@@ -769,10 +796,10 @@ function empSel(){return S.role==='empresa'?'':`<select id="ef" data-c="ef" styl
 VIEWS.riscos=()=>{
  const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O inventário de riscos pertence a uma empresa.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`,'shield');
  const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
- const sets=[...new Set(rs.map(r=>r.setor||'Sem setor'))];
- return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
+ const sets=[...new Set(rs.flatMap(setoresDe))];
+ return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn" data-a="riscoLote" data-id="${e.id}">${ic('plus')}Adicionar vários</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
  <div class="card" style="margin-bottom:16px"><div class="row sb" style="margin-bottom:8px"><b>${rs.length} risco(s) · ${sets.length} setor(es)</b><div class="legend"><span class="chip low">Baixo 1–4</span><span class="chip med">Médio 5–9</span><span class="chip high">Alto 10–15</span><span class="chip crit">Crítico 16–25</span></div></div>${rs.length?distBar(rs):'<span class="muted sm">Nenhum risco cadastrado ainda. Use o catálogo de modelos para agilizar.</span>'}</div>`+
- sets.map(s=>`<h2 style="font-size:17px;margin:20px 0 10px">${esc(s)}</h2><div class="grid">${rs.filter(r=>(r.setor||'Sem setor')===s).map(r=>{const n=nivel(r.sev,r.prob);return `<div class="card"><div class="row sb"><span class="chip ${n.k}">${n.n} · ${n.v}</span><span class="chip gray">${CATS[r.cat]||''}</span></div><h3 style="margin:10px 0 4px;font-size:15.5px">${esc(r.perigo)}</h3>${r.fonte?`<p class="sm muted" style="margin:0 0 4px">Fonte: ${esc(r.fonte)}</p>`:''}<p class="sm" style="margin:0 0 8px">Funções: ${esc(r.funcoes||'todo o setor')}</p><div class="row" style="gap:5px;margin-bottom:10px">${(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div><div class="row"><button class="btn s" data-a="editRisco" data-id="${r.id}">${ic('edit')}Editar</button><button class="btn s g" data-a="dupRisco" data-id="${r.id}">Duplicar</button><button class="btn s g d" data-a="delRisco" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`).join('');
+ sets.map(s=>`<h2 style="font-size:17px;margin:20px 0 10px">${esc(s)}</h2><div class="grid">${rs.filter(r=>setoresDe(r).includes(s)).map(r=>{const n=nivel(r.sev,r.prob);return `<div class="card"><div class="row sb"><span class="chip ${n.k}">${n.n} · ${n.v}</span><span class="chip gray">${CATS[r.cat]||''}</span></div><h3 style="margin:10px 0 4px;font-size:15.5px">${esc(r.perigo)}</h3>${r.fonte?`<p class="sm muted" style="margin:0 0 4px">Fonte: ${esc(r.fonte)}</p>`:''}<p class="sm" style="margin:0 0 8px">Funções: ${esc(r.funcoes||'todo o setor')}</p><div class="row" style="gap:5px;margin-bottom:10px">${(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div><div class="row"><button class="btn s" data-a="editRisco" data-id="${r.id}">${ic('edit')}Editar</button><button class="btn s g" data-a="dupRisco" data-id="${r.id}">Duplicar</button><button class="btn s g d" data-a="delRisco" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`).join('');
 };
 VIEWS.acoes=()=>{
  const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O plano de ação pertence a uma empresa.',null,'tasks');
@@ -944,7 +971,7 @@ const per=m=>m===6?'semestral (6 meses)':m===24?'bienal (24 meses)':m===12?'anua
 function docPGR(e,meta){
  const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
  const ac=L('acoes').filter(a=>a.empresaId===e.id).sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9'));
- const sets=[...new Set(rs.map(r=>r.setor||'Sem setor'))];
+ const sets=[...new Set(rs.flatMap(setoresDe))];
  const grp=gruposFuncao(e);
  const c=CFG();
  const cnt={low:0,med:0,high:0,crit:0};rs.forEach(r=>cnt[nivel(r.sev,r.prob).k]++);
@@ -972,7 +999,7 @@ function docPGR(e,meta){
  if(!rs.length)h+='<p class="small">Nenhum risco cadastrado no inventário.</p>';
  sets.forEach(s=>{
   h+=`<h3>Setor / GHE: ${esc(s)}</h3><table><tr><th style="width:15%">Grupo exposto (funções/atividades)</th><th style="width:22%">Agente/perigo e forma de exposição</th><th style="width:16%">Possíveis danos à saúde</th><th style="width:16%">Exposição e avaliação</th><th style="width:19%">Medidas de prevenção existentes</th><th style="width:12%">Nível (S×P)</th></tr>`+
-  rs.filter(r=>(r.setor||'Sem setor')===s).map(r=>`<tr><td>${esc(r.funcoes||'Todo o setor')}${r.atividades?'<br><span class="small">'+esc(r.atividades)+'</span>':''}</td><td><b>${esc(r.perigo)}</b><br><span class="small">${esc(CATS[r.cat]||'')}${r.fonte?' — '+esc(r.fonte):''}</span></td><td>${esc(r.danos||'—')}</td><td>${esc(r.exposicao||'—')}${r.aval?'<br><span class="small">'+esc(r.aval)+'</span>':''}</td><td>${esc(r.medidas||'—')}</td><td>${lvl(r.sev,r.prob)}<br><span class="small">S${esc(r.sev)} × P${esc(r.prob)}</span></td></tr>`).join('')+'</table>';
+  rs.filter(r=>setoresDe(r).includes(s)).map(r=>`<tr><td>${esc(r.funcoes||'Todo o setor')}${r.atividades?'<br><span class="small">'+esc(r.atividades)+'</span>':''}</td><td><b>${esc(r.perigo)}</b><br><span class="small">${esc(CATS[r.cat]||'')}${r.fonte?' — '+esc(r.fonte):''}</span></td><td>${esc(r.danos||'—')}</td><td>${esc(r.exposicao||'—')}${r.aval?'<br><span class="small">'+esc(r.aval)+'</span>':''}</td><td>${esc(r.medidas||'—')}</td><td>${lvl(r.sev,r.prob)}<br><span class="small">S${esc(r.sev)} × P${esc(r.prob)}</span></td></tr>`).join('')+'</table>';
  });
  if(rs.length)h+=`<h3>Resumo</h3><table><tr><th>Baixo</th><th>Médio</th><th>Alto</th><th>Crítico</th><th>Total</th></tr><tr><td>${cnt.low}</td><td>${cnt.med}</td><td>${cnt.high}</td><td>${cnt.crit}</td><td>${rs.length}</td></tr></table><table><tr>${porCat.map(p=>`<th>${p[0]}</th>`).join('')}</tr><tr>${porCat.map(p=>`<td>${p[1]}</td>`).join('')}</tr></table>`;
  h+=`<h2>12. Plano de ação</h2><p>As medidas de prevenção e controle das exposições ocupacionais integram o inventário de riscos e são incorporadas a este plano de ação (item 9.5.3 da NR-9), seguindo a ordem de prioridade prevista na NR-1: eliminação dos fatores de risco; minimização e controle na fonte; redução do tempo de exposição, sendo aceitável quando não for possível eliminar ou reduzir a exposição a limites aceitáveis; medidas de proteção coletiva; medidas administrativas ou de organização do trabalho; e, por último, medidas de proteção individual (EPI).</p>`;
@@ -1178,7 +1205,7 @@ formPGR(){abrirFormPGR(S.emp||null)},
 pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(){pgrBulkAdd()},pgrRemRow(d){pgrRemRow(d.row)},
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
-newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},
+newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
