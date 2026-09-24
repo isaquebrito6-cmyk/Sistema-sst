@@ -1010,7 +1010,7 @@ function gruposFuncao(e){
  cs.forEach(c=>{const k=norm(c.setor)+'|'+norm(c.funcao);(m[k]=m[k]||{setor:c.setor||'—',funcao:c.funcao||'—',n:0,c});m[k].n++});
  let g=Object.values(m);
  if(!g.length){
-  L('riscos').filter(r=>r.empresaId===e.id).forEach(r=>{String(r.funcoes||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).forEach(f=>{const k=norm(r.setor)+'|'+norm(f);if(!m[k])m[k]={setor:r.setor||'—',funcao:f,n:0,c:{empresaId:e.id,setor:r.setor,funcao:f}}})});
+  L('riscos').filter(r=>r.empresaId===e.id).forEach(r=>{setoresDe(r).forEach(s=>{String(r.funcoes||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).forEach(f=>{const k=norm(s)+'|'+norm(f);if(!m[k])m[k]={setor:s,funcao:f,n:0,c:{empresaId:e.id,setor:s,funcao:f}}})})});
   g=Object.values(m);
  }
  return g.sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||norm(a.funcao).localeCompare(norm(b.funcao)));
