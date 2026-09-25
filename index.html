@@ -727,6 +727,57 @@ function pgrSave(){
  toast('Dados salvos. Gerando o PGR…');
  setTimeout(()=>abrirDocEmpresa('PGR',docMeta(savedEmp,'PGR'),savedEmp),50);
 }
+/* ====================== GERENCIAR SETORES E FUNÇÕES ====================== */
+function contagemUso(empId,campo,valor){
+ const cols=L('colaboradores').filter(c=>c.empresaId===empId&&c[campo]===valor).length;
+ const riscosCount=L('riscos').filter(r=>{
+  if(r.empresaId!==empId)return false;
+  const lista=campo==='setor'?setoresDe(r):String(r.funcoes||'').split(/[,;\n]/).map(s=>s.trim()).filter(Boolean);
+  return lista.includes(valor);
+ }).length;
+ return{cols,riscosCount};
+}
+function abrirGerenciarSetores(empId){renderGerenciarSetores(empId)}
+function renderGerenciarSetores(empId){
+ const setores=distVals(empId,'setor'),funcs=distVals(empId,'funcao');
+ const secao=(campo,lista,titulo)=>{
+  if(!lista.length)return `<p class="muted sm">Nenhum${titulo==='Setor'?'':'a'} ${titulo.toLowerCase()} cadastrad${titulo==='Setor'?'o':'a'} ainda.</p>`;
+  return `<table class="tbl"><thead><tr><th>${titulo}</th><th>Em uso</th><th></th></tr></thead><tbody>${lista.map((v,i)=>{
+   const u=contagemUso(empId,campo,v);const rid='ge_'+campo+'_'+i;
+   return `<tr><td data-l="${titulo}"><input id="${rid}" value="${esc(v)}" style="min-width:160px"></td><td data-l="Em uso">${u.cols?`<span class="chip gray">${u.cols} colaborador(es)</span> `:''}${u.riscosCount?`<span class="chip gray">${u.riscosCount} risco(s)</span>`:''}${!u.cols&&!u.riscosCount?'<span class="muted sm">—</span>':''}</td><td class="act"><button type="button" class="btn s" data-a="geRenomear" data-emp="${empId}" data-campo="${campo}" data-old="${esc(v)}" data-in="${rid}">Salvar</button> <button type="button" class="btn s g d" data-a="geExcluir" data-emp="${empId}" data-campo="${campo}" data-val="${esc(v)}" aria-label="Excluir">${ic('trash')}</button></td></tr>`;
+  }).join('')}</tbody></table>`;
+ };
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:760px" role="dialog" aria-modal="true"><header><h2>Setores e funções — ${esc(nEmp(empId))}</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <p class="muted sm" style="margin-top:0">Edite o texto e clique em <b>Salvar</b> para renomear em todos os colaboradores e riscos que usam esse valor (também serve para unir dois nomes iguais escritos diferente). A lixeira remove o setor/função dos riscos vinculados; só é permitida quando nenhum colaborador o utiliza.</p>
+ <h3 style="font-size:14px;margin:14px 0 8px">Setores / GHE</h3>${secao('setor',setores,'Setor')}
+ <h3 style="font-size:14px;margin:18px 0 8px">Funções</h3>${secao('funcao',funcs,'Função')}
+ </div><footer><button class="btn p" data-a="closeForm">Concluído</button></footer></div></div>`;
+}
+function geRenomear(empId,campo,oldVal,inputId){
+ const novo=($('#'+inputId)||{}).value.trim();
+ if(!novo||novo===oldVal)return;
+ const field=campo==='setor'?'setor':'funcoes';
+ L('colaboradores').filter(c=>c.empresaId===empId&&c[campo]===oldVal).forEach(c=>{const n=clone(c);n[campo]=novo;save('colaboradores',n,true)});
+ L('riscos').filter(r=>r.empresaId===empId).forEach(r=>{
+  const lista=String(r[field]||'').split(/[,;\n]/).map(s=>s.trim()).filter(Boolean);
+  if(lista.includes(oldVal)){const n=clone(r);n[field]=[...new Set(lista.map(x=>x===oldVal?novo:x))].join(', ');save('riscos',n,true)}
+ });
+ render();toast('Renomeado para "'+novo+'".');
+ renderGerenciarSetores(empId);
+}
+function geExcluir(empId,campo,val){
+ const u=contagemUso(empId,campo,val);
+ if(u.cols){toast(u.cols+' colaborador(es) ainda usam "'+val+'". Troque '+(campo==='setor'?'o setor':'a função')+' deles antes de excluir.',5000);return}
+ ask('Excluir "'+val+'"'+(u.riscosCount?' de '+u.riscosCount+' risco(s)':'')+'? Os riscos não são apagados, só deixam de ter esse '+(campo==='setor'?'setor':'essa função')+'.','Excluir',()=>{
+  const field=campo==='setor'?'setor':'funcoes';
+  L('riscos').filter(r=>r.empresaId===empId).forEach(r=>{
+   const lista=String(r[field]||'').split(/[,;\n]/).map(s=>s.trim()).filter(Boolean);
+   if(lista.includes(val)){const n=clone(r);n[field]=lista.filter(x=>x!==val).join(', ');save('riscos',n,true)}
+  });
+  render();toast('Removido.');
+  renderGerenciarSetores(empId);
+ });
+}
 /* solicitação de exame */
 function abrirSol(id,pre){
  const env=pre&&pre._enviar;if(pre){pre=Object.assign({},pre);delete pre._enviar}
@@ -860,7 +911,7 @@ VIEWS.riscos=()=>{
  const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O inventário de riscos pertence a uma empresa.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`,'shield');
  const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
  const sets=[...new Set(rs.flatMap(setoresDe))];
- return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn" data-a="riscoLote" data-id="${e.id}">${ic('plus')}Adicionar vários</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
+ return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn g" data-a="gerenciarSetores" data-id="${e.id}">Setores/funções</button><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn" data-a="riscoLote" data-id="${e.id}">${ic('plus')}Adicionar vários</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
  <div class="card" style="margin-bottom:16px"><div class="row sb" style="margin-bottom:8px"><b>${rs.length} risco(s) · ${sets.length} setor(es)</b><div class="legend"><span class="chip low">Baixo 1–4</span><span class="chip med">Médio 5–9</span><span class="chip high">Alto 10–15</span><span class="chip crit">Crítico 16–25</span></div></div>${rs.length?distBar(rs):'<span class="muted sm">Nenhum risco cadastrado ainda. Use o catálogo de modelos para agilizar.</span>'}</div>`+
  sets.map(s=>`<h2 style="font-size:17px;margin:20px 0 10px">${esc(s)}</h2><div class="grid">${rs.filter(r=>setoresDe(r).includes(s)).map(r=>{const n=nivel(r.sev,r.prob);return `<div class="card"><div class="row sb"><span class="chip ${n.k}">${n.n} · ${n.v}</span><span class="chip gray">${CATS[r.cat]||''}</span></div><h3 style="margin:10px 0 4px;font-size:15.5px">${esc(r.perigo)}</h3>${r.fonte?`<p class="sm muted" style="margin:0 0 4px">Fonte: ${esc(r.fonte)}</p>`:''}<p class="sm" style="margin:0 0 8px">Funções: ${esc(r.funcoes||'todo o setor')}</p><div class="row" style="gap:5px;margin-bottom:10px">${(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div><div class="row"><button class="btn s" data-a="editRisco" data-id="${r.id}">${ic('edit')}Editar</button><button class="btn s g" data-a="dupRisco" data-id="${r.id}">Duplicar</button><button class="btn s g d" data-a="delRisco" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`).join('');
 };
@@ -1269,7 +1320,7 @@ formPGR(){abrirFormPGR(S.emp||null)},
 pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(){pgrBulkAdd()},pgrRemRow(d){pgrRemRow(d.row)},
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
-newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},
+newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},gerenciarSetores(d){abrirGerenciarSetores(d.id)},geRenomear(d){geRenomear(d.emp,d.campo,d.old,d.in)},geExcluir(d){geExcluir(d.emp,d.campo,d.val)},
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
