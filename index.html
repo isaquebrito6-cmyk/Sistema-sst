@@ -742,14 +742,14 @@ function abrirSol(id,pre){
   {k:'clinicaId',l:'Clínica',t:'select',r:1,o:()=>L('clinicas').sort(byN).map(c=>[c.id,c.nome]),w:3,ph:'Selecione'},
   {k:'tipo',l:'Tipo de exame',t:'select',o:TIPOS,w:3,c:'solTipo'},
   {k:'dataSolic',l:'Data da solicitação',t:'date',w:3},{k:'dataAgend',l:'Data agendada',t:'date',w:3},
-  {k:'exames',l:'Exames a realizar',t:'checks',o:Object.entries(EXAMES).map(([k,v])=>[k,v.n]),h:'Marcados automaticamente conforme o PCMSO, a partir do setor e dos riscos do PGR vinculados ao colaborador. Ajuste se necessário.'},
+  {k:'exames',l:'Exames a realizar',t:'checks',o:Object.entries(EXAMES).map(([k,v])=>[k,v.n]),h:'A lista já vem filtrada com só os exames vinculados ao PCMSO para o setor/função do colaborador. Use "Mostrar todos" para incluir algum exame fora do padrão.'},
   {k:'obs',l:'Observações para a clínica',t:'textarea',rows:2}],
  save:v=>{
   if(!v.exames.includes('clinico'))v.exames.unshift('clinico');
   const novo=!rec.id;Object.assign(rec,v);if(v.dataAgend&&rec.status==='Solicitado')rec.status='Agendado';
   const r=save('solicitacoes',rec);toast(novo?'Solicitação criada. Abrindo a guia, o ASO e o checklist para enviar…':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
  }});
- setTimeout(solInfoUpdate,0);
+ if(id)solInfoUpdate();else preencherExames();
 }
 function solInfoUpdate(){
  const el=$('#sol_info');if(!el)return;
@@ -761,8 +761,21 @@ function solInfoUpdate(){
 function preencherExames(){
  const c=G('colaboradores',$('#f_colabId').value);if(!c)return;
  const m=examesDe(riscosDoColab(c));const tp=($('#f_tipo')||{}).value;const pend=tp==='Periódico'?examesPend(c):null;
- document.querySelectorAll('#fm input[name="exames"]').forEach(x=>x.checked=!!m[x.value]&&(!pend||pend.includes(x.value)));
+ const ks=chavesOrd(m).filter(k=>!pend||pend.includes(k));
+ renderExamesChecklist(ks,ks);
  solInfoUpdate();
+}
+function renderExamesChecklist(marcados,soLista){
+ const box=$('#f_exames');if(!box)return;
+ const lista=soLista&&soLista.length?soLista:Object.keys(EXAMES);
+ const sel=new Set(marcados||[]);
+ const restante=Object.keys(EXAMES).length-lista.length;
+ box.innerHTML=lista.map(k=>`<label class="chk"><input type="checkbox" name="exames" value="${k}" ${sel.has(k)?'checked':''}><span>${esc(EXAMES[k].n)}</span></label>`).join('')
+  +(soLista&&soLista.length&&restante>0?`<button type="button" class="btn s g" style="margin-top:6px" data-a="solTodos">${ic('plus')}Mostrar todos os exames (${restante} a mais)</button>`:'');
+}
+function mostrarTodosExames(){
+ const marcados=[...document.querySelectorAll('#f_exames input:checked')].map(x=>x.value);
+ renderExamesChecklist(marcados,null);
 }
 /* ASO (clínica) */
 function abrirAso(id){
@@ -1251,6 +1264,7 @@ closeFicha(){S.ficha=null;$('#modal-root').innerHTML=''},
 fichaSol(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:ultimoAso(c.id)?'Periódico':'Admissional',exames:examesPend(c),_enviar:true})},
 fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='riscos';render()},
 docFicha(d){docFicha(G('colaboradores',d.id))},
+solTodos(){mostrarTodosExames()},
 formPGR(){abrirFormPGR(S.emp||null)},
 pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(){pgrBulkAdd()},pgrRemRow(d){pgrRemRow(d.row)},
 new(d){abrirEnt(d.e)},
