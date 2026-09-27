@@ -118,6 +118,16 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .steps{display:grid;gap:10px;margin:16px 0;text-align:left}
 .steps div{display:flex;gap:12px;align-items:flex-start;background:var(--sf2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .steps b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--brand);color:var(--bi);display:grid;place-items:center;font-size:13px}
+#login-root{display:none;position:fixed;inset:0;z-index:300;background:linear-gradient(155deg,var(--side) 0%,color-mix(in srgb,var(--side) 78%,#000) 100%);align-items:center;justify-content:center;padding:20px}
+#login-root.on{display:flex}
+.login-card{background:var(--sf);border-radius:16px;padding:32px 28px;width:100%;max-width:380px;box-shadow:var(--shadow-lg)}
+.login-card .brand{justify-content:center;margin-bottom:18px}
+.login-card .brand b{color:var(--ink);font-size:19px}
+.login-card .brand span{color:var(--ink2)}
+.login-card h2{font-size:18px;text-align:center;margin-bottom:4px}
+.login-card p.sub{text-align:center;color:var(--ink2);font-size:13.5px;margin:0 0 20px}
+.login-err{background:var(--crits);color:var(--crit);border-radius:9px;padding:9px 12px;font-size:13.5px;margin-bottom:12px;display:none}
+.login-err.on{display:block}
 .overlay{position:fixed;inset:0;background:rgba(6,20,24,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
 .sheet{background:var(--sf);border-radius:14px;width:100%;max-width:760px;max-height:100%;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);margin:0}
 .sheet>header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;background:var(--sf2);border-radius:14px 14px 0 0}
@@ -180,6 +190,22 @@ html,body{background:#fff!important}
 <div id="app"></div>
 <div id="modal-root"></div>
 <div id="doc-root"></div>
+<div id="login-root"></div>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+window.__fbOk=false;
+try{
+ if(window.firebase){
+  const firebaseConfig={apiKey:"AIzaSyAM6b2NTXkyxbtjEI17cBjimMKqCwi6on8",authDomain:"sst-gestao-cl.firebaseapp.com",projectId:"sst-gestao-cl",storageBucket:"sst-gestao-cl.firebasestorage.app",messagingSenderId:"543294167849",appId:"1:543294167849:web:41c81fda916a3223b2f538"};
+  const app=firebase.initializeApp(firebaseConfig);
+  const secApp=firebase.initializeApp(firebaseConfig,'secondary');
+  window.FB={auth:app.auth(),db:app.firestore(),secAuth:secApp.auth()};
+  window.__fbOk=true;
+ }
+}catch(e){console.warn('Firebase indisponível neste ambiente (esperado no link do Claude):',e&&e.message);window.__fbOk=false;}
+</script>
 <script>
 'use strict';
 /* ====================== UTILITÁRIOS ====================== */
@@ -290,7 +316,8 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','usuarios'];
+const ADMIN_EMAIL='isaquebrito6@gmail.com';
 const DB={data:{},db:null,dl:null,mem:{}};
 COLS.forEach(c=>DB.data[c]={});
 let Q=Promise.resolve();
@@ -308,7 +335,12 @@ function delMany(c,fn){L(c).filter(fn).forEach(r=>del(c,r.id,true))}
 async function initData(){
  let ok=false;
  try{
-  if(window.claude&&claude.use){
+  if(window.__fbOk&&window.FB){
+   DB.db=window.FB.db;
+   try{DB.dl=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
+   COLS.forEach(c=>DB.db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>console.warn('snapshot',c,e)));
+   ok=true;
+  }else if(window.claude&&claude.use){
    const db=await claude.use('db');
    if(db){DB.db=db;
     try{DB.dl=await claude.use('downloads')}catch(e){}
@@ -346,11 +378,12 @@ async function saveAs(filename,data){
 }
 
 /* ====================== ESTADO E REGRAS ====================== */
-const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false};
+const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
-empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['documentos','Documentos','file']]};
+empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['documentos','Documentos','file']],
+colaborador:[['meuportal','Meus dados','users']]};
 const isC=()=>S.role==='consultoria';
 const byN=(a,b)=>norm(a.razao||a.nome).localeCompare(norm(b.razao||b.nome));
 const nEmp=id=>(G('empresas',id)||{}).razao||'—';
@@ -611,6 +644,95 @@ function aplicarModelo(id){
  document.querySelectorAll('#fm input[name="exames"]').forEach(c=>c.checked=h.ex.includes(c.value));
  nvlUpd();
 }
+/* ====================== AUTENTICAÇÃO (Firebase) ====================== */
+function renderLogin(erro){
+ $('#login-root').innerHTML=`<div class="login-card"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><br><span>Segurança e saúde no trabalho</span></div></div>
+ <h2>Entrar</h2><p class="sub">Use o e-mail e a senha cadastrados para você.</p>
+ <div class="login-err ${erro?'on':''}" id="login-erro">${esc(erro||'')}</div>
+ <form id="login-form">
+ <div class="fld"><label for="lg-email">E-mail</label><input id="lg-email" type="email" autocomplete="username" required></div>
+ <div class="fld" style="margin-top:10px"><label for="lg-senha">Senha</label><input id="lg-senha" type="password" autocomplete="current-password" required></div>
+ <button class="btn p" type="submit" style="width:100%;margin-top:16px">Entrar</button>
+ </form>
+ <button type="button" class="btn g s" style="width:100%;margin-top:10px" data-a="esqueciSenha">Esqueci minha senha</button>
+ </div>`;
+ $('#login-form').addEventListener('submit',e=>{e.preventDefault();doLogin()});
+}
+function renderSemPerfil(){
+ $('#app').innerHTML=`<div class="content" style="max-width:480px;margin:60px auto;text-align:center"><div class="mk" style="width:52px;height:52px;border-radius:14px;background:var(--soft);color:var(--brand);display:grid;place-items:center;margin:0 auto 14px">${ic('shield')}</div><h2>Sem perfil vinculado</h2><p class="muted">O e-mail <b>${esc(S.authUser&&S.authUser.email||'')}</b> não está vinculado a nenhum perfil neste sistema. Peça para o administrador cadastrar seu acesso em "Usuários".</p><button class="btn p" data-a="doLogout" style="margin-top:10px">Sair</button></div>`;
+}
+async function doLogin(){
+ const email=($('#lg-email')||{}).value.trim();
+ const senha=($('#lg-senha')||{}).value;
+ const err=$('#login-erro');err.classList.remove('on');err.textContent='';
+ if(!email||!senha){err.textContent='Preencha e-mail e senha.';err.classList.add('on');return}
+ try{
+  await FB.auth.signInWithEmailAndPassword(email,senha);
+ }catch(e){
+  const msgs={'auth/invalid-email':'E-mail inválido.','auth/user-not-found':'Não existe conta com esse e-mail.','auth/wrong-password':'Senha incorreta.','auth/invalid-credential':'E-mail ou senha incorretos.','auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.','auth/user-disabled':'Este acesso foi desativado.'};
+  err.textContent=msgs[e.code]||'Não foi possível entrar. Confira e-mail e senha.';
+  err.classList.add('on');
+ }
+}
+async function esqueciSenha(){
+ const email=(($('#lg-email')||{}).value||'').trim();
+ if(!email){toast('Digite seu e-mail no campo acima primeiro.');return}
+ try{await FB.auth.sendPasswordResetEmail(email);toast('Enviamos um e-mail para redefinir a senha.',5000)}
+ catch(e){toast('Não foi possível enviar. Confira o e-mail digitado.',4000)}
+}
+async function doLogout(){try{await FB.auth.signOut()}catch(e){}}
+async function resolverPerfil(user){
+ S.authUser=user;
+ if(user.email===ADMIN_EMAIL){S.role='consultoria';S.rid='';S.authLocked=false;return true}
+ try{
+  const snap=await FB.db.collection('usuarios').doc(user.uid).get();
+  if(!snap.exists)return false;
+  const p=snap.data();
+  if(p.role==='empresa'&&p.empresaId){S.role='empresa';S.rid=p.empresaId;S.authLocked=true;return true}
+  if(p.role==='clinica'&&p.clinicaId){S.role='clinica';S.rid=p.clinicaId;S.authLocked=true;return true}
+  if(p.role==='colaborador'&&p.colaboradorId){S.role='colaborador';S.rid=p.colaboradorId;S.authLocked=true;return true}
+  if(p.role==='admin'){S.role='consultoria';S.rid='';S.authLocked=false;return true}
+  return false;
+ }catch(e){console.warn(e);return false}
+}
+/* ---- gestão de usuários (admin) ---- */
+function abrirNovoUsuario(){
+ const empresas=L('empresas').sort(byN).map(e=>[e.id,e.razao]);
+ const clinicas=L('clinicas').sort(byN).map(c=>[c.id,c.nome]);
+ const colaboradores=L('colaboradores').sort(byN).map(c=>[c.id,c.nome+' — '+nEmp(c.empresaId)]);
+ openForm({title:'Novo usuário',btn:'Criar acesso',fields:[
+  {k:'email',l:'E-mail de login',t:'email',r:1,w:4},
+  {k:'senha',l:'Senha provisória',r:1,w:2,h:'Mínimo 6 caracteres. A pessoa pode trocar depois em "Esqueci minha senha".'},
+  {k:'role',l:'Perfil',t:'select',r:1,o:[['empresa','Empresa'],['clinica','Clínica'],['colaborador','Colaborador']],ph:'Selecione',w:3,c:'novoUserRole'},
+  {k:'vinculo',l:'Vincular a',t:'select',r:1,o:empresas,w:3}
+ ],val:{},save:async v=>{
+  if(!v.senha||v.senha.length<6){toast('A senha precisa ter pelo menos 6 caracteres.');return false}
+  try{
+   await FB.secAuth.createUserWithEmailAndPassword(v.email,v.senha);
+   const newUid=FB.secAuth.currentUser.uid;
+   const perfil={email:v.email,role:v.role,empresaId:v.role==='empresa'?v.vinculo:'',clinicaId:v.role==='clinica'?v.vinculo:'',colaboradorId:v.role==='colaborador'?v.vinculo:'',criadoEm:Date.now()};
+   await FB.db.collection('usuarios').doc(newUid).set(perfil);
+   await FB.secAuth.signOut();
+   toast('Acesso criado para '+v.email+'.');
+   render();
+  }catch(e){
+   const msgs={'auth/email-already-in-use':'Já existe uma conta com esse e-mail.','auth/invalid-email':'E-mail inválido.','auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).'};
+   toast(msgs[e.code]||'Não foi possível criar o acesso.',5000);
+   return false;
+  }
+ }});
+ setTimeout(()=>novoUserRoleAtualizar(),0);
+}
+function novoUserRoleAtualizar(){
+ const role=($('#f_role')||{}).value;
+ const sel=$('#f_vinculo');if(!sel)return;
+ const listas={empresa:L('empresas').sort(byN).map(e=>[e.id,e.razao]),clinica:L('clinicas').sort(byN).map(c=>[c.id,c.nome]),colaborador:L('colaboradores').sort(byN).map(c=>[c.id,c.nome+' — '+nEmp(c.empresaId)])};
+ sel.innerHTML=opts(listas[role]||[],'','Selecione');
+}
+function excluirUsuario(uid){
+ ask('Remover o acesso deste usuário? A conta de login continua existindo, mas ele para de ver qualquer dado do sistema.','Remover',()=>{del('usuarios',uid)});
+}
+
 /* ====================== FORMULÁRIO DO PGR (empresa + riscos numa tela) ====================== */
 function abrirFormPGR(empId){
  const emp=empId?clone(G('empresas',empId)):{grau:'2'};
@@ -877,6 +999,27 @@ function psicoResumo(p){
 
 /* ====================== TELAS ====================== */
 const VIEWS={};
+VIEWS.usuarios=()=>{
+ const us=L('usuarios').sort((a,b)=>(a.email||'').localeCompare(b.email||''));
+ const nomeDoVinculo=u=>u.role==='empresa'?nEmp(u.empresaId):u.role==='clinica'?nCli(u.clinicaId):u.role==='colaborador'?nCol(u.colaboradorId):'—';
+ return `<div class="bar"><div class="grow muted">Contas de acesso ao sistema. ${esc(ADMIN_EMAIL)} é sempre administrador total, fixo no sistema.</div><button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button></div>`+
+ (us.length?tbl([{h:'E-mail',f:u=>esc(u.email)},{h:'Perfil',f:u=>({empresa:'Empresa',clinica:'Clínica',colaborador:'Colaborador',admin:'Administrador'}[u.role]||u.role)},{h:'Vinculado a',f:u=>esc(nomeDoVinculo(u))},{h:'',a:1,f:u=>`<button class="btn s g d" data-a="delUsuario" data-id="${u.id}" aria-label="Remover">${ic('trash')}</button>`}],us)
+ :emptyBox('Nenhum usuário criado ainda','Crie o primeiro acesso para uma empresa, clínica ou colaborador.',`<button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button>`,'users'));
+};
+/* ---- portal do colaborador ---- */
+VIEWS.meuportal=()=>{
+ const c=G('colaboradores',S.rid);
+ if(!c)return emptyBox('Cadastro não encontrado','Seu usuário não está mais vinculado a um colaborador ativo. Fale com o administrador.',null,'users');
+ const e=G('empresas',c.empresaId)||{};
+ const rs=riscosDoColab(c),m=examesDe(rs),ks=chavesOrd(m);
+ const sols=L('solicitacoes').filter(s=>s.colabId===c.id).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
+ const pendPsico=sols.find(s=>!s.psico&&(s.status==='Solicitado'||s.status==='Agendado'));
+ return `<div class="card" style="margin-bottom:16px"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0">${esc(e.razao||'')} · ${esc(c.funcao||'—')} · ${esc(c.setor||'—')}</p></div>
+ ${pendPsico?`<div class="card" style="margin-bottom:16px;border-color:var(--acc)"><b>Você tem um checklist psicossocial pendente</b><p class="sm muted" style="margin:4px 0 10px">Responda antes do seu exame na clínica.</p><button class="btn p" data-a="psico" data-id="${pendPsico.id}">Responder agora</button></div>`:''}
+ <div class="card" style="margin-bottom:16px"><h3>Meus exames (PCMSO)</h3>${tbl([{h:'Exame',f:k=>esc(EXAMES[k].n)},{h:'Último',f:k=>fd(statusExame(c,k,m).last)},{h:'Vence em',f:k=>fd(statusExame(c,k,m).due)},{h:'Situação',f:k=>{const s=statusExame(c,k,m);return `<span class="chip ${s.k==='gray'?'gray':s.k}">${s.t}</span>`}}],ks)}</div>
+ <div class="card"><h3>Meu histórico</h3>${sols.length?tbl([{h:'Data',f:s=>fd(s.aso&&s.aso.data||s.dataSolic)},{h:'Tipo',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Resultado',f:s=>esc(s.aso&&s.aso.resultado||s.status)}],sols):'<p class="muted sm">Nenhum exame registrado ainda.</p>'}</div>`;
+};
+
 VIEWS.painel=()=>{
  const emp=L('empresas');
  if(!emp.length)return `<div class="card empty" style="max-width:640px;margin:20px auto"><h3>Vamos montar sua base de SST</h3><p>Siga a ordem abaixo. Tudo o que você cadastrar alimenta o PGR, o PCMSO e as guias de exame automaticamente.</p><div class="steps"><div><b>1</b><span><strong>Empresa cliente</strong><br><span class="muted sm">Dados, CNAE, grau de risco e responsáveis.</span></span></div><div><b>2</b><span><strong>Colaboradores e clínicas</strong><br><span class="muted sm">Função e setor de cada pessoa; clínicas que atendem.</span></span></div><div><b>3</b><span><strong>Inventário de riscos</strong><br><span class="muted sm">Perigos por setor. Os exames de cada função saem daqui.</span></span></div><div><b>4</b><span><strong>Gerar documentos</strong><br><span class="muted sm">PGR e PCMSO prontos para enviar ou imprimir.</span></span></div></div><div class="row" style="justify-content:center"><button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Cadastrar primeira empresa</button><button class="btn" data-a="demo">Ver com dados de exemplo</button></div></div>`;
@@ -1322,9 +1465,14 @@ function docFicha(c){
 
 /* ====================== RENDER E EVENTOS ====================== */
 function roleSel(){
+ if(S.usingAuth&&S.authLocked){
+  const nomes={consultoria:'Administrador',clinica:'Clínica',empresa:'Empresa',colaborador:'Colaborador'};
+  return `<span class="chip gray">${esc(nomes[S.role]||S.role)} · ${esc(S.authUser&&S.authUser.email||'')}</span> <button class="btn s g" data-a="doLogout">${ic('x')}Sair</button>`;
+ }
  let h=`<select id="role" data-c="role" aria-label="Perfil de visualização">${opts([['consultoria','Consultoria SST'],['clinica','Clínica'],['empresa','Empresa cliente']],S.role)}</select>`;
  if(S.role==='clinica')h+=`<select id="rid" data-c="rid" aria-label="Clínica">${opts(L('clinicas').sort(byN).map(c=>[c.id,c.nome]),S.rid,L('clinicas').length?'':'(cadastre uma clínica)')}</select>`;
  if(S.role==='empresa')h+=`<select id="rid" data-c="rid" aria-label="Empresa">${opts(L('empresas').sort(byN).map(c=>[c.id,c.razao]),S.rid,L('empresas').length?'':'(cadastre uma empresa)')}</select>`;
+ if(S.usingAuth)h+=` <button class="btn s g" data-a="doLogout">${ic('x')}Sair</button>`;
  return h;
 }
 function shell(){
@@ -1378,6 +1526,7 @@ pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
 newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},gerenciarSetores(d){abrirGerenciarSetores(d.id)},geRenomear(d){geRenomear(d.emp,d.campo,d.old,d.in)},geExcluir(d){geExcluir(d.emp,d.campo,d.val)},
+doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){abrirNovoUsuario()},delUsuario(d){excluirUsuario(d.id)},
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
@@ -1429,6 +1578,7 @@ solEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOpts(t.val
 solCol(){preencherExames()},
 solTipo(){preencherExames()},
 nvl(){nvlUpd()},
+novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
 async cep(t){
  const digits=t.value.replace(/\D/g,'');if(digits.length!==8)return;
@@ -1529,12 +1679,31 @@ window.addEventListener('appinstalled',()=>{
 });
 
 /* ====================== INÍCIO ====================== */
-(async()=>{
+async function iniciarSemAuth(){
  $('#app').innerHTML='<div class="content"><p class="muted">Carregando…</p></div>';
  S.cloud=await initData();
  if(DB.db)await new Promise(r=>setTimeout(r,800));
  S.ready=true;render();
-})();
+}
+function iniciarComAuth(){
+ S.usingAuth=true;
+ $('#login-root').classList.add('on');
+ renderLogin();
+ FB.auth.onAuthStateChanged(async user=>{
+  if(!user){
+   S.ready=false;S.authUser=null;$('#app').innerHTML='';
+   $('#login-root').classList.add('on');renderLogin();
+   return;
+  }
+  $('#login-root').classList.remove('on');
+  $('#app').innerHTML='<div class="content"><p class="muted">Entrando…</p></div>';
+  const ok=await resolverPerfil(user);
+  if(!ok){renderSemPerfil();return}
+  if(!S.ready){S.cloud=await initData();S.ready=true}
+  render();
+ });
+}
+if(window.__fbOk&&window.FB)iniciarComAuth();else iniciarSemAuth();
 </script>
 </body>
 </html>
