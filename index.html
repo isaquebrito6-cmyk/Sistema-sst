@@ -201,7 +201,7 @@ try{
   const firebaseConfig={apiKey:"AIzaSyAM6b2NTXkyxbtjEI17cBjimMKqCwi6on8",authDomain:"sst-gestao-cl.firebaseapp.com",projectId:"sst-gestao-cl",storageBucket:"sst-gestao-cl.firebasestorage.app",messagingSenderId:"543294167849",appId:"1:543294167849:web:41c81fda916a3223b2f538"};
   const app=firebase.initializeApp(firebaseConfig);
   const secApp=firebase.initializeApp(firebaseConfig,'secondary');
-  window.FB={auth:app.auth(),db:app.firestore(),secAuth:secApp.auth()};
+  window.FB={auth:app.auth(),db:app.firestore(),secAuth:secApp.auth(),EmailAuthProvider:firebase.auth.EmailAuthProvider};
   window.__fbOk=true;
  }
 }catch(e){console.warn('Firebase indisponível neste ambiente (esperado no link do Claude):',e&&e.message);window.__fbOk=false;}
@@ -318,7 +318,7 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','usuarios'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 const DB={data:{},db:null,dl:null,mem:{}};
 COLS.forEach(c=>DB.data[c]={});
@@ -341,6 +341,9 @@ async function initData(){
    DB.db=window.FB.db;
    try{DB.dl=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
    COLS.forEach(c=>DB.db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>console.warn('snapshot',c,e)));
+   if(S.role==='consultoria'){
+    DB.db.collection('usuarios').onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data.usuarios=m;render()},e=>console.warn('snapshot usuarios',e));
+   }
    ok=true;
   }else if(window.claude&&claude.use){
    const db=await claude.use('db');
@@ -679,10 +682,33 @@ async function doLogin(){
 async function esqueciSenha(){
  const email=(($('#lg-email')||{}).value||'').trim();
  if(!email){toast('Digite seu e-mail no campo acima primeiro.');return}
- try{await FB.auth.sendPasswordResetEmail(email);toast('Enviamos um e-mail para redefinir a senha.',5000)}
- catch(e){toast('Não foi possível enviar. Confira o e-mail digitado.',4000)}
+ try{await FB.auth.sendPasswordResetEmail(email);toast('Enviamos um e-mail para redefinir a senha. Confira também a caixa de spam.',6000)}
+ catch(e){
+  const msgs={'auth/invalid-email':'E-mail inválido.','auth/user-not-found':'Não existe conta com esse e-mail.','auth/missing-email':'Digite o e-mail no campo acima.','auth/unauthorized-domain':'Este endereço do site não está autorizado no Firebase (peça para o administrador liberar em Authentication → Settings → Authorized domains).','auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.'};
+  toast(msgs[e.code]||('Não foi possível enviar ('+(e.code||e.message||'erro desconhecido')+').'),6000);
+ }
 }
-async function doLogout(){try{await FB.auth.signOut()}catch(e){}}
+async function doLogout(){try{await FB.auth.signOut()}catch(e){}COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={}}
+function abrirTrocarSenha(){
+ openForm({title:'Trocar senha',btn:'Salvar nova senha',val:{},fields:[
+  {k:'atual',l:'Senha atual',t:'password',r:1,w:6},
+  {k:'nova',l:'Nova senha',t:'password',r:1,w:3,h:'Mínimo 6 caracteres'},
+  {k:'confirma',l:'Confirmar nova senha',t:'password',r:1,w:3}
+ ],save:async v=>{
+  if(v.nova.length<6){toast('A nova senha precisa ter pelo menos 6 caracteres.');return false}
+  if(v.nova!==v.confirma){toast('As senhas não coincidem.');return false}
+  try{
+   const cred=FB.EmailAuthProvider.credential(S.authUser.email,v.atual);
+   await FB.auth.currentUser.reauthenticateWithCredential(cred);
+   await FB.auth.currentUser.updatePassword(v.nova);
+   toast('Senha alterada com sucesso.');
+  }catch(e){
+   const msgs={'auth/wrong-password':'Senha atual incorreta.','auth/invalid-credential':'Senha atual incorreta.','auth/weak-password':'A nova senha é muito fraca.','auth/requires-recent-login':'Por segurança, saia e entre novamente antes de trocar a senha.'};
+   toast(msgs[e.code]||'Não foi possível trocar a senha.',5000);
+   return false;
+  }
+ }});
+}
 async function resolverPerfil(user){
  S.authUser=user;
  if(user.email===ADMIN_EMAIL){S.role='consultoria';S.rid='';S.authLocked=false;return true}
@@ -712,7 +738,7 @@ function abrirNovoUsuario(){
   try{
    await FB.secAuth.createUserWithEmailAndPassword(v.email,v.senha);
    const newUid=FB.secAuth.currentUser.uid;
-   const perfil={email:v.email,role:v.role,empresaId:v.role==='empresa'?v.vinculo:'',clinicaId:v.role==='clinica'?v.vinculo:'',colaboradorId:v.role==='colaborador'?v.vinculo:'',criadoEm:Date.now()};
+   const perfil={id:newUid,email:v.email,role:v.role,empresaId:v.role==='empresa'?v.vinculo:'',clinicaId:v.role==='clinica'?v.vinculo:'',colaboradorId:v.role==='colaborador'?v.vinculo:'',criadoEm:Date.now()};
    await FB.db.collection('usuarios').doc(newUid).set(perfil);
    await FB.secAuth.signOut();
    toast('Acesso criado para '+v.email+'.');
@@ -724,6 +750,19 @@ function abrirNovoUsuario(){
   }
  }});
  setTimeout(()=>novoUserRoleAtualizar(),0);
+}
+function abrirEditarUsuario(uid){
+ const u=G('usuarios',uid);if(!u)return;
+ openForm({title:'Editar acesso — '+u.email,btn:'Salvar',val:{role:u.role,vinculo:u.empresaId||u.clinicaId||u.colaboradorId||''},fields:[
+  {k:'email_display',l:'E-mail (não pode ser alterado aqui)',w:4,dis:1},
+  {k:'role',l:'Perfil',t:'select',r:1,o:[['empresa','Empresa'],['clinica','Clínica'],['colaborador','Colaborador']],ph:'Selecione',w:3,c:'novoUserRole'},
+  {k:'vinculo',l:'Vincular a',t:'select',r:1,o:u.role==='empresa'?L('empresas').sort(byN).map(e=>[e.id,e.razao]):u.role==='clinica'?L('clinicas').sort(byN).map(c=>[c.id,c.nome]):L('colaboradores').sort(byN).map(c=>[c.id,c.nome+' — '+nEmp(c.empresaId)]),w:3}
+ ],save:v=>{
+  const perfil={email:u.email,role:v.role,empresaId:v.role==='empresa'?v.vinculo:'',clinicaId:v.role==='clinica'?v.vinculo:'',colaboradorId:v.role==='colaborador'?v.vinculo:'',criadoEm:u.criadoEm||Date.now()};
+  save('usuarios',Object.assign({id:uid},perfil));
+  toast('Acesso atualizado.');
+ }});
+ setTimeout(()=>{const el=$('#f_email_display');if(el)el.value=u.email;novoUserRoleAtualizar();const sel=$('#f_vinculo');if(sel)sel.value=u.empresaId||u.clinicaId||u.colaboradorId||'';},0);
 }
 function novoUserRoleAtualizar(){
  const role=($('#f_role')||{}).value;
@@ -1005,7 +1044,7 @@ VIEWS.usuarios=()=>{
  const us=L('usuarios').sort((a,b)=>(a.email||'').localeCompare(b.email||''));
  const nomeDoVinculo=u=>u.role==='empresa'?nEmp(u.empresaId):u.role==='clinica'?nCli(u.clinicaId):u.role==='colaborador'?nCol(u.colaboradorId):'—';
  return `<div class="bar"><div class="grow muted">Contas de acesso ao sistema. ${esc(ADMIN_EMAIL)} é sempre administrador total, fixo no sistema.</div><button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button></div>`+
- (us.length?tbl([{h:'E-mail',f:u=>esc(u.email)},{h:'Perfil',f:u=>({empresa:'Empresa',clinica:'Clínica',colaborador:'Colaborador',admin:'Administrador'}[u.role]||u.role)},{h:'Vinculado a',f:u=>esc(nomeDoVinculo(u))},{h:'',a:1,f:u=>`<button class="btn s g d" data-a="delUsuario" data-id="${u.id}" aria-label="Remover">${ic('trash')}</button>`}],us)
+ (us.length?tbl([{h:'E-mail',f:u=>esc(u.email)},{h:'Perfil',f:u=>({empresa:'Empresa',clinica:'Clínica',colaborador:'Colaborador',admin:'Administrador'}[u.role]||u.role)},{h:'Vinculado a',f:u=>esc(nomeDoVinculo(u))},{h:'',a:1,f:u=>`<button class="btn s g" data-a="editUsuario" data-id="${u.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delUsuario" data-id="${u.id}" aria-label="Remover">${ic('trash')}</button>`}],us)
  :emptyBox('Nenhum usuário criado ainda','Crie o primeiro acesso para uma empresa, clínica ou colaborador.',`<button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button>`,'users'));
 };
 /* ---- portal do colaborador ---- */
@@ -1469,12 +1508,12 @@ function docFicha(c){
 function roleSel(){
  if(S.usingAuth&&S.authLocked){
   const nomes={consultoria:'Administrador',clinica:'Clínica',empresa:'Empresa',colaborador:'Colaborador'};
-  return `<span class="chip gray">${esc(nomes[S.role]||S.role)} · ${esc(S.authUser&&S.authUser.email||'')}</span> <button class="btn s g" data-a="doLogout">${ic('x')}Sair</button>`;
+  return `<span class="chip gray">${esc(nomes[S.role]||S.role)} · ${esc(S.authUser&&S.authUser.email||'')}</span> <button class="btn s g" data-a="trocarSenha">Trocar senha</button> <button class="btn s g" data-a="doLogout">${ic('x')}Sair</button>`;
  }
  let h=`<select id="role" data-c="role" aria-label="Perfil de visualização">${opts([['consultoria','Consultoria SST'],['clinica','Clínica'],['empresa','Empresa cliente']],S.role)}</select>`;
  if(S.role==='clinica')h+=`<select id="rid" data-c="rid" aria-label="Clínica">${opts(L('clinicas').sort(byN).map(c=>[c.id,c.nome]),S.rid,L('clinicas').length?'':'(cadastre uma clínica)')}</select>`;
  if(S.role==='empresa')h+=`<select id="rid" data-c="rid" aria-label="Empresa">${opts(L('empresas').sort(byN).map(c=>[c.id,c.razao]),S.rid,L('empresas').length?'':'(cadastre uma empresa)')}</select>`;
- if(S.usingAuth)h+=` <button class="btn s g" data-a="doLogout">${ic('x')}Sair</button>`;
+ if(S.usingAuth)h+=` <button class="btn s g" data-a="trocarSenha">Trocar senha</button> <button class="btn s g" data-a="doLogout">${ic('x')}Sair</button>`;
  return h;
 }
 function shell(){
@@ -1528,7 +1567,7 @@ pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
 newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},gerenciarSetores(d){abrirGerenciarSetores(d.id)},geRenomear(d){geRenomear(d.emp,d.campo,d.old,d.in)},geExcluir(d){geExcluir(d.emp,d.campo,d.val)},
-doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){abrirNovoUsuario()},delUsuario(d){excluirUsuario(d.id)},
+doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){abrirNovoUsuario()},editUsuario(d){abrirEditarUsuario(d.id)},delUsuario(d){excluirUsuario(d.id)},trocarSenha(){abrirTrocarSenha()},
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
@@ -1693,7 +1732,8 @@ function iniciarComAuth(){
  renderLogin();
  FB.auth.onAuthStateChanged(async user=>{
   if(!user){
-   S.ready=false;S.authUser=null;$('#app').innerHTML='';
+   S.ready=false;S.authUser=null;COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
+   $('#app').innerHTML='';
    $('#login-root').classList.add('on');renderLogin();
    return;
   }
