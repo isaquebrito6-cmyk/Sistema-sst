@@ -204,7 +204,7 @@ try{
   window.FB={auth:app.auth(),db:app.firestore(),secAuth:secApp.auth(),EmailAuthProvider:firebase.auth.EmailAuthProvider};
   window.__fbOk=true;
  }
-}catch(e){console.warn('Firebase indisponível neste ambiente (esperado no link do Claude):',e&&e.message);window.__fbOk=false;}
+}catch(e){console.warn('Firebase indisponível neste ambiente (o sistema abre em modo local):',e&&e.message);window.__fbOk=false;}
 </script>
 <script>
 'use strict';
@@ -223,6 +223,11 @@ const mask={cpf:v=>v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)/,'$1.$2'
 cnpj:v=>v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2'),
 tel:v=>{v=v.replace(/\D/g,'').slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v.replace(/(\d{2})(\d*)/,'($1) $2')},
 cep:v=>v.replace(/\D/g,'').slice(0,8).replace(/(\d{5})(\d)/,'$1-$2')};
+/* validação dos dígitos verificadores */
+const validaCPF=v=>{const d=String(v||'').replace(/\D/g,'');if(d.length!==11||/^(\d)\1{10}$/.test(d))return false;
+ for(const t of [9,10]){let s=0;for(let i=0;i<t;i++)s+=d[i]*(t+1-i);if((s*10)%11%10!==+d[t])return false}return true};
+const validaCNPJ=v=>{const d=String(v||'').replace(/\D/g,'');if(d.length!==14||/^(\d)\1{13}$/.test(d))return false;
+ for(const t of [12,13]){let s=0,p=t-7;for(let i=0;i<t;i++){s+=d[i]*p--;if(p<2)p=9}const r=s%11<2?0:11-s%11;if(r!==+d[t])return false}return true};
 const IC={
 home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
 build:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/>',
@@ -322,7 +327,7 @@ function toCSV(headers,rows){
 /* ====================== CAMADA DE DADOS ====================== */
 const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
-const DB={data:{},db:null,dl:null,mem:{}};
+const DB={data:{},db:null,dl:null,mem:{},unsubs:[]};
 COLS.forEach(c=>DB.data[c]={});
 let Q=Promise.resolve();
 const enqueue=fn=>{Q=Q.then(fn).catch(e=>{console.error(e);errBanner('Não foi possível salvar no servidor ('+(e&&e.code||e&&e.message||'erro desconhecido')+'). Os dados mostrados na tela podem não estar realmente salvos.')})};
@@ -331,49 +336,73 @@ const loadLocal=()=>{try{const j=JSON.parse(localStorage.getItem('sst.v1')||'nul
 const L=c=>Object.values(DB.data[c]||{});
 const G=(c,id)=>(DB.data[c]||{})[id];
 const CFG=()=>G('config','main')||{};
-function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now();DB.data[c][rec.id]=rec;
+function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now();
+ /* clinicaIds = clínicas que podem ler o registro (regras do Firestore); nunca se perde ao salvar */
+ const ant=(DB.data[c]||{})[rec.id];
+ if(ant&&ant.clinicaIds&&!rec.clinicaIds)rec.clinicaIds=ant.clinicaIds.slice();
+ if(c==='riscos'&&!rec.clinicaIds){const em=G('empresas',rec.empresaId);if(em&&em.clinicaIds&&em.clinicaIds.length)rec.clinicaIds=em.clinicaIds.slice()}
+ DB.data[c][rec.id]=rec;
  if(DB.db){const r=clone(rec);enqueue(()=>DB.db.doc(c+'/'+r.id).set(r))}else persist();
  if(!quiet)render();return rec}
 function del(c,id,quiet){delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();if(!quiet)render()}
 function delMany(c,fn){L(c).filter(fn).forEach(r=>del(c,r.id,true))}
+function stopListeners(){while(DB.unsubs.length){try{DB.unsubs.pop()()}catch(e){}}}
+/* Cada perfil só pede ao banco o que pode ver (as regras em firestore.rules exigem isso). */
 async function initData(){
  let ok=false;
  try{
   if(window.__fbOk&&window.FB){
-   DB.db=window.FB.db;
-   try{DB.dl=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
-   COLS.forEach(c=>DB.db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.')}));
-   if(S.role==='consultoria'){
-    DB.db.collection('usuarios').onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data.usuarios=m;render()},e=>{console.warn('snapshot usuarios',e);errBanner('Não foi possível carregar os usuários ('+(e&&e.code||'erro')+').')});
+   DB.db=window.FB.db;stopListeners();
+   const col=c=>DB.db.collection(c),ref=(c,id)=>DB.db.doc(c+'/'+id),rid=S.rid;
+   const ouvir=(c,q,umDoc)=>{DB.unsubs.push(q.onSnapshot(s=>{const m={};if(umDoc){if(s.exists)m[s.id]=s.data()}else s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.')}))};
+   if(S.role==='empresa'){
+    ouvir('config',ref('config','main'),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas'));
+    ['colaboradores','riscos','acoes','solicitacoes','documentos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
+   }else if(S.role==='clinica'){
+    ouvir('config',ref('config','main'),1);ouvir('clinicas',ref('clinicas',rid),1);
+    ouvir('solicitacoes',col('solicitacoes').where('clinicaId','==',rid));
+    ['colaboradores','empresas','riscos'].forEach(c=>ouvir(c,col(c).where('clinicaIds','array-contains',rid)));
+   }else if(S.role==='colaborador'){
+    const cs=await ref('colaboradores',rid).get(),eid=cs.exists?(cs.data().empresaId||''):'';
+    ouvir('config',ref('config','main'),1);ouvir('colaboradores',ref('colaboradores',rid),1);ouvir('clinicas',col('clinicas'));
+    if(eid){ouvir('empresas',ref('empresas',eid),1);ouvir('riscos',col('riscos').where('empresaId','==',eid))}
+    ouvir('solicitacoes',col('solicitacoes').where('colabId','==',rid));
+   }else{
+    COLS.forEach(c=>ouvir(c,col(c)));ouvir('usuarios',col('usuarios'));
    }
    ok=true;
-  }else if(window.claude&&claude.use){
-   const db=await claude.use('db');
-   if(db){DB.db=db;
-    try{DB.dl=await claude.use('downloads')}catch(e){}
-    COLS.forEach(c=>db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>console.warn('snapshot',c,e)));
-    ok=true}
-   else{try{DB.dl=await claude.use('downloads')}catch(e){}}
   }
- }catch(e){console.warn(e)}
+ }catch(e){console.warn(e);errBanner('Não foi possível carregar os dados ('+(e&&e.code||e&&e.message||'erro')+').')}
  if(!ok)loadLocal();
  return ok;
+}
+/* Libera para a clínica da solicitação a leitura do colaborador, da empresa e dos riscos (campo clinicaIds). */
+function liberarClinica(s){
+ if(!DB.db||!s||!s.clinicaId||!window.firebase)return;
+ const add=(c,id)=>{const r=G(c,id);if(!r)return;const ids=r.clinicaIds||[];if(ids.includes(s.clinicaId))return;r.clinicaIds=ids.concat([s.clinicaId]);
+  enqueue(()=>DB.db.doc(c+'/'+id).update({clinicaIds:firebase.firestore.FieldValue.arrayUnion(s.clinicaId)}))};
+ add('colaboradores',s.colabId);add('empresas',s.empresaId);
+ L('riscos').filter(r=>r.empresaId===s.empresaId).forEach(r=>add('riscos',r.id));
 }
 /* arquivos (ASO em PDF/imagem): guardados em pedaços no banco compartilhado */
 const b64enc=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
 const b64dec=b=>{const s=atob(b);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
-async function putFile(file){
+async function putFile(file,ctx){
  if(file.size>3*1024*1024)throw new Error('O arquivo tem mais de 3 MB. Comprima o PDF ou envie uma foto menor.');
  const b64=b64enc(await file.arrayBuffer()),fid=uid();
+ const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||''};
  if(DB.db){const CH=180000,n=Math.max(1,Math.ceil(b64.length/CH));
-  for(let i=0;i<n;i++)await DB.db.doc('arquivos/'+fid+'_'+i).set({fid,n:i,total:n,data:b64.slice(i*CH,(i+1)*CH)});
+  for(let i=0;i<n;i++)await DB.db.doc('arquivos/'+fid+'_'+i).set(Object.assign({fid,n:i,total:n,data:b64.slice(i*CH,(i+1)*CH)},dono));
   return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n}}
  DB.mem[fid]=b64;try{localStorage.setItem('sst.f.'+fid,b64)}catch(e){}
  return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n:1}
 }
 async function getFile(m){
  let b64='';
- if(DB.db){const q=await DB.db.collection('arquivos').where('fid','==',m.fid).get();b64=q.docs.map(d=>d.data()).sort((a,b)=>a.n-b.n).map(p=>p.data).join('')}
+ if(DB.db){let qr=DB.db.collection('arquivos').where('fid','==',m.fid);
+  if(S.authLocked&&S.role==='empresa')qr=qr.where('empresaId','==',S.rid);
+  if(S.authLocked&&S.role==='clinica')qr=qr.where('clinicaId','==',S.rid);
+  const q=await qr.get();b64=q.docs.map(d=>d.data()).sort((a,b)=>a.n-b.n).map(p=>p.data).join('')}
  else b64=DB.mem[m.fid]||localStorage.getItem('sst.f.'+m.fid)||'';
  if(!b64)throw new Error('Arquivo não encontrado.');
  return new Blob([b64dec(b64)],{type:m.mime})
@@ -480,6 +509,9 @@ function submitForm(e){
   if(f.r&&!vals[f.k]){w.classList.add('bad');bad=bad||w}else w.classList.remove('bad');
  });
  if(bad){toast('Preencha os campos obrigatórios (*).');bad.querySelector('input,select,textarea').focus();return}
+ let inval=null;
+ cfg.fields.forEach(f=>{if(inval||f.sec||!f.m)return;const x=vals[f.k];if(!x)return;if((f.m==='cpf'&&!validaCPF(x))||(f.m==='cnpj'&&!validaCNPJ(x)))inval=f});
+ if(inval){const w=document.getElementById('w_'+inval.k);w.classList.add('bad');toast((inval.m==='cpf'?'CPF':'CNPJ')+' inválido. Confira os números digitados.',4000);w.querySelector('input').focus();return}
  if(cfg.save(vals)!==false)closeForm();
 }
 function ask(msg,label,fn){
@@ -690,7 +722,7 @@ async function esqueciSenha(){
   toast(msgs[e.code]||('Não foi possível enviar ('+(e.code||e.message||'erro desconhecido')+').'),6000);
  }
 }
-async function doLogout(){try{await FB.auth.signOut()}catch(e){}COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={}}
+async function doLogout(){stopListeners();try{await FB.auth.signOut()}catch(e){}COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={}}
 function abrirTrocarSenha(){
  openForm({title:'Trocar senha',btn:'Salvar nova senha',val:{},fields:[
   {k:'atual',l:'Senha atual',t:'password',r:1,w:6},
@@ -972,7 +1004,7 @@ function abrirSol(id,pre){
  save:v=>{
   if(!v.exames.includes('clinico'))v.exames.unshift('clinico');
   const novo=!rec.id;Object.assign(rec,v);if(v.dataAgend&&rec.status==='Solicitado')rec.status='Agendado';
-  const r=save('solicitacoes',rec);toast(novo?'Solicitação criada. Abrindo a guia, o ASO e o checklist para enviar…':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
+  const r=save('solicitacoes',rec);liberarClinica(r);toast(novo?'Solicitação criada. Abrindo a guia, o ASO e o checklist para enviar…':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
  }});
  if(id)solInfoUpdate();else preencherExames();
 }
@@ -1154,9 +1186,9 @@ VIEWS.documentos=()=>{
 VIEWS.config=()=>{
  const c=CFG();
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
- <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Compartilhado.</b> Os dados ficam salvos no banco do artefato e são vistos por todos que têm acesso ao link, com permissão de edição.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho. Para trabalhar em equipe ou com clínicas, publique o sistema como artefato compartilhado.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
+ <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa fictícia completa para você testar a geração dos documentos.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
- <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) mostra o sistema como cada parte enxerga: a clínica só vê as solicitações dela; a empresa só vê as suas. É um filtro de visualização, não um login: quem tem permissão de edição neste artefato acessa todos os dados. Dados de saúde são sensíveis pela LGPD, então compartilhe o link apenas com quem precisa.</p></div></div>`;
+ <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button></div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes.</p>`:''}</div></div></div>`;
 };
 
 /* detalhe da solicitação */
@@ -1605,6 +1637,18 @@ logo(){$('#logo-f').click()},
 logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:'main'}))},
 async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j))toast('Backup salvo.')},
 restore(){$('#bk-f').click()},
+async migrarAcessos(){
+ if(!DB.db)return;
+ ask('Atualizar as permissões de acesso das clínicas e dos arquivos de ASO já existentes? É seguro repetir.','Atualizar',async()=>{
+  try{
+   toast('Atualizando permissões…',2500);
+   for(const s of L('solicitacoes')){
+    liberarClinica(s);
+    if(s.arquivo&&s.arquivo.fid){for(let i=0;i<(s.arquivo.n||1);i++){try{await DB.db.doc('arquivos/'+s.arquivo.fid+'_'+i).update({empresaId:s.empresaId||'',clinicaId:s.clinicaId||''})}catch(e){console.warn('arquivo',e)}}}
+   }
+   await Q;toast('Permissões atualizadas.',4000);
+  }catch(e){toast('Não foi possível atualizar ('+(e&&e.code||e&&e.message||'erro')+').',5000)}
+ })},
 wipe(){ask('Apagar TODOS os dados do sistema? Faça um backup antes.','Apagar tudo',()=>{COLS.forEach(c=>delMany(c,()=>true));toast('Dados apagados.')})},
 instalar(){if(window._deferredInstall){window._deferredInstall.prompt()}else{toast('Para instalar: no menu do navegador, use "Adicionar à tela inicial" ou "Instalar app".',5000)}},
 demo(){carregarDemo()}
@@ -1666,7 +1710,7 @@ async cnpj(t){
 modelo(t){aplicarModelo(t.value)},
 async asoF(t){
  const f=t.files[0];if(!f)return;const id=t.dataset.id;
- try{toast('Enviando arquivo…',2000);const meta=await putFile(f);const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.')}
+ try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{empresaId:s0.empresaId,clinicaId:s0.clinicaId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.')}
  catch(e){toast(e.message||'Falha ao enviar o arquivo.',5000)}
 },
 logoF(t){
@@ -1734,7 +1778,7 @@ function iniciarComAuth(){
  renderLogin();
  FB.auth.onAuthStateChanged(async user=>{
   if(!user){
-   S.ready=false;S.authUser=null;COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
+   stopListeners();S.ready=false;S.authUser=null;COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
    $('#app').innerHTML='';
    $('#login-root').classList.add('on');renderLogin();
    return;

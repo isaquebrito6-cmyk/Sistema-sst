@@ -1,17 +1,41 @@
 # Sistema SST Gestão
 
-Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMSO (NR-7), ASO, clínicas, colaboradores e inventário de riscos. Responsivo (celular e computador), 100% em um único arquivo HTML.
+Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMSO (NR-7), ASO, clínicas, colaboradores e inventário de riscos. Responsivo (celular e computador), em um único arquivo `index.html`.
 
-## Como usar
+## Como funciona
 
-Basta abrir o arquivo `index.html` em qualquer navegador — não precisa de servidor nem de instalação. Ao ser publicado em um site (GitHub Pages, Cloudflare Pages etc.), os dados ficam salvos no navegador de cada pessoa que acessa (armazenamento local), então não sincronizam automaticamente entre diferentes usuários. Use **Configurações → Exportar backup** para salvar os dados e **Restaurar backup** para carregá-los em outro navegador.
+- **Login** por e-mail e senha (Firebase Authentication). Perfis: administrador, empresa, clínica e colaborador.
+- **Dados** no Firestore. Cada perfil só consulta o que pode ver, e o servidor garante isso pelas regras de `firestore.rules`.
+- Sem conexão com o Firebase (por exemplo, abrindo o arquivo direto no computador), o sistema funciona em **modo local**: os dados ficam só naquele navegador. Use **Configurações → Exportar backup** para guardá-los.
 
 ## Publicar no Cloudflare Pages
 
-1. Crie a conta e faça login em https://dash.cloudflare.com
-2. Vá em **Workers e Pages → Criar → Pages → Conectar ao Git**
-3. Selecione este repositório no GitHub
-4. Em "Build settings": deixe o comando de build **vazio** e o diretório de saída como `/` (raiz)
-5. Clique em **Salvar e implantar**
+1. Em https://dash.cloudflare.com vá em **Workers e Pages → Criar → Pages → Conectar ao Git**.
+2. Selecione este repositório. Comando de build **vazio** e diretório de saída `/`.
+3. Em **Firebase → Authentication → Settings → Authorized domains**, adicione o endereço `*.pages.dev` do site.
 
-O site fica no ar em poucos segundos, em um endereço como `https://sst-gestao.pages.dev`.
+## Regras de segurança do Firestore (obrigatório)
+
+O arquivo `firestore.rules` define quem pode ler e gravar cada coleção. Ele **não é publicado automaticamente** com o site. Para ativar:
+
+1. Faça o deploy desta versão do site (o código novo já consulta só o que cada perfil pode ver).
+2. Entre como administrador e abra **Configurações → Perfis de acesso → Atualizar permissões de acesso** (uma vez; é seguro repetir). Isso libera para cada clínica os dados das solicitações que já existem e identifica de quem é cada arquivo de ASO já enviado.
+3. No Firebase Console, abra **Firestore Database → Regras**, cole o conteúdo de `firestore.rules` e clique em **Publicar**.
+4. Teste com uma conta de cada perfil (veja abaixo).
+
+### Roteiro de teste depois de publicar
+
+| Entrar como | Deve conseguir | Não deve conseguir |
+|---|---|---|
+| Administrador | tudo | — |
+| Empresa | ver seus colaboradores, riscos, ações, solicitações e documentos; criar solicitações e colaboradores; baixar ASO das suas solicitações | ver dados de outra empresa; editar riscos ou documentos |
+| Clínica | ver as solicitações dela, os colaboradores e riscos ligados a elas; registrar o ASO e anexar o arquivo | ver outras clínicas, empresas sem solicitação para ela, ações ou documentos |
+| Colaborador | ver os próprios dados e exames; responder o checklist psicossocial | ver outros colaboradores ou editar outros campos |
+
+Se algum perfil mostrar a faixa vermelha "Não foi possível carregar…", a regra daquela coleção está recusando a consulta. Anote a coleção citada na faixa.
+
+## Observações
+
+- A clínica passa a enxergar o colaborador, a empresa e os riscos quando uma solicitação é criada para ela (campo `clinicaIds`). Esse acesso não é retirado automaticamente se a solicitação for excluída.
+- Arquivos de ASO continuam guardados no Firestore (limite de 3 MB). Uma evolução recomendada é migrar para o Firebase Storage.
+- Dados de saúde são sensíveis pela LGPD: crie acessos só para quem precisa.
