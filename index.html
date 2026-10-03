@@ -246,6 +246,8 @@ check:'<path d="M5 12l5 5 9-10"/>'
 };
 const ic=(n,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]||''}</svg>`;
 function toast(m,ms=3200){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms)}
+function errBanner(m){let b=document.getElementById('db-err-banner');if(!b){b=document.createElement('div');b.id='db-err-banner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#b42318;color:#fff;padding:10px 16px;font-size:14px;display:flex;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2)';document.body.appendChild(b)}
+ b.innerHTML=`<span style="flex:1">${esc(m)}</span><button type="button" style="background:transparent;border:1px solid rgba(255,255,255,.6);color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer" onclick="this.parentElement.remove()">Fechar</button>`}
 
 /* ====================== CATÁLOGOS ====================== */
 const EXAMES={
@@ -323,7 +325,7 @@ const ADMIN_EMAIL='isaquebrito6@gmail.com';
 const DB={data:{},db:null,dl:null,mem:{}};
 COLS.forEach(c=>DB.data[c]={});
 let Q=Promise.resolve();
-const enqueue=fn=>{Q=Q.then(fn).catch(e=>{console.error(e);toast('Não foi possível salvar no servidor. Confira se você tem permissão de edição.')})};
+const enqueue=fn=>{Q=Q.then(fn).catch(e=>{console.error(e);errBanner('Não foi possível salvar no servidor ('+(e&&e.code||e&&e.message||'erro desconhecido')+'). Os dados mostrados na tela podem não estar realmente salvos.')})};
 const persist=()=>{try{localStorage.setItem('sst.v1',JSON.stringify(DB.data))}catch(e){}};
 const loadLocal=()=>{try{const j=JSON.parse(localStorage.getItem('sst.v1')||'null');if(j)COLS.forEach(c=>DB.data[c]=j[c]||{})}catch(e){}};
 const L=c=>Object.values(DB.data[c]||{});
@@ -340,9 +342,9 @@ async function initData(){
   if(window.__fbOk&&window.FB){
    DB.db=window.FB.db;
    try{DB.dl=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
-   COLS.forEach(c=>DB.db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>console.warn('snapshot',c,e)));
+   COLS.forEach(c=>DB.db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.')}));
    if(S.role==='consultoria'){
-    DB.db.collection('usuarios').onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data.usuarios=m;render()},e=>console.warn('snapshot usuarios',e));
+    DB.db.collection('usuarios').onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data.usuarios=m;render()},e=>{console.warn('snapshot usuarios',e);errBanner('Não foi possível carregar os usuários ('+(e&&e.code||'erro')+').')});
    }
    ok=true;
   }else if(window.claude&&claude.use){
