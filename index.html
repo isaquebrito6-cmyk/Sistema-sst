@@ -336,16 +336,70 @@ function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now(
  if(!quiet)render();return rec}
 function del(c,id,quiet){delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();if(!quiet)render()}
 function delMany(c,fn){L(c).filter(fn).forEach(r=>del(c,r.id,true))}
+/* ---- sincronização com o Firestore, com isolamento de leitura por perfil ----
+   Admin: sincroniza tudo. Empresa/clínica/colaborador: só os registros deles,
+   via consultas filtradas (where) em vez de baixar a coleção inteira. */
+DB.unsubs=[];DB.refSynced={empresas:new Set(),colaboradores:new Set(),clinicas:new Set(),riscosEmp:new Set()};
+function fsUnsubAll(){DB.unsubs.forEach(u=>{try{u()}catch(e){}});DB.unsubs=[];DB.refSynced={empresas:new Set(),colaboradores:new Set(),clinicas:new Set(),riscosEmp:new Set()}}
+function syncCol(c,filtro,label){
+ const ref=filtro?filtro(DB.db.collection(c)):DB.db.collection(c);
+ DB.unsubs.push(ref.onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},
+  e=>{console.warn('snapshot',label||c,e);errBanner('Não foi possível carregar os dados de "'+(label||c)+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.')}));
+}
+function syncDoc(c,id){
+ if(!id)return;
+ DB.unsubs.push(DB.db.doc(c+'/'+id).onSnapshot(d=>{DB.data[c]=DB.data[c]||{};if(d.exists)DB.data[c][id]=d.data();else delete DB.data[c][id];render()},
+  e=>{console.warn('doc',c,id,e);errBanner('Não foi possível carregar "'+c+'" ('+(e&&e.code||'erro')+').')}));
+}
+function ensureDoc(c,id){if(!id||DB.refSynced[c].has(id))return;DB.refSynced[c].add(id);syncDoc(c,id)}
+function ensureRiscosEmp(empId){
+ if(!empId||DB.refSynced.riscosEmp.has(empId))return;DB.refSynced.riscosEmp.add(empId);
+ DB.unsubs.push(DB.db.collection('riscos').where('empresaId','==',empId).onSnapshot(s=>{
+  DB.data.riscos=DB.data.riscos||{};s.docs.forEach(d=>{DB.data.riscos[d.id]=d.data()});render();
+ },e=>console.warn('riscos ref',e)));
+}
+function wireRefsFromSolicitacoes(ids){
+ (ids||[]).forEach(s=>{ensureDoc('empresas',s.empresaId);ensureDoc('colaboradores',s.colabId);ensureDoc('clinicas',s.clinicaId);if(s.empresaId)ensureRiscosEmp(s.empresaId)});
+}
+async function wireFirestoreSync(){
+ fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
+ if(S.role==='consultoria'){
+  COLS.forEach(c=>syncCol(c));
+  syncCol('usuarios');
+  return;
+ }
+ syncCol('config');
+ if(S.role==='empresa'){
+  syncDoc('empresas',S.rid);
+  syncCol('clinicas');
+  ['colaboradores','riscos','acoes','solicitacoes','documentos'].forEach(c=>syncCol(c,ref=>ref.where('empresaId','==',S.rid),c));
+ }else if(S.role==='clinica'){
+  syncDoc('clinicas',S.rid);
+  const ref=DB.db.collection('solicitacoes').where('clinicaId','==',S.rid);
+  DB.unsubs.push(ref.onSnapshot(s=>{
+   const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data.solicitacoes=m;
+   wireRefsFromSolicitacoes(Object.values(m));render();
+  },e=>{console.warn('snapshot solicitacoes',e);errBanner('Não foi possível carregar as solicitações ('+(e&&e.code||'erro')+').')}));
+ }else if(S.role==='colaborador'){
+  syncDoc('colaboradores',S.rid);
+  const ref=DB.db.collection('solicitacoes').where('colabId','==',S.rid);
+  DB.unsubs.push(ref.onSnapshot(s=>{
+   const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data.solicitacoes=m;
+   Object.values(m).forEach(s2=>ensureDoc('clinicas',s2.clinicaId));render();
+  },e=>{console.warn('snapshot solicitacoes',e);errBanner('Não foi possível carregar suas solicitações ('+(e&&e.code||'erro')+').')}));
+  try{
+   const snap=await DB.db.doc('colaboradores/'+S.rid).get();
+   if(snap.exists){const empId=snap.data().empresaId;if(empId){ensureDoc('empresas',empId);ensureRiscosEmp(empId)}}
+  }catch(e){console.warn(e)}
+ }
+}
 async function initData(){
  let ok=false;
  try{
   if(window.__fbOk&&window.FB){
    DB.db=window.FB.db;
    try{DB.dl=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
-   COLS.forEach(c=>DB.db.collection(c).onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.')}));
-   if(S.role==='consultoria'){
-    DB.db.collection('usuarios').onSnapshot(s=>{const m={};s.docs.forEach(d=>{m[d.id]=d.data()});DB.data.usuarios=m;render()},e=>{console.warn('snapshot usuarios',e);errBanner('Não foi possível carregar os usuários ('+(e&&e.code||'erro')+').')});
-   }
+   await wireFirestoreSync();
    ok=true;
   }else if(window.claude&&claude.use){
    const db=await claude.use('db');
@@ -690,7 +744,7 @@ async function esqueciSenha(){
   toast(msgs[e.code]||('Não foi possível enviar ('+(e.code||e.message||'erro desconhecido')+').'),6000);
  }
 }
-async function doLogout(){try{await FB.auth.signOut()}catch(e){}COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={}}
+async function doLogout(){try{await FB.auth.signOut()}catch(e){}fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={}}
 function abrirTrocarSenha(){
  openForm({title:'Trocar senha',btn:'Salvar nova senha',val:{},fields:[
   {k:'atual',l:'Senha atual',t:'password',r:1,w:6},
@@ -1734,7 +1788,7 @@ function iniciarComAuth(){
  renderLogin();
  FB.auth.onAuthStateChanged(async user=>{
   if(!user){
-   S.ready=false;S.authUser=null;COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
+   S.ready=false;S.authUser=null;fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
    $('#app').innerHTML='';
    $('#login-root').classList.add('on');renderLogin();
    return;
