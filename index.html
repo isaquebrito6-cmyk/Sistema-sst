@@ -1852,6 +1852,21 @@ window.addEventListener('appinstalled',()=>{
  window._deferredInstall=null;const b=document.getElementById('install-btn');if(b)b.classList.remove('show');toast('App instalado.');
 });
 
+/* ---- logout automático por inatividade (só quando autenticado via Firebase) ---- */
+const INACTIVITY_MS=30*60*1000; // 30 minutos
+let _inactivityTimer=null;
+function resetInactivityTimer(){
+ if(!S.usingAuth||!S.authUser)return;
+ if(_inactivityTimer)clearTimeout(_inactivityTimer);
+ _inactivityTimer=setTimeout(async()=>{
+  if(!S.usingAuth||!S.authUser)return;
+  await doLogout();
+  toast('Sessão encerrada por inatividade. Faça login novamente.',6000);
+ },INACTIVITY_MS);
+}
+function stopInactivityTimer(){if(_inactivityTimer){clearTimeout(_inactivityTimer);_inactivityTimer=null}}
+['click','keydown','mousemove','touchstart','scroll'].forEach(ev=>document.addEventListener(ev,resetInactivityTimer,{passive:true}));
+
 /* ====================== INÍCIO ====================== */
 async function iniciarSemAuth(){
  $('#app').innerHTML='<div class="content"><p class="muted">Carregando…</p></div>';
@@ -1866,6 +1881,7 @@ function iniciarComAuth(){
  FB.auth.onAuthStateChanged(async user=>{
   if(!user){
    stopListeners();S.ready=false;S.authUser=null;COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};DB.data.auditoria={};
+   stopInactivityTimer();
    $('#app').innerHTML='';
    $('#login-root').classList.add('on');renderLogin();
    return;
@@ -1875,6 +1891,7 @@ function iniciarComAuth(){
   const ok=await resolverPerfil(user);
   if(!ok){renderSemPerfil();return}
   if(!S.ready){S.cloud=await initData();S.ready=true;audit('acessar','usuarios',user.uid,{role:S.papel})}
+  resetInactivityTimer();
   render();
  });
 }
