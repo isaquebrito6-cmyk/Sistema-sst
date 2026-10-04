@@ -1,0 +1,169 @@
+rules_version = '2';
+
+// Regras de segurança do SST Gestão.
+// Publicar em: Firebase Console > Firestore Database > Regras (veja o README).
+//
+// Perfis (documento usuarios/{uid}): admin | empresa | clinica | colaborador.
+// O administrador fixo é o e-mail abaixo; outros administradores têm role == 'admin'.
+// Ninguém além do administrador consegue criar ou alterar perfis (impede auto-promoção).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- funções auxiliares ----------
+    function logado() { return request.auth != null; }
+
+    function emailAdmin() {
+      return logado() && request.auth.token.email == 'isaquebrito6@gmail.com';
+    }
+
+    function perfilRef() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function temPerfil() { return logado() && exists(perfilRef()); }
+
+    function perfil() { return get(perfilRef()).data; }
+
+    function admin() {
+      return emailAdmin() || (temPerfil() && perfil().role == 'admin');
+    }
+
+    function ehEmpresa(id) {
+      return temPerfil() && perfil().role == 'empresa' && perfil().empresaId == id;
+    }
+
+    function ehClinica(id) {
+      return temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == id;
+    }
+
+    function ehColaborador(id) {
+      return temPerfil() && perfil().role == 'colaborador' && perfil().colaboradorId == id;
+    }
+
+    // empresa à qual o colaborador logado pertence
+    function empresaDoColaborador() {
+      return get(/databases/$(database)/documents/colaboradores/$(perfil().colaboradorId)).data.empresaId;
+    }
+
+    function temAcesso() { return admin() || temPerfil(); }
+
+    // true se a única alteração foi no(s) campo(s) informado(s)
+    function soMudou(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    // ---------- perfis de usuário ----------
+    match /usuarios/{uid} {
+      allow get: if logado() && (request.auth.uid == uid || admin());
+      allow list: if admin();
+      allow write: if admin();
+    }
+
+    // ---------- dados da consultoria (nome, logotipo, responsável) ----------
+    match /config/{id} {
+      allow read: if temAcesso();
+      allow write: if admin();
+    }
+
+    // ---------- clínicas (dados cadastrais, não sensíveis) ----------
+    match /clinicas/{id} {
+      allow get: if admin() || ehClinica(id) || (temPerfil() && perfil().role != 'clinica');
+      allow list: if admin() || (temPerfil() && perfil().role != 'clinica');
+      allow write: if admin();
+    }
+
+    // ---------- empresas ----------
+    match /empresas/{id} {
+      allow get: if admin()
+        || ehEmpresa(id)
+        || (temPerfil() && perfil().role == 'colaborador' && empresaDoColaborador() == id)
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
+      allow list: if admin()
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
+      allow create, delete: if admin();
+      // a empresa só pode liberar leitura para clínicas (campo clinicaIds)
+      allow update: if admin() || (ehEmpresa(id) && soMudou(['clinicaIds']));
+    }
+
+    // ---------- colaboradores ----------
+    match /colaboradores/{id} {
+      allow get: if admin()
+        || ehColaborador(id)
+        || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
+      allow list: if admin()
+        || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
+      allow create: if admin() || ehEmpresa(request.resource.data.empresaId);
+      allow update: if admin()
+        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId);
+      allow delete: if admin() || ehEmpresa(resource.data.empresaId);
+    }
+
+    // ---------- inventário de riscos (PGR) ----------
+    match /riscos/{id} {
+      allow get, list: if admin()
+        || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
+        || (temPerfil() && perfil().role == 'colaborador' && empresaDoColaborador() == resource.data.empresaId)
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
+      allow create, delete: if admin();
+      allow update: if admin() || (ehEmpresa(resource.data.empresaId) && soMudou(['clinicaIds']));
+    }
+
+    // ---------- plano de ação ----------
+    match /acoes/{id} {
+      allow get, list: if admin() || ehEmpresa(resource.data.empresaId);
+      allow create: if admin() || ehEmpresa(request.resource.data.empresaId);
+      allow update: if admin()
+        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId);
+      allow delete: if admin() || ehEmpresa(resource.data.empresaId);
+    }
+
+    // ---------- documentos emitidos (histórico de PGR/PCMSO) ----------
+    match /documentos/{id} {
+      allow get, list: if admin() || ehEmpresa(resource.data.empresaId);
+      allow write: if admin();
+    }
+
+    // ---------- solicitações de exame / ASO / checklist psicossocial ----------
+    match /solicitacoes/{id} {
+      allow get, list: if admin()
+        || ehEmpresa(resource.data.empresaId)
+        || ehClinica(resource.data.clinicaId)
+        || ehColaborador(resource.data.colabId);
+      allow create: if admin() || ehEmpresa(request.resource.data.empresaId);
+      allow update: if admin()
+        // empresa: edita as solicitações dela, sem trocar de empresa
+        || (ehEmpresa(resource.data.empresaId)
+            && request.resource.data.empresaId == resource.data.empresaId)
+        // clínica: registra o ASO, sem mudar empresa, colaborador ou clínica
+        || (ehClinica(resource.data.clinicaId)
+            && request.resource.data.clinicaId == resource.data.clinicaId
+            && request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.colabId == resource.data.colabId)
+        // colaborador: só responde o checklist psicossocial
+        || (ehColaborador(resource.data.colabId) && soMudou(['psico', 'upd']));
+      allow delete: if admin() || ehEmpresa(resource.data.empresaId);
+    }
+
+    // ---------- arquivos de ASO (PDF/foto em pedaços) ----------
+    match /arquivos/{id} {
+      allow get, list: if admin()
+        || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId);
+      allow create: if admin()
+        || ehEmpresa(request.resource.data.empresaId)
+        || ehClinica(request.resource.data.clinicaId);
+      allow update: if admin();
+      allow delete: if admin()
+        || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId);
+    }
+
+    // tudo o que não foi listado acima fica bloqueado
+    match /{outro=**} {
+      allow read, write: if false;
+    }
+  }
+}
