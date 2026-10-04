@@ -216,7 +216,6 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const fd=iso=>{if(!iso)return '—';const p=String(iso).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso};
-const fdts=ts=>{if(!ts)return '—';const d=new Date(ts);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
 const addM=(iso,m)=>{const d=new Date(iso+'T12:00:00');d.setMonth(d.getMonth()+Number(m));return d.toISOString().slice(0,10)};
 const dias=iso=>Math.round((new Date(iso+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5);
 const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -325,7 +324,6 @@ const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','sol
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 const DB={data:{},db:null,dl:null,mem:{}};
 COLS.forEach(c=>DB.data[c]={});
-DB.data.auditoria={};
 let Q=Promise.resolve();
 const enqueue=fn=>{Q=Q.then(fn).catch(e=>{console.error(e);errBanner('Não foi possível salvar no servidor ('+(e&&e.code||e&&e.message||'erro desconhecido')+'). Os dados mostrados na tela podem não estar realmente salvos.')})};
 const persist=()=>{try{localStorage.setItem('sst.v1',JSON.stringify(DB.data))}catch(e){}};
@@ -333,20 +331,10 @@ const loadLocal=()=>{try{const j=JSON.parse(localStorage.getItem('sst.v1')||'nul
 const L=c=>Object.values(DB.data[c]||{});
 const G=(c,id)=>(DB.data[c]||{})[id];
 const CFG=()=>G('config','main')||{};
-/* ---- log de auditoria: quem criou/editou/excluiu o quê e quando ---- */
-function logAudit(acao,colecao,id,resumo){
- if(colecao==='auditoria')return;
- const rec={id:uid(),ts:Date.now(),ator:(S.authUser&&S.authUser.email)||'sistema',papel:(S&&S.role)||'—',acao,colecao,registroId:id,resumo:resumo||''};
- DB.data.auditoria=DB.data.auditoria||{};DB.data.auditoria[rec.id]=rec;
- if(DB.db)enqueue(()=>DB.db.doc('auditoria/'+rec.id).set(rec));
-}
-function save(c,rec,quiet){const isNew=!rec.id;rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now();DB.data[c][rec.id]=rec;
+function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now();DB.data[c][rec.id]=rec;
  if(DB.db){const r=clone(rec);enqueue(()=>DB.db.doc(c+'/'+r.id).set(r))}else persist();
- logAudit(isNew?'criou':'editou',c,rec.id,rec.nome||rec.razao||rec.email||rec.titulo||rec.acao||'');
  if(!quiet)render();return rec}
-function del(c,id,quiet){const old=DB.data[c][id];delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();
- logAudit('excluiu',c,id,old&&(old.nome||old.razao||old.email||old.titulo||old.acao)||'');
- if(!quiet)render()}
+function del(c,id,quiet){delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();if(!quiet)render()}
 function delMany(c,fn){L(c).filter(fn).forEach(r=>del(c,r.id,true))}
 /* ---- sincronização com o Firestore, com isolamento de leitura por perfil ----
    Admin: sincroniza tudo. Empresa/clínica/colaborador: só os registros deles,
@@ -374,11 +362,10 @@ function wireRefsFromSolicitacoes(ids){
  (ids||[]).forEach(s=>{ensureDoc('empresas',s.empresaId);ensureDoc('colaboradores',s.colabId);ensureDoc('clinicas',s.clinicaId);if(s.empresaId)ensureRiscosEmp(s.empresaId)});
 }
 async function wireFirestoreSync(){
- fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};DB.data.auditoria={};
+ fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
  if(S.role==='consultoria'){
   COLS.forEach(c=>syncCol(c));
   syncCol('usuarios');
-  syncCol('auditoria');
   return;
  }
  syncCol('config');
@@ -454,7 +441,7 @@ async function saveAs(filename,data){
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['auditoria','Log de auditoria','shield'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
 empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
@@ -757,7 +744,7 @@ async function esqueciSenha(){
   toast(msgs[e.code]||('Não foi possível enviar ('+(e.code||e.message||'erro desconhecido')+').'),6000);
  }
 }
-async function doLogout(){try{await FB.auth.signOut()}catch(e){}fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};DB.data.auditoria={}}
+async function doLogout(){try{await FB.auth.signOut()}catch(e){}fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={}}
 function abrirTrocarSenha(){
  openForm({title:'Trocar senha',btn:'Salvar nova senha',val:{},fields:[
   {k:'atual',l:'Senha atual',t:'password',r:1,w:6},
@@ -1115,15 +1102,6 @@ VIEWS.usuarios=()=>{
  return `<div class="bar"><div class="grow muted">Contas de acesso ao sistema. ${esc(ADMIN_EMAIL)} é sempre administrador total, fixo no sistema.</div><button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button></div>`+
  (us.length?tbl([{h:'E-mail',f:u=>esc(u.email)},{h:'Perfil',f:u=>({empresa:'Empresa',clinica:'Clínica',colaborador:'Colaborador',admin:'Administrador'}[u.role]||u.role)},{h:'Vinculado a',f:u=>esc(nomeDoVinculo(u))},{h:'',a:1,f:u=>`<button class="btn s g" data-a="editUsuario" data-id="${u.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delUsuario" data-id="${u.id}" aria-label="Remover">${ic('trash')}</button>`}],us)
  :emptyBox('Nenhum usuário criado ainda','Crie o primeiro acesso para uma empresa, clínica ou colaborador.',`<button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button>`,'users'));
-};
-/* ---- log de auditoria (somente admin) ---- */
-VIEWS.auditoria=()=>{
- const COLN={empresas:'Empresa',clinicas:'Clínica',colaboradores:'Colaborador',riscos:'Risco',acoes:'Ação',solicitacoes:'Solicitação',documentos:'Documento',usuarios:'Usuário',config:'Configuração'};
- const ACN={criou:'Criou',editou:'Editou',excluiu:'Excluiu'};
- const rs=L('auditoria').sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,300);
- return `<div class="bar"><div class="grow muted">Quem criou, editou ou excluiu registros no sistema, com data e hora. Mostrando os ${rs.length} eventos mais recentes.</div></div>`+
- (rs.length?tbl([{h:'Quando',f:r=>fdts(r.ts)},{h:'Quem',f:r=>esc(r.ator)},{h:'Ação',f:r=>`<span class="chip ${r.acao==='excluiu'?'crit':r.acao==='criou'?'low':'gray'}">${ACN[r.acao]||esc(r.acao)}</span>`},{h:'Onde',f:r=>esc(COLN[r.colecao]||r.colecao)},{h:'Registro',f:r=>esc(r.resumo||r.registroId||'—')}],rs)
- :emptyBox('Nenhum evento registrado ainda','As ações de criação, edição e exclusão aparecerão aqui.',null,'shield'));
 };
 /* ---- portal do colaborador ---- */
 VIEWS.meuportal=()=>{
@@ -1797,22 +1775,6 @@ window.addEventListener('appinstalled',()=>{
  window._deferredInstall=null;const b=document.getElementById('install-btn');if(b)b.classList.remove('show');toast('App instalado.');
 });
 
-/* ---- logout automático por inatividade (só quando autenticado via Firebase) ---- */
-const INACTIVITY_MS=30*60*1000; // 30 minutos
-let _inactivityTimer=null,_inactivityWarned=false;
-function resetInactivityTimer(){
- if(!S.usingAuth||!S.authUser)return;
- _inactivityWarned=false;
- if(_inactivityTimer)clearTimeout(_inactivityTimer);
- _inactivityTimer=setTimeout(async()=>{
-  if(!S.usingAuth||!S.authUser)return;
-  await doLogout();
-  toast('Sessão encerrada por inatividade. Faça login novamente.',6000);
- },INACTIVITY_MS);
-}
-function stopInactivityTimer(){if(_inactivityTimer){clearTimeout(_inactivityTimer);_inactivityTimer=null}}
-['click','keydown','mousemove','touchstart','scroll'].forEach(ev=>document.addEventListener(ev,resetInactivityTimer,{passive:true}));
-
 /* ====================== INÍCIO ====================== */
 async function iniciarSemAuth(){
  $('#app').innerHTML='<div class="content"><p class="muted">Carregando…</p></div>';
@@ -1826,8 +1788,7 @@ function iniciarComAuth(){
  renderLogin();
  FB.auth.onAuthStateChanged(async user=>{
   if(!user){
-   S.ready=false;S.authUser=null;fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};DB.data.auditoria={};
-   stopInactivityTimer();
+   S.ready=false;S.authUser=null;fsUnsubAll();COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
    $('#app').innerHTML='';
    $('#login-root').classList.add('on');renderLogin();
    return;
@@ -1837,7 +1798,6 @@ function iniciarComAuth(){
   const ok=await resolverPerfil(user);
   if(!ok){renderSemPerfil();return}
   if(!S.ready){S.cloud=await initData();S.ready=true}
-  resetInactivityTimer();
   render();
  });
 }
