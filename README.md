@@ -19,7 +19,7 @@ Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMS
 O arquivo `firestore.rules` define quem pode ler e gravar cada coleção. Ele **não é publicado automaticamente** com o site. Para ativar:
 
 1. Faça o deploy desta versão do site (o código novo já consulta só o que cada perfil pode ver).
-2. Entre como administrador e abra **Configurações → Perfis de acesso → Atualizar permissões de acesso** (uma vez; é seguro repetir). Isso libera para cada clínica os dados das solicitações que já existem e identifica de quem é cada arquivo de ASO já enviado.
+2. Entre como administrador e abra **Configurações → Perfis de acesso → Atualizar permissões de acesso** (uma vez; é seguro repetir). Isso libera para cada clínica os dados das solicitações que já existem, identifica de quem é cada arquivo de ASO já enviado e **move as respostas do checklist psicossocial** para uma área que a empresa não lê.
 3. No Firebase Console, abra **Firestore Database → Regras**, cole o conteúdo de `firestore.rules` e clique em **Publicar**.
 4. Teste com uma conta de cada perfil (veja abaixo).
 
@@ -28,14 +28,15 @@ O arquivo `firestore.rules` define quem pode ler e gravar cada coleção. Ele **
 | Entrar como | Deve conseguir | Não deve conseguir |
 |---|---|---|
 | Administrador | tudo | — |
-| Empresa | ver seus colaboradores, riscos, ações, solicitações e documentos; criar solicitações e colaboradores; baixar ASO das suas solicitações | ver dados de outra empresa; editar riscos ou documentos |
-| Clínica | ver as solicitações dela, os colaboradores e riscos ligados a elas; registrar o ASO e anexar o arquivo | ver outras clínicas, empresas sem solicitação para ela, ações ou documentos |
+| Empresa | ver seus colaboradores, riscos, ações, solicitações e documentos; criar solicitações e colaboradores; baixar ASO das suas solicitações; ver **se** o checklist psicossocial foi respondido | ver dados de outra empresa; editar riscos ou documentos; **ver as respostas do checklist psicossocial** |
+| Clínica | ver as solicitações dela, os colaboradores e riscos ligados a elas; registrar o ASO e anexar o arquivo; ler e preencher o checklist psicossocial das solicitações dela | ver outras clínicas, empresas sem solicitação para ela, ações ou documentos |
 | Colaborador | ver os próprios dados e exames; responder o checklist psicossocial | ver outros colaboradores ou editar outros campos |
 
 Se algum perfil mostrar a faixa vermelha "Não foi possível carregar…", a regra daquela coleção está recusando a consulta. Anote a coleção citada na faixa.
 
 ## Observações
 
+- **Checklist psicossocial:** as respostas individuais ficam na coleção `psico` (uma por solicitação) e só o colaborador, a clínica e o administrador as leem. A empresa vê apenas a data em que foi respondido. Se uma solicitação antiga ainda aparecer com as respostas para a empresa, falta rodar "Atualizar permissões de acesso".
 - A clínica passa a enxergar o colaborador, a empresa e os riscos quando uma solicitação é criada para ela (campo `clinicaIds`). Esse acesso não é retirado automaticamente se a solicitação for excluída.
-- Arquivos de ASO continuam guardados no Firestore (limite de 3 MB). Uma evolução recomendada é migrar para o Firebase Storage.
+- Arquivos de ASO continuam guardados no Firestore (limite de 3 MB). Uma evolução recomendada é migrar para o Firebase Storage, que exige o plano pago Blaze do Firebase (com cota gratuita).
 - Dados de saúde são sensíveis pela LGPD: crie acessos só para quem precisa.

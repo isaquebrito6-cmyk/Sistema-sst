@@ -325,7 +325,7 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 const DB={data:{},db:null,dl:null,mem:{},unsubs:[]};
 COLS.forEach(c=>DB.data[c]={});
@@ -358,15 +358,16 @@ async function initData(){
    if(S.role==='empresa'){
     ouvir('config',ref('config','main'),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas'));
     ['colaboradores','riscos','acoes','solicitacoes','documentos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
+    /* respostas do checklist psicossocial: a empresa não recebe */
    }else if(S.role==='clinica'){
     ouvir('config',ref('config','main'),1);ouvir('clinicas',ref('clinicas',rid),1);
-    ouvir('solicitacoes',col('solicitacoes').where('clinicaId','==',rid));
+    ouvir('solicitacoes',col('solicitacoes').where('clinicaId','==',rid));ouvir('psico',col('psico').where('clinicaId','==',rid));
     ['colaboradores','empresas','riscos'].forEach(c=>ouvir(c,col(c).where('clinicaIds','array-contains',rid)));
    }else if(S.role==='colaborador'){
     const cs=await ref('colaboradores',rid).get(),eid=cs.exists?(cs.data().empresaId||''):'';
     ouvir('config',ref('config','main'),1);ouvir('colaboradores',ref('colaboradores',rid),1);ouvir('clinicas',col('clinicas'));
     if(eid){ouvir('empresas',ref('empresas',eid),1);ouvir('riscos',col('riscos').where('empresaId','==',eid))}
-    ouvir('solicitacoes',col('solicitacoes').where('colabId','==',rid));
+    ouvir('solicitacoes',col('solicitacoes').where('colabId','==',rid));ouvir('psico',col('psico').where('colabId','==',rid));
    }else{
     COLS.forEach(c=>ouvir(c,col(c)));ouvir('usuarios',col('usuarios'));
    }
@@ -452,7 +453,7 @@ function origemExame(rs,k){const o=rs.filter(r=>(r.exames||[]).includes(k)).map(
 function statusExame(c,k,m){
  const ss=L('solicitacoes').filter(s=>s.colabId===c.id&&s.status==='Realizado'&&s.aso&&s.aso.data).sort((a,b)=>b.aso.data.localeCompare(a.aso.data));
  let last=null;for(const s of ss){const d=k==='clinico'?s.aso.data:(s.aso.exames||{})[k];if(d){last=d;break}}
- if(k==='psicossocial'&&!last){const sp=L('solicitacoes').filter(s=>s.colabId===c.id&&s.psico).sort((a,b)=>(b.psico.data||'').localeCompare(a.psico.data||''))[0];if(sp)last=sp.psico.data}
+ if(k==='psicossocial'&&!last){const sp=L('solicitacoes').filter(s=>s.colabId===c.id&&psicoData(s)).map(psicoData).sort().pop();if(sp)last=sp}
  if(!last)return{k:'gray',t:'Sem registro',last:null,due:null};
  const due=addM(last,m[k]||12),d=dias(due);
  return{k:d<0?'crit':d<=60?'med':'low',t:d<0?'Vencido':d<=60?'Vence em '+d+' d':'Em dia',last,due};
@@ -1055,18 +1056,25 @@ function abrirAso(id){
   save('solicitacoes',n);toast('ASO registrado. Anexe o arquivo assinado, se houver.');
  }});
 }
-/* checklist psicossocial */
+/* checklist psicossocial: respostas em /psico/{id da solicitação}; a empresa nunca as recebe.
+   (s.psico é o formato antigo, usado só até rodar "Atualizar permissões de acesso") */
+const podeVerPsico=()=>S.role!=='empresa';
+const psicoDe=s=>!s||!podeVerPsico()?null:(G('psico',s.id)||s.psico||null);
+const psicoData=s=>(s&&(s.psicoData||(s.psico&&s.psico.data)))||'';
 function abrirPsico(id,ro){
- const s=G('solicitacoes',id),p=(s.psico||{}),r=p.resp||{};let n=0;
+ if(!podeVerPsico())return;
+ const s=G('solicitacoes',id),p=(psicoDe(s)||{}),r=p.resp||{};let n=0;
  const qs=PSICO.map(g=>`<h3 style="margin:14px 0 4px;font-size:15px;color:var(--brand)">${g.d}</h3>`+g.q.map(t=>{const i=n++,tx=t.split('|')[0];return `<div class="q"><p>${i+1}. ${esc(tx)}</p><div class="scale">${ESCALA.map((l,k)=>`<label><input type="radio" name="q${i}" value="${k}" ${r['q'+i]==String(k)?'checked':''} ${ro?'disabled':''}>${l}</label>`).join('')}</div></div>`}).join('')).join('');
  $('#modal-root').innerHTML=`<div class="overlay"><form class="sheet" id="psf"><header><h2>Checklist psicossocial</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd"><p class="muted sm" style="margin-top:0">Colaborador: <b>${esc(nCol(s.colabId))}</b>. Responda pensando nos últimos 3 meses. Instrumento de triagem organizacional: não é diagnóstico e deve ser interpretado por profissional habilitado. As respostas são sigilosas.</p>${qs}<div class="fld" style="margin-top:12px"><label for="psobs">Comentários (opcional)</label><textarea id="psobs" ${ro?'disabled':''}>${esc(p.obs||'')}</textarea></div></div><footer><button type="button" class="btn" data-a="closeForm">${ro?'Fechar':'Cancelar'}</button>${ro?'':'<button class="btn p" type="submit">Salvar respostas</button>'}</footer></form></div>`;
  S.form={psico:id};
 }
 function salvarPsico(e){
- e.preventDefault();const id=S.form.psico,s=clone(G('solicitacoes',id));const resp={};let tot=0;
+ e.preventDefault();const id=S.form.psico,s=clone(G('solicitacoes',id));const resp={};let tot=0;if(!podeVerPsico())return;
  for(let i=0;i<15;i++){const c=document.querySelector(`#psf input[name="q${i}"]:checked`);if(c){resp['q'+i]=c.value;tot++}}
  if(tot<15){toast('Responda todas as 15 perguntas ('+tot+' respondidas).');return}
- s.psico={resp,obs:$('#psobs').value.trim(),data:today()};save('solicitacoes',s);closeForm();toast('Checklist salvo.');
+ const dt=today();
+ save('psico',{id:s.id,solicitacaoId:s.id,colabId:s.colabId,empresaId:s.empresaId,clinicaId:s.clinicaId,resp,obs:$('#psobs').value.trim(),data:dt},true);
+ delete s.psico;s.psicoData=dt;save('solicitacoes',s);closeForm();toast('Checklist salvo.');
 }
 function psicoResumo(p){
  let n=0;return PSICO.map(g=>{let sum=0;g.q.forEach(t=>{const i=n++;let v=+p.resp['q'+i];if(t.endsWith('|r'))v=4-v;sum+=v});const m=sum/g.q.length;return{d:g.d,m,k:m>=2.5?'crit':m>=1.5?'med':'low',t:m>=2.5?'Atenção elevada':m>=1.5?'Atenção moderada':'Sem indicativo'}});
@@ -1088,7 +1096,7 @@ VIEWS.meuportal=()=>{
  const e=G('empresas',c.empresaId)||{};
  const rs=riscosDoColab(c),m=examesDe(rs),ks=chavesOrd(m);
  const sols=L('solicitacoes').filter(s=>s.colabId===c.id).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
- const pendPsico=sols.find(s=>!s.psico&&(s.status==='Solicitado'||s.status==='Agendado'));
+ const pendPsico=sols.find(s=>!psicoData(s)&&(s.status==='Solicitado'||s.status==='Agendado'));
  return `<div class="card" style="margin-bottom:16px"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0">${esc(e.razao||'')} · ${esc(c.funcao||'—')} · ${esc(c.setor||'—')}</p></div>
  ${pendPsico?`<div class="card" style="margin-bottom:16px;border-color:var(--acc)"><b>Você tem um checklist psicossocial pendente</b><p class="sm muted" style="margin:4px 0 10px">Responda antes do seu exame na clínica.</p><button class="btn p" data-a="psico" data-id="${pendPsico.id}">Responder agora</button></div>`:''}
  <div class="card" style="margin-bottom:16px"><h3>Meus exames (PCMSO)</h3>${tbl([{h:'Exame',f:k=>esc(EXAMES[k].n)},{h:'Último',f:k=>fd(statusExame(c,k,m).last)},{h:'Vence em',f:k=>fd(statusExame(c,k,m).due)},{h:'Situação',f:k=>{const s=statusExame(c,k,m);return `<span class="chip ${s.k==='gray'?'gray':s.k}">${s.t}</span>`}}],ks)}</div>
@@ -1188,7 +1196,7 @@ VIEWS.config=()=>{
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
  <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa fictícia completa para você testar a geração dos documentos.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
- <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button></div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes.</p>`:''}</div></div></div>`;
+ <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button></div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.</p>`:''}</div></div></div>`;
 };
 
 /* detalhe da solicitação */
@@ -1203,7 +1211,7 @@ function renderDetalhe(){
  <div class="row" style="gap:5px;margin:8px 0 6px">${(s.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div>${s.obs?`<p class="sm muted">Obs.: ${nl(s.obs)}</p>`:''}
  <div style="margin-top:10px">
  ${st(true,1,'Encaminhamento à clínica',`<p class="sm muted" style="margin:0 0 8px">Guia com dados da empresa, riscos e exames, o formulário do ASO e o checklist psicossocial em um único arquivo.</p><div class="row"><button class="btn s p" data-a="docPacote" data-id="${s.id}">Gerar pacote completo</button><button class="btn s" data-a="docGuia" data-id="${s.id}">Só a guia</button></div>`)}
- ${st(!!s.psico,2,'Checklist psicossocial do colaborador',`<p class="sm muted" style="margin:0 0 8px">${s.psico?'Respondido em '+fd(s.psico.data)+'.':'O colaborador responde no sistema ou em papel.'}</p><div class="row">${canEm||canCl?`<button class="btn s" data-a="psico" data-id="${s.id}">${s.psico?'Ver / editar respostas':'Preencher agora'}</button>`:''}<button class="btn s" data-a="docPsico" data-id="${s.id}">Imprimir</button></div>${s.psico?`<div class="row" style="gap:5px;margin-top:8px">${psicoResumo(s.psico).map(r=>`<span class="chip ${r.k}">${r.d}: ${r.t}</span>`).join('')}</div>`:''}`)}
+ ${st(!!psicoData(s),2,'Checklist psicossocial do colaborador',`<p class="sm muted" style="margin:0 0 8px">${psicoData(s)?'Respondido em '+fd(psicoData(s))+'.':'O colaborador responde no sistema ou em papel.'}${podeVerPsico()?'':' As respostas são sigilosas: a empresa vê apenas se foi respondido.'}</p><div class="row">${podeVerPsico()?`<button class="btn s" data-a="psico" data-id="${s.id}">${psicoDe(s)?'Ver / editar respostas':'Preencher agora'}</button>`:''}<button class="btn s" data-a="docPsico" data-id="${s.id}">Imprimir${podeVerPsico()?'':' em branco'}</button></div>${psicoDe(s)?`<div class="row" style="gap:5px;margin-top:8px">${psicoResumo(psicoDe(s)).map(r=>`<span class="chip ${r.k}">${r.d}: ${r.t}</span>`).join('')}</div>`:''}`)}
  ${st(!!a.data,3,'Dados do ASO (clínica)',`<p class="sm muted" style="margin:0 0 8px">${a.data?'Exame em '+fd(a.data)+' · '+esc(a.resultado||'')+' · '+esc(a.medico_nome||''):'A clínica edita os campos do ASO e imprime.'}</p><div class="row">${canCl?`<button class="btn s ${a.data?'':'p'}" data-a="aso" data-id="${s.id}">${a.data?'Editar dados':'Preencher ASO'}</button>`:''}<button class="btn s" data-a="docAso" data-id="${s.id}">${ic('print')}${a.data?'Imprimir ASO':'ASO em branco'}</button></div>`)}
  ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF ou foto, até 3 MB) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
  </div></div><footer>
@@ -1442,7 +1450,7 @@ function docGuia(s){
  return h;
 }
 function docPsico(s){
- const c=(s&&G('colaboradores',s.colabId))||{},e=(s&&G('empresas',s.empresaId))||{},p=s&&s.psico;
+ const c=(s&&G('colaboradores',s.colabId))||{},e=(s&&G('empresas',s.empresaId))||{},p=psicoDe(s);
  let n=0;
  let h=dHead('Checklist psicossocial','Triagem organizacional');
  h+=`<h1 style="font-size:18pt">Checklist psicossocial do trabalhador</h1><p class="small">Instrumento de triagem sobre fatores psicossociais do trabalho. Não é diagnóstico. As respostas são sigilosas, sujeitas ao sigilo médico e utilizadas para orientar a vigilância da saúde e o gerenciamento de riscos. Responda pensando nos últimos 3 meses.</p>`;
@@ -1644,6 +1652,12 @@ async migrarAcessos(){
    toast('Atualizando permissões…',2500);
    for(const s of L('solicitacoes')){
     liberarClinica(s);
+    if(s.psico){ /* formato antigo: respostas dentro da solicitação -> coleção própria, sem acesso da empresa */
+     const p=s.psico;
+     await DB.db.doc('psico/'+s.id).set({id:s.id,solicitacaoId:s.id,colabId:s.colabId,empresaId:s.empresaId||'',clinicaId:s.clinicaId||'',resp:p.resp||{},obs:p.obs||'',data:p.data||'',upd:Date.now()});
+     await DB.db.doc('solicitacoes/'+s.id).update({psicoData:p.data||'',psico:firebase.firestore.FieldValue.delete()});
+     delete s.psico;s.psicoData=p.data||'';
+    }
     if(s.arquivo&&s.arquivo.fid){for(let i=0;i<(s.arquivo.n||1);i++){try{await DB.db.doc('arquivos/'+s.arquivo.fid+'_'+i).update({empresaId:s.empresaId||'',clinicaId:s.clinicaId||''})}catch(e){console.warn('arquivo',e)}}}
    }
    await Q;toast('Permissões atualizadas.',4000);
