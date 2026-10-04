@@ -336,15 +336,30 @@ const loadLocal=()=>{try{const j=JSON.parse(localStorage.getItem('sst.v1')||'nul
 const L=c=>Object.values(DB.data[c]||{});
 const G=(c,id)=>(DB.data[c]||{})[id];
 const CFG=()=>G('config','main')||{};
+/* ---------- auditoria (LGPD): quem fez o quê; só o administrador lê; ninguém edita nem apaga ---------- */
+const AUD_COLS=['colaboradores','solicitacoes','psico','documentos','usuarios','empresas','clinicas'];
+let audOff=0;
+function audit(acao,col,id,r,det){
+ if(!DB.db||!S.usingAuth||!S.authUser||audOff)return;
+ r=r||{};
+ let d=det||'';
+ if(!d){if(col==='solicitacoes')d=[r.tipo,r.status].filter(Boolean).join(' · ');else if(col==='documentos')d=[r.tipo,r.rev!=null?'rev. '+r.rev:''].filter(Boolean).join(' ');else if(col==='usuarios')d=r.role?'perfil '+r.role:''}
+ const e={quando:firebase.firestore.FieldValue.serverTimestamp(),uid:S.authUser.uid,email:S.authUser.email||'',papel:S.papel||'',acao,colecao:col,docId:String(id||''),
+  empresaId:r.empresaId||(col==='empresas'?id:'')||'',clinicaId:r.clinicaId||(col==='clinicas'?id:'')||'',det:String(d).slice(0,160)};
+ enqueue(()=>DB.db.collection('auditoria').add(e));
+}
+/* operações em massa (restaurar backup, apagar tudo, exemplo, migração): uma linha só */
+async function emMassa(acao,det,fn){audit(acao,'sistema','',{},det);audOff++;try{return await fn()}finally{audOff--}}
 function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now();
  /* clinicaIds = clínicas que podem ler o registro (regras do Firestore); nunca se perde ao salvar */
  const ant=(DB.data[c]||{})[rec.id];
  if(ant&&ant.clinicaIds&&!rec.clinicaIds)rec.clinicaIds=ant.clinicaIds.slice();
  if(c==='riscos'&&!rec.clinicaIds){const em=G('empresas',rec.empresaId);if(em&&em.clinicaIds&&em.clinicaIds.length)rec.clinicaIds=em.clinicaIds.slice()}
  DB.data[c][rec.id]=rec;
+ if(AUD_COLS.includes(c))audit(ant?'alterar':'criar',c,rec.id,rec);
  if(DB.db){const r=clone(rec);enqueue(()=>DB.db.doc(c+'/'+r.id).set(r))}else persist();
  if(!quiet)render();return rec}
-function del(c,id,quiet){delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();if(!quiet)render()}
+function del(c,id,quiet){if(AUD_COLS.includes(c))audit('excluir',c,id,DB.data[c]&&DB.data[c][id]);delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();if(!quiet)render()}
 function delMany(c,fn){L(c).filter(fn).forEach(r=>del(c,r.id,true))}
 function stopListeners(){while(DB.unsubs.length){try{DB.unsubs.pop()()}catch(e){}}}
 /* Cada perfil só pede ao banco o que pode ver (as regras em firestore.rules exigem isso). */
@@ -370,6 +385,7 @@ async function initData(){
     ouvir('solicitacoes',col('solicitacoes').where('colabId','==',rid));ouvir('psico',col('psico').where('colabId','==',rid));
    }else{
     COLS.forEach(c=>ouvir(c,col(c)));ouvir('usuarios',col('usuarios'));
+    ouvir('auditoria',col('auditoria').orderBy('quando','desc').limit(300));
    }
    ok=true;
   }
@@ -417,7 +433,7 @@ async function saveAs(filename,data){
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
 empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
@@ -723,7 +739,7 @@ async function esqueciSenha(){
   toast(msgs[e.code]||('Não foi possível enviar ('+(e.code||e.message||'erro desconhecido')+').'),6000);
  }
 }
-async function doLogout(){stopListeners();try{await FB.auth.signOut()}catch(e){}COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={}}
+async function doLogout(){stopListeners();try{await FB.auth.signOut()}catch(e){}COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};DB.data.auditoria={}}
 function abrirTrocarSenha(){
  openForm({title:'Trocar senha',btn:'Salvar nova senha',val:{},fields:[
   {k:'atual',l:'Senha atual',t:'password',r:1,w:6},
@@ -746,11 +762,13 @@ function abrirTrocarSenha(){
 }
 async function resolverPerfil(user){
  S.authUser=user;
- if(user.email===ADMIN_EMAIL){S.role='consultoria';S.rid='';S.authLocked=false;return true}
+S.papel='';
+ if(user.email===ADMIN_EMAIL){S.papel='admin';S.role='consultoria';S.rid='';S.authLocked=false;return true}
  try{
   const snap=await FB.db.collection('usuarios').doc(user.uid).get();
   if(!snap.exists)return false;
   const p=snap.data();
+  S.papel=p.role||'';
   if(p.role==='empresa'&&p.empresaId){S.role='empresa';S.rid=p.empresaId;S.authLocked=true;return true}
   if(p.role==='clinica'&&p.clinicaId){S.role='clinica';S.rid=p.clinicaId;S.authLocked=true;return true}
   if(p.role==='colaborador'&&p.colaboradorId){S.role='colaborador';S.rid=p.colaboradorId;S.authLocked=true;return true}
@@ -1064,6 +1082,7 @@ const psicoData=s=>(s&&(s.psicoData||(s.psico&&s.psico.data)))||'';
 function abrirPsico(id,ro){
  if(!podeVerPsico())return;
  const s=G('solicitacoes',id),p=(psicoDe(s)||{}),r=p.resp||{};let n=0;
+ if(psicoDe(s))audit('ver','psico',id,s,'respostas do checklist');
  const qs=PSICO.map(g=>`<h3 style="margin:14px 0 4px;font-size:15px;color:var(--brand)">${g.d}</h3>`+g.q.map(t=>{const i=n++,tx=t.split('|')[0];return `<div class="q"><p>${i+1}. ${esc(tx)}</p><div class="scale">${ESCALA.map((l,k)=>`<label><input type="radio" name="q${i}" value="${k}" ${r['q'+i]==String(k)?'checked':''} ${ro?'disabled':''}>${l}</label>`).join('')}</div></div>`}).join('')).join('');
  $('#modal-root').innerHTML=`<div class="overlay"><form class="sheet" id="psf"><header><h2>Checklist psicossocial</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd"><p class="muted sm" style="margin-top:0">Colaborador: <b>${esc(nCol(s.colabId))}</b>. Responda pensando nos últimos 3 meses. Instrumento de triagem organizacional: não é diagnóstico e deve ser interpretado por profissional habilitado. As respostas são sigilosas.</p>${qs}<div class="fld" style="margin-top:12px"><label for="psobs">Comentários (opcional)</label><textarea id="psobs" ${ro?'disabled':''}>${esc(p.obs||'')}</textarea></div></div><footer><button type="button" class="btn" data-a="closeForm">${ro?'Fechar':'Cancelar'}</button>${ro?'':'<button class="btn p" type="submit">Salvar respostas</button>'}</footer></form></div>`;
  S.form={psico:id};
@@ -1088,6 +1107,24 @@ VIEWS.usuarios=()=>{
  return `<div class="bar"><div class="grow muted">Contas de acesso ao sistema. ${esc(ADMIN_EMAIL)} é sempre administrador total, fixo no sistema.</div><button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button></div>`+
  (us.length?tbl([{h:'E-mail',f:u=>esc(u.email)},{h:'Perfil',f:u=>({empresa:'Empresa',clinica:'Clínica',colaborador:'Colaborador',admin:'Administrador'}[u.role]||u.role)},{h:'Vinculado a',f:u=>esc(nomeDoVinculo(u))},{h:'',a:1,f:u=>`<button class="btn s g" data-a="editUsuario" data-id="${u.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delUsuario" data-id="${u.id}" aria-label="Remover">${ic('trash')}</button>`}],us)
  :emptyBox('Nenhum usuário criado ainda','Crie o primeiro acesso para uma empresa, clínica ou colaborador.',`<button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button>`,'users'));
+};
+/* ---- auditoria (somente administrador) ---- */
+VIEWS.auditoria=()=>{
+ const ACAO={criar:'Criou',alterar:'Alterou',excluir:'Excluiu',baixar:'Baixou',ver:'Viu',imprimir:'Imprimiu',acessar:'Acessou o sistema',restaurar:'Restaurou backup','apagar tudo':'Apagou todos os dados',exemplo:'Carregou exemplo','permissões':'Atualizou permissões'};
+ const ONDE={colaboradores:'Colaborador',solicitacoes:'Solicitação / ASO',psico:'Checklist psicossocial',documentos:'Documento emitido',usuarios:'Usuário',empresas:'Empresa',clinicas:'Clínica',sistema:'Sistema'};
+ const dt=e=>{const q=e.quando;return q&&q.toDate?q.toDate():new Date()};
+ const item=e=>{
+  const sol=G('solicitacoes',e.docId);
+  const n={colaboradores:()=>nCol(e.docId),solicitacoes:()=>sol?nCol(sol.colabId):'—',psico:()=>sol?nCol(sol.colabId):'—',empresas:()=>nEmp(e.docId),clinicas:()=>nCli(e.docId),documentos:()=>nEmp(e.empresaId),usuarios:()=>(G('usuarios',e.docId)||{}).email||'—'}[e.colecao];
+  return n?n():'';
+ };
+ const q=norm(S.q);
+ let l=L('auditoria').sort((a,b)=>dt(b)-dt(a));
+ if(q)l=l.filter(e=>norm([e.email,ACAO[e.acao]||e.acao,ONDE[e.colecao]||e.colecao,item(e),e.det].join(' ')).includes(q));
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por usuário, ação ou nome" value="${esc(S.q)}" data-c="q"></div>
+ <p class="sm muted" style="margin:0 0 10px">Mostrando os ${l.length} registros mais recentes (até 300). Cada linha é gravada pelo próprio sistema no momento da ação e não pode ser editada nem apagada por aqui. Guarda quem fez, o quê e quando, sem copiar o conteúdo dos dados de saúde.</p>`+
+ (l.length?tbl([{h:'Quando',f:e=>esc(dt(e).toLocaleString('pt-BR'))},{h:'Quem',f:e=>esc(e.email||'—')+(e.papel?` <span class="chip gray">${esc(e.papel)}</span>`:'')},{h:'Ação',f:e=>esc(ACAO[e.acao]||e.acao)},{h:'Onde',f:e=>esc(ONDE[e.colecao]||e.colecao)},{h:'Item',f:e=>esc(item(e)||'—')},{h:'Detalhe',f:e=>esc(e.det||'')}],l)
+ :emptyBox('Nenhum registro ainda','As ações feitas por quem entra no sistema passam a aparecer aqui.',null,'shield'));
 };
 /* ---- portal do colaborador ---- */
 VIEWS.meuportal=()=>{
@@ -1451,6 +1488,7 @@ function docGuia(s){
 }
 function docPsico(s){
  const c=(s&&G('colaboradores',s.colabId))||{},e=(s&&G('empresas',s.empresaId))||{},p=psicoDe(s);
+ if(p)audit('imprimir','psico',s.id,s,'checklist com respostas');
  let n=0;
  let h=dHead('Checklist psicossocial','Triagem organizacional');
  h+=`<h1 style="font-size:18pt">Checklist psicossocial do trabalhador</h1><p class="small">Instrumento de triagem sobre fatores psicossociais do trabalho. Não é diagnóstico. As respostas são sigilosas, sujeitas ao sigilo médico e utilizadas para orientar a vigilância da saúde e o gerenciamento de riscos. Responda pensando nos últimos 3 meses.</p>`;
@@ -1631,7 +1669,7 @@ docPacote(d){docDe(G('solicitacoes',d.id),'pacote')},docGuia(d){docDe(G('solicit
 docAso(d){docDe(G('solicitacoes',d.id),'aso')},docPsico(d){docDe(G('solicitacoes',d.id),'psico')},
 psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
 pickAso(){const i=$('#aso-f');if(i)i.click()},
-async getAso(d){const s=G('solicitacoes',d.id);try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},
+async getAso(d){const s=G('solicitacoes',d.id);audit('baixar','solicitacoes',d.id,s,'arquivo do ASO');try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},
 rmAso(d){ask('Remover o arquivo do ASO?','Remover',async()=>{const s=clone(G('solicitacoes',d.id));await delFile(s.arquivo);delete s.arquivo;save('solicitacoes',s)})},
 verDoc(d){const e=empAtual();abrirDocEmpresa(d.t,docMeta(e,d.t),e)},
 emitDoc(d){const e=empAtual();const m=docMeta(e,d.t);m.rascunho=false;save('documentos',{empresaId:e.id,tipo:d.t,rev:m.rev,emissao:m.emissao});abrirDocEmpresa(d.t,m,e);toast('Revisão emitida. Use Baixar para guardar a cópia.')},
@@ -1647,6 +1685,7 @@ async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await sa
 restore(){$('#bk-f').click()},
 async migrarAcessos(){
  if(!DB.db)return;
+ audit('permissões','sistema','',{},'atualizar permissões de acesso');
  ask('Atualizar as permissões de acesso das clínicas e dos arquivos de ASO já existentes? É seguro repetir.','Atualizar',async()=>{
   try{
    toast('Atualizando permissões…',2500);
@@ -1663,9 +1702,9 @@ async migrarAcessos(){
    await Q;toast('Permissões atualizadas.',4000);
   }catch(e){toast('Não foi possível atualizar ('+(e&&e.code||e&&e.message||'erro')+').',5000)}
  })},
-wipe(){ask('Apagar TODOS os dados do sistema? Faça um backup antes.','Apagar tudo',()=>{COLS.forEach(c=>delMany(c,()=>true));toast('Dados apagados.')})},
+wipe(){ask('Apagar TODOS os dados do sistema? Faça um backup antes.','Apagar tudo',()=>{emMassa('apagar tudo','todos os dados',async()=>{COLS.forEach(c=>delMany(c,()=>true))});toast('Dados apagados.')})},
 instalar(){if(window._deferredInstall){window._deferredInstall.prompt()}else{toast('Para instalar: no menu do navegador, use "Adicionar à tela inicial" ou "Instalar app".',5000)}},
-demo(){carregarDemo()}
+demo(){emMassa('exemplo','dados de exemplo',async()=>carregarDemo())}
 };
 const C={
 role(t){setRole(t.value);render()},
@@ -1733,7 +1772,7 @@ logoF(t){
 },
 bkF(t){
  const f=t.files[0];if(!f)return;const r=new FileReader();
- r.onload=()=>{try{const j=JSON.parse(r.result);let n=0;COLS.forEach(c=>Object.values((j.data||{})[c]||{}).forEach(x=>{save(c,x,true);n++}));render();toast(n+' registros restaurados.')}catch(e){toast('Arquivo de backup inválido.')}};r.readAsText(f);
+ r.onload=()=>{try{const j=JSON.parse(r.result);let n=0;audit('restaurar','sistema','',{},'backup');audOff++;try{COLS.forEach(c=>Object.values((j.data||{})[c]||{}).forEach(x=>{save(c,x,true);n++}))}finally{audOff--}render();toast(n+' registros restaurados.')}catch(e){toast('Arquivo de backup inválido.')}};r.readAsText(f);
 }
 };
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t||t.tagName==='OPTION')return;const f=A[t.dataset.a];if(f){if(t.closest('.scrim')&&e.target!==t)return;f(t.dataset,t,e)}});
@@ -1792,7 +1831,7 @@ function iniciarComAuth(){
  renderLogin();
  FB.auth.onAuthStateChanged(async user=>{
   if(!user){
-   stopListeners();S.ready=false;S.authUser=null;COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};
+   stopListeners();S.ready=false;S.authUser=null;COLS.forEach(c=>DB.data[c]={});DB.data.usuarios={};DB.data.auditoria={};
    $('#app').innerHTML='';
    $('#login-root').classList.add('on');renderLogin();
    return;
@@ -1801,7 +1840,7 @@ function iniciarComAuth(){
   $('#app').innerHTML='<div class="content"><p class="muted">Entrando…</p></div>';
   const ok=await resolverPerfil(user);
   if(!ok){renderSemPerfil();return}
-  if(!S.ready){S.cloud=await initData();S.ready=true}
+  if(!S.ready){S.cloud=await initData();S.ready=true;audit('acessar','usuarios',user.uid,{role:S.papel})}
   render();
  });
 }
