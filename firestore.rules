@@ -184,6 +184,19 @@ service cloud.firestore {
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId);
     }
 
+    // ---------- auditoria (LGPD): quem fez o quê ----------
+    // Qualquer usuário com perfil grava a PRÓPRIA linha (identidade e hora vêm do servidor);
+    // só o administrador lê; ninguém edita nem apaga pelo sistema.
+    match /auditoria/{id} {
+      allow read: if admin();
+      allow create: if temAcesso()
+        && request.resource.data.keys().hasOnly(['quando', 'uid', 'email', 'papel', 'acao', 'colecao', 'docId', 'empresaId', 'clinicaId', 'det'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.quando == request.time;
+      allow update, delete: if false;
+    }
+
     // tudo o que não foi listado acima fica bloqueado
     match /{outro=**} {
       allow read, write: if false;
