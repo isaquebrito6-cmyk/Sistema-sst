@@ -224,6 +224,10 @@ cnpj:v=>v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/
 tel:v=>{v=v.replace(/\D/g,'').slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v.replace(/(\d{2})(\d*)/,'($1) $2')},
 cep:v=>v.replace(/\D/g,'').slice(0,8).replace(/(\d{5})(\d)/,'$1-$2')};
 /* validação dos dígitos verificadores */
+/* senha: mínimo 10 caracteres, com letra e número, e fora de uma lista de senhas óbvias */
+const SENHA_FRACA=['1234567890','0123456789','senha12345','password12','qwerty1234','abc1234567','admin12345'];
+const senhaForte=v=>{v=String(v||'');return v.length>=10&&/[A-Za-z]/.test(v)&&/\d/.test(v)&&!SENHA_FRACA.includes(v.toLowerCase())&&!/^(.)\1+$/.test(v)};
+const MSG_SENHA='A senha precisa ter pelo menos 10 caracteres, com letras e números, e não pode ser uma sequência óbvia.';
 const validaCPF=v=>{const d=String(v||'').replace(/\D/g,'');if(d.length!==11||/^(\d)\1{10}$/.test(d))return false;
  for(const t of [9,10]){let s=0;for(let i=0;i<t;i++)s+=d[i]*(t+1-i);if((s*10)%11%10!==+d[t])return false}return true};
 const validaCNPJ=v=>{const d=String(v||'').replace(/\D/g,'');if(d.length!==14||/^(\d)\1{13}$/.test(d))return false;
@@ -393,6 +397,15 @@ async function initData(){
  if(!ok)loadLocal();
  return ok;
 }
+/* Retira a clínica de clinicaIds quando não resta nenhuma solicitação que justifique o acesso. */
+function revogarClinica(s){
+ if(!DB.db||!s||!s.clinicaId||!window.firebase)return;
+ const C=s.clinicaId,todas=L('solicitacoes');
+ const rem=(c,id)=>{const r=G(c,id);if(!r||!(r.clinicaIds||[]).includes(C))return;r.clinicaIds=r.clinicaIds.filter(x=>x!==C);
+  enqueue(()=>DB.db.doc(c+'/'+id).update({clinicaIds:firebase.firestore.FieldValue.arrayRemove(C)}))};
+ if(!todas.some(o=>o.clinicaId===C&&o.colabId===s.colabId))rem('colaboradores',s.colabId);
+ if(!todas.some(o=>o.clinicaId===C&&o.empresaId===s.empresaId)){rem('empresas',s.empresaId);L('riscos').filter(r=>r.empresaId===s.empresaId).forEach(r=>rem('riscos',r.id))}
+}
 /* Libera para a clínica da solicitação a leitura do colaborador, da empresa e dos riscos (campo clinicaIds). */
 function liberarClinica(s){
  if(!DB.db||!s||!s.clinicaId||!window.firebase)return;
@@ -404,8 +417,28 @@ function liberarClinica(s){
 /* arquivos (ASO em PDF/imagem): guardados em pedaços no banco compartilhado */
 const b64enc=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
 const b64dec=b=>{const s=atob(b);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
+const ASO_MAX=3*1024*1024;
+/* Fotos grandes (celular) são reduzidas aqui antes de enviar; PDF não dá para reduzir no navegador. */
+async function comprimirImagem(file){
+ if(!/^image\//.test(file.type||'')||file.size<=1.5*1024*1024)return file;
+ try{
+  const bmp=await createImageBitmap(file);
+  let lado=2000,q=0.82;
+  for(let i=0;i<7;i++){
+   const k=Math.min(1,lado/Math.max(bmp.width,bmp.height));
+   const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(bmp.width*k));cv.height=Math.max(1,Math.round(bmp.height*k));
+   const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(bmp,0,0,cv.width,cv.height);
+   const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',q));
+   if(blob&&blob.size<=ASO_MAX*0.85){if(bmp.close)bmp.close();return new File([blob],(file.name||'aso').replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'})}
+   lado=Math.round(lado*0.8);q=Math.max(0.5,q-0.07);
+  }
+  if(bmp.close)bmp.close();
+ }catch(e){console.warn('compressão',e)}
+ return file;
+}
 async function putFile(file,ctx){
- if(file.size>3*1024*1024)throw new Error('O arquivo tem mais de 3 MB. Comprima o PDF ou envie uma foto menor.');
+ file=await comprimirImagem(file);
+ if(file.size>ASO_MAX)throw new Error(/pdf/i.test(file.type||'')?'O PDF tem mais de 3 MB. Reduza o arquivo (por exemplo, escaneie em qualidade menor) ou envie uma foto.':'Não foi possível reduzir esta imagem para menos de 3 MB. Envie em JPG (ou em PDF) e tente de novo.');
  const b64=b64enc(await file.arrayBuffer()),fid=uid();
  const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||''};
  if(DB.db){const CH=180000,n=Math.max(1,Math.ceil(b64.length/CH));
@@ -743,10 +776,10 @@ async function doLogout(){stopListeners();try{await FB.auth.signOut()}catch(e){}
 function abrirTrocarSenha(){
  openForm({title:'Trocar senha',btn:'Salvar nova senha',val:{},fields:[
   {k:'atual',l:'Senha atual',t:'password',r:1,w:6},
-  {k:'nova',l:'Nova senha',t:'password',r:1,w:3,h:'Mínimo 6 caracteres'},
+  {k:'nova',l:'Nova senha',t:'password',r:1,w:3,h:'Mínimo 10 caracteres, com letras e números'},
   {k:'confirma',l:'Confirmar nova senha',t:'password',r:1,w:3}
  ],save:async v=>{
-  if(v.nova.length<6){toast('A nova senha precisa ter pelo menos 6 caracteres.');return false}
+  if(!senhaForte(v.nova)){toast(MSG_SENHA,5000);return false}
   if(v.nova!==v.confirma){toast('As senhas não coincidem.');return false}
   try{
    const cred=FB.EmailAuthProvider.credential(S.authUser.email,v.atual);
@@ -783,11 +816,11 @@ function abrirNovoUsuario(){
  const colaboradores=L('colaboradores').sort(byN).map(c=>[c.id,c.nome+' — '+nEmp(c.empresaId)]);
  openForm({title:'Novo usuário',btn:'Criar acesso',fields:[
   {k:'email',l:'E-mail de login',t:'email',r:1,w:4},
-  {k:'senha',l:'Senha provisória',r:1,w:2,h:'Mínimo 6 caracteres. A pessoa pode trocar depois em "Esqueci minha senha".'},
+  {k:'senha',l:'Senha provisória',r:1,w:2,h:'Mínimo 10 caracteres, com letras e números. A pessoa pode trocar depois em "Trocar senha".'},
   {k:'role',l:'Perfil',t:'select',r:1,o:[['empresa','Empresa'],['clinica','Clínica'],['colaborador','Colaborador']],ph:'Selecione',w:3,c:'novoUserRole'},
   {k:'vinculo',l:'Vincular a',t:'select',r:1,o:empresas,w:3}
  ],val:{},save:async v=>{
-  if(!v.senha||v.senha.length<6){toast('A senha precisa ter pelo menos 6 caracteres.');return false}
+  if(!senhaForte(v.senha)){toast(MSG_SENHA,5000);return false}
   try{
    await FB.secAuth.createUserWithEmailAndPassword(v.email,v.senha);
    const newUid=FB.secAuth.currentUser.uid;
@@ -797,7 +830,7 @@ function abrirNovoUsuario(){
    toast('Acesso criado para '+v.email+'.');
    render();
   }catch(e){
-   const msgs={'auth/email-already-in-use':'Já existe uma conta com esse e-mail.','auth/invalid-email':'E-mail inválido.','auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).'};
+   const msgs={'auth/email-already-in-use':'Já existe uma conta com esse e-mail.','auth/invalid-email':'E-mail inválido.','auth/weak-password':'Senha muito fraca.'};
    toast(msgs[e.code]||'Não foi possível criar o acesso.',5000);
    return false;
   }
@@ -1022,8 +1055,9 @@ function abrirSol(id,pre){
   {k:'obs',l:'Observações para a clínica',t:'textarea',rows:2}],
  save:v=>{
   if(!v.exames.includes('clinico'))v.exames.unshift('clinico');
+  const antes=rec.id?clone(G('solicitacoes',rec.id)):null;
   const novo=!rec.id;Object.assign(rec,v);if(v.dataAgend&&rec.status==='Solicitado')rec.status='Agendado';
-  const r=save('solicitacoes',rec);liberarClinica(r);toast(novo?'Solicitação criada. Abrindo a guia, o ASO e o checklist para enviar…':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
+  const r=save('solicitacoes',rec);liberarClinica(r);if(antes)revogarClinica(antes);toast(novo?'Solicitação criada. Abrindo a guia, o ASO e o checklist para enviar…':'Salva.');if(novo){S.det=r.id;S.view='solicitacoes';setTimeout(()=>docDe(G('solicitacoes',r.id),'pacote'),50)}
  }});
  if(id)solInfoUpdate();else preencherExames();
 }
@@ -1250,7 +1284,7 @@ function renderDetalhe(){
  ${st(true,1,'Encaminhamento à clínica',`<p class="sm muted" style="margin:0 0 8px">Guia com dados da empresa, riscos e exames, o formulário do ASO e o checklist psicossocial em um único arquivo.</p><div class="row"><button class="btn s p" data-a="docPacote" data-id="${s.id}">Gerar pacote completo</button><button class="btn s" data-a="docGuia" data-id="${s.id}">Só a guia</button></div>`)}
  ${st(!!psicoData(s),2,'Checklist psicossocial do colaborador',`<p class="sm muted" style="margin:0 0 8px">${psicoData(s)?'Respondido em '+fd(psicoData(s))+'.':'O colaborador responde no sistema ou em papel.'}${podeVerPsico()?'':' As respostas são sigilosas: a empresa vê apenas se foi respondido.'}</p><div class="row">${podeVerPsico()?`<button class="btn s" data-a="psico" data-id="${s.id}">${psicoDe(s)?'Ver / editar respostas':'Preencher agora'}</button>`:''}<button class="btn s" data-a="docPsico" data-id="${s.id}">Imprimir${podeVerPsico()?'':' em branco'}</button></div>${psicoDe(s)?`<div class="row" style="gap:5px;margin-top:8px">${psicoResumo(psicoDe(s)).map(r=>`<span class="chip ${r.k}">${r.d}: ${r.t}</span>`).join('')}</div>`:''}`)}
  ${st(!!a.data,3,'Dados do ASO (clínica)',`<p class="sm muted" style="margin:0 0 8px">${a.data?'Exame em '+fd(a.data)+' · '+esc(a.resultado||'')+' · '+esc(a.medico_nome||''):'A clínica edita os campos do ASO e imprime.'}</p><div class="row">${canCl?`<button class="btn s ${a.data?'':'p'}" data-a="aso" data-id="${s.id}">${a.data?'Editar dados':'Preencher ASO'}</button>`:''}<button class="btn s" data-a="docAso" data-id="${s.id}">${ic('print')}${a.data?'Imprimir ASO':'ASO em branco'}</button></div>`)}
- ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF ou foto, até 3 MB) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
+ ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF até 3 MB, ou foto, que o sistema reduz sozinho) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
  </div></div><footer>
  ${canCl?`<select data-c="solSt" data-id="${s.id}" aria-label="Situação" style="width:auto">${opts(STATUS,s.status)}</select>`:''}
  ${canEm?`<button class="btn s" data-a="editSol" data-id="${s.id}">${ic('edit')}Editar</button><button class="btn s d" data-a="delSol" data-id="${s.id}">${ic('trash')}Excluir</button>`:''}
@@ -1662,7 +1696,7 @@ impAcoes(){
 },
 newSol(){abrirSol()},editSol(d){abrirSol(d.id)},
 solPara(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:'Periódico',exames:chavesOrd(examesDe(riscosDoColab(c)))})},
-delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const s=G('solicitacoes',d.id);delFile(s&&s.arquivo);S.det=null;$('#modal-root').innerHTML='';del('solicitacoes',d.id)})},
+delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const s=G('solicitacoes',d.id);delFile(s&&s.arquivo);S.det=null;$('#modal-root').innerHTML='';del('solicitacoes',d.id);revogarClinica(s)})},
 stf(d){S.sst=d.v;render()},
 det(d){S.det=d.id;renderDetalhe()},
 docPacote(d){docDe(G('solicitacoes',d.id),'pacote')},docGuia(d){docDe(G('solicitacoes',d.id),'guia')},
