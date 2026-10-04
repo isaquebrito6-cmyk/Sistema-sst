@@ -47,6 +47,8 @@ O menu **Auditoria** (só administrador) lista quem criou, alterou, excluiu, bai
 ## Observações
 
 - **Checklist psicossocial:** as respostas individuais ficam na coleção `psico` (uma por solicitação) e só o colaborador, a clínica e o administrador as leem. A empresa vê apenas a data em que foi respondido. Se uma solicitação antiga ainda aparecer com as respostas para a empresa, falta rodar "Atualizar permissões de acesso".
-- A clínica passa a enxergar o colaborador, a empresa e os riscos quando uma solicitação é criada para ela (campo `clinicaIds`). Esse acesso não é retirado automaticamente se a solicitação for excluída.
-- Arquivos de ASO continuam guardados no Firestore (limite de 3 MB). Uma evolução recomendada é migrar para o Firebase Storage, que exige o plano pago Blaze do Firebase (com cota gratuita).
+- A clínica passa a enxergar o colaborador, a empresa e os riscos quando uma solicitação é criada para ela (campo `clinicaIds`). Quando a solicitação é excluída, ou trocada para outra clínica, a clínica deixa de ver o colaborador, a empresa e os riscos, a menos que ainda exista outra solicitação dela que justifique o acesso.
+- Arquivos de ASO continuam guardados no Firestore (limite de 3 MB), para manter o sistema no plano gratuito. Fotos grandes são reduzidas automaticamente antes do envio; PDFs acima de 3 MB precisam ser reduzidos por quem envia. O Firebase Storage exigiria o plano pago Blaze.
+- Senhas criadas ou trocadas pelo sistema precisam ter 10 caracteres ou mais, com letras e números. A redefinição por e-mail ("Esqueci minha senha") usa a página do próprio Firebase e aceita o mínimo dele (6 caracteres).
+- A verificação em duas etapas do Firebase exige o plano pago (Identity Platform); por isso não está ativada.
 - Dados de saúde são sensíveis pela LGPD: crie acessos só para quem precisa.
