@@ -142,9 +142,32 @@ service cloud.firestore {
             && request.resource.data.clinicaId == resource.data.clinicaId
             && request.resource.data.empresaId == resource.data.empresaId
             && request.resource.data.colabId == resource.data.colabId)
-        // colaborador: só responde o checklist psicossocial
-        || (ehColaborador(resource.data.colabId) && soMudou(['psico', 'upd']));
+        // colaborador: só marca que respondeu o checklist (a data); as respostas ficam em /psico
+        || (ehColaborador(resource.data.colabId) && soMudou(['psicoData', 'psico', 'upd']));
       allow delete: if admin() || ehEmpresa(resource.data.empresaId);
+    }
+
+    // ---------- respostas individuais do checklist psicossocial ----------
+    // Dado sensível: a empresa NÃO lê. Só o próprio colaborador, a clínica da solicitação e o administrador.
+    // O id do documento é o id da solicitação.
+    match /psico/{id} {
+      allow get, list: if admin()
+        || ehClinica(resource.data.clinicaId)
+        || ehColaborador(resource.data.colabId);
+      // só cria se a solicitação existe e pertence a quem está gravando (evita ocupar o id de outra pessoa)
+      allow create: if admin()
+        || (ehColaborador(request.resource.data.colabId)
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.colabId == request.resource.data.colabId
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.clinicaId == request.resource.data.clinicaId)
+        || (ehClinica(request.resource.data.clinicaId)
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.clinicaId == request.resource.data.clinicaId
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.colabId == request.resource.data.colabId);
+      allow update: if admin()
+        || ((ehColaborador(resource.data.colabId) || ehClinica(resource.data.clinicaId))
+            && request.resource.data.colabId == resource.data.colabId
+            && request.resource.data.clinicaId == resource.data.clinicaId
+            && request.resource.data.empresaId == resource.data.empresaId);
+      allow delete: if admin();
     }
 
     // ---------- arquivos de ASO (PDF/foto em pedaços) ----------
@@ -159,6 +182,19 @@ service cloud.firestore {
       allow delete: if admin()
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId);
+    }
+
+    // ---------- auditoria (LGPD): quem fez o quê ----------
+    // Qualquer usuário com perfil grava a PRÓPRIA linha (identidade e hora vêm do servidor);
+    // só o administrador lê; ninguém edita nem apaga pelo sistema.
+    match /auditoria/{id} {
+      allow read: if admin();
+      allow create: if temAcesso()
+        && request.resource.data.keys().hasOnly(['quando', 'uid', 'email', 'papel', 'acao', 'colecao', 'docId', 'empresaId', 'clinicaId', 'det'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.quando == request.time;
+      allow update, delete: if false;
     }
 
     // tudo o que não foi listado acima fica bloqueado
