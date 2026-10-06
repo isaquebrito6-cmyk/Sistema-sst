@@ -216,7 +216,8 @@ service cloud.firestore {
     match /arquivos/{id} {
       allow get, list: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
-        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId);
+        || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId)
+        || ehColaborador(resource.data.colabId);
       allow create: if podeAdmin(request.resource.data)
         || ehEmpresa(request.resource.data.empresaId)
         || ehClinica(request.resource.data.clinicaId);

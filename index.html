@@ -471,7 +471,7 @@ async function putFile(file,ctx){
  file=await comprimirImagem(file);
  if(file.size>ASO_MAX)throw new Error(/pdf/i.test(file.type||'')?'O PDF tem mais de 3 MB. Reduza o arquivo (por exemplo, escaneie em qualidade menor) ou envie uma foto.':'Não foi possível reduzir esta imagem para menos de 3 MB. Envie em JPG (ou em PDF) e tente de novo.');
  const b64=b64enc(await file.arrayBuffer()),fid=uid();
- const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||'',consultoriaId:CFG_ID()};
+ const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||'',colabId:(ctx&&ctx.colabId)||'',consultoriaId:CFG_ID()};
  if(DB.db){const CH=180000,n=Math.max(1,Math.ceil(b64.length/CH));
   for(let i=0;i<n;i++)await DB.db.doc('arquivos/'+fid+'_'+i).set(Object.assign({fid,n:i,total:n,data:b64.slice(i*CH,(i+1)*CH)},dono));
   return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n}}
@@ -483,6 +483,7 @@ async function getFile(m){
  if(DB.db){let qr=DB.db.collection('arquivos').where('fid','==',m.fid);
   if(S.authLocked&&S.role==='empresa')qr=qr.where('empresaId','==',S.rid);
   if(S.authLocked&&S.role==='clinica')qr=qr.where('clinicaId','==',S.rid);
+  if(S.authLocked&&S.role==='colaborador')qr=qr.where('colabId','==',S.rid);
   const q=await qr.get();b64=q.docs.map(d=>d.data()).sort((a,b)=>a.n-b.n).map(p=>p.data).join('')}
  else b64=DB.mem[m.fid]||localStorage.getItem('sst.f.'+m.fid)||'';
  if(!b64)throw new Error('Arquivo não encontrado.');
@@ -1220,7 +1221,7 @@ VIEWS.meuportal=()=>{
  return `<div class="card" style="margin-bottom:16px"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0">${esc(e.razao||'')} · ${esc(c.funcao||'—')} · ${esc(c.setor||'—')}</p></div>
  ${pendPsico?`<div class="card" style="margin-bottom:16px;border-color:var(--acc)"><b>Você tem um checklist psicossocial pendente</b><p class="sm muted" style="margin:4px 0 10px">Responda antes do seu exame na clínica.</p><button class="btn p" data-a="psico" data-id="${pendPsico.id}">Responder agora</button></div>`:''}
  <div class="card" style="margin-bottom:16px"><h3>Meus exames (PCMSO)</h3>${tbl([{h:'Exame',f:k=>esc(EXAMES[k].n)},{h:'Último',f:k=>fd(statusExame(c,k,m).last)},{h:'Vence em',f:k=>fd(statusExame(c,k,m).due)},{h:'Situação',f:k=>{const s=statusExame(c,k,m);return `<span class="chip ${s.k==='gray'?'gray':s.k}">${s.t}</span>`}}],ks)}</div>
- <div class="card"><h3>Meu histórico</h3>${sols.length?tbl([{h:'Data',f:s=>fd(s.aso&&s.aso.data||s.dataSolic)},{h:'Tipo',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Resultado',f:s=>esc(s.aso&&s.aso.resultado||s.status)}],sols):'<p class="muted sm">Nenhum exame registrado ainda.</p>'}</div>`;
+ <div class="card"><h3>Meu histórico</h3>${sols.length?tbl([{h:'Data',f:s=>fd(s.aso&&s.aso.data||s.dataSolic)},{h:'Tipo',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Resultado',f:s=>esc(s.aso&&s.aso.resultado||s.status)},{h:'',a:1,f:s=>s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}],sols):'<p class="muted sm">Nenhum exame registrado ainda.</p>'}</div>`;
 };
 
 VIEWS.painel=()=>{
@@ -1315,7 +1316,7 @@ VIEWS.config=()=>{
  const c=CFG();
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
  <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
- <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa fictícia completa para você testar a geração dos documentos.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
+ <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa <b>fictícia</b> completa (não é um cliente real) para você testar a geração dos documentos. Fica junto com os seus dados até você excluir.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
  <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button>${isSuper()?'<button class="btn s" data-a="migrarConsultorias">Preparar multi-tenant</button>':''}</div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.${isSuper()?' "Preparar multi-tenant" cria a sua consultoria ("main") e carimba os dados já existentes, para poder vender acesso a outras consultorias.':''}</p>`:''}</div></div></div>`;
 };
 
@@ -1833,7 +1834,12 @@ novaConsultoria(){
  }});
 },
 instalar(){if(window._deferredInstall){window._deferredInstall.prompt()}else{toast('Para instalar: no menu do navegador, use "Adicionar à tela inicial" ou "Instalar app".',5000)}},
-demo(){emMassa('exemplo','dados de exemplo',async()=>carregarDemo())}
+demo(){
+ const msg=L('empresas').length
+  ?'Carregar uma empresa fictícia de exemplo, além dos seus dados reais já cadastrados? Ela fica junto com o resto e só some se você a excluir manualmente (ou em "Apagar todos os dados").'
+  :'Carregar uma empresa fictícia de exemplo, com colaboradores, riscos e exames já preenchidos, só para você ver como o sistema funciona? Não é um dado real — edite ou exclua quando quiser.';
+ ask(msg,'Carregar exemplo',()=>{emMassa('exemplo','dados de exemplo',async()=>carregarDemo());toast('Dados de exemplo carregados.')});
+}
 };
 const C={
 role(t){setRole(t.value);render()},
@@ -1892,7 +1898,7 @@ async cnpj(t){
 modelo(t){aplicarModelo(t.value)},
 async asoF(t){
  const f=t.files[0];if(!f)return;const id=t.dataset.id;
- try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{empresaId:s0.empresaId,clinicaId:s0.clinicaId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.')}
+ try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{empresaId:s0.empresaId,clinicaId:s0.clinicaId,colabId:s0.colabId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.')}
  catch(e){toast(e.message||'Falha ao enviar o arquivo.',5000)}
 },
 logoF(t){
