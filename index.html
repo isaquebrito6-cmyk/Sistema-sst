@@ -334,6 +334,8 @@ const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
 const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios'];
 const CFG_ID=()=>S.consultoriaId||'main';
+const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
+const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
 const DB={data:{},db:null,dl:null,mem:{},unsubs:[]};
 COLS.forEach(c=>DB.data[c]={});
 let Q=Promise.resolve();
@@ -344,7 +346,7 @@ const L=c=>Object.values(DB.data[c]||{});
 const G=(c,id)=>(DB.data[c]||{})[id];
 const CFG=()=>G('config',CFG_ID())||{};
 /* ---------- auditoria (LGPD): quem fez o quê; só o administrador lê; ninguém edita nem apaga ---------- */
-const AUD_COLS=['colaboradores','solicitacoes','psico','documentos','usuarios','empresas','clinicas'];
+const AUD_COLS=['colaboradores','solicitacoes','psico','documentos','usuarios','empresas','clinicas','consultorias'];
 let audOff=0;
 function audit(acao,col,id,r,det){
  if(!DB.db||!S.usingAuth||!S.authUser||audOff)return;
@@ -425,7 +427,7 @@ async function garantirConsultoriaMain(col,ref){
   }
   const cfgSnap=await ref('config','main').get();
   if(cfgSnap.exists&&!cfgSnap.data().consultoriaId)await ref('config','main').update({consultoriaId:'main'});
-  await ref('consultorias','main').set({id:'main',nome:(cfgSnap.exists&&cfgSnap.data().nome)||'Minha consultoria',status:'ativo',plano:'próprio',criadoEm:Date.now()});
+  await ref('consultorias','main').set({id:'main',nome:(cfgSnap.exists&&cfgSnap.data().nome)||'Minha consultoria',status:'ativo',plano:'próprio',statusPagamento:'ok',limiteEmpresas:0,criadoEm:Date.now()});
  }catch(e){console.warn('migração automática (consultoria main)',e)}
 }
 /* Retira a clínica de clinicaIds quando não resta nenhuma solicitação que justifique o acesso. */
@@ -677,6 +679,11 @@ function riscoFields(empId){
  {k:'per',l:'Periodicidade dos exames (meses)',t:'select',o:[['6','6 meses'],['12','12 meses'],['24','24 meses']],w:3,h:'A definição final cabe ao médico coordenador.'}];}
 
 function abrirEnt(kind,id,pre){
+ if(kind==='empresa'&&!id&&S.role==='consultoria'&&!isSuper()){
+  const c=G('consultorias',CFG_ID())||{};
+  if(c.statusPagamento==='suspenso'){toast('Assinatura suspensa: não é possível cadastrar novas empresas. Fale com quem administra o seu acesso ao sistema.',6000);return}
+  if(c.limiteEmpresas&&L('empresas').length>=c.limiteEmpresas){toast('Limite de '+c.limiteEmpresas+' empresa(s) do seu plano atingido. Fale com quem administra o seu acesso ao sistema para aumentar o limite.',6000);return}
+ }
  const E=ENT[kind];const rec=id?clone(G(E.col,id)):Object.assign({},pre||{});
  if(kind==='colaborador'||kind==='acao'){if(S.role==='empresa')rec.empresaId=S.rid;else if(!rec.empresaId)rec.empresaId=S.emp||''}
  if(kind==='colaborador'&&!rec.status)rec.status='Ativo';
@@ -1189,13 +1196,20 @@ VIEWS.consultorias=()=>{
   ?`<div class="card" style="margin-bottom:16px"><b>Vendo todas as consultorias da plataforma</b><p class="sm muted" style="margin:4px 0 10px">Modo de suporte: aqui aparecem os dados de todas, misturados. Para trabalhar dentro de uma consultoria específica, entre nela.</p><button class="btn s" data-a="voltarConsultoria">Voltar para a minha consultoria</button></div>`
   :`<div class="card" style="margin-bottom:16px"><b>Consultoria atual: ${esc((G('consultorias',CFG_ID())||{}).nome||(CFG_ID()==='main'?'Minha consultoria':CFG_ID()))}</b><p class="sm muted" style="margin:4px 0 10px">Você está vendo e editando apenas os dados desta consultoria.</p><button class="btn s" data-a="verTodasConsultorias">Ver todas as consultorias</button></div>`;
  return barra+`<div class="bar"><div class="grow muted">Cada consultoria é um cliente do sistema, com seus próprios dados, totalmente isolados dos demais.</div><button class="btn p" data-a="novaConsultoria">${ic('plus')}Nova consultoria</button></div>`+
- (cs.length?tbl([{h:'Nome',f:c=>esc(c.nome||'—')+(c.id==='main'?' <span class="chip gray">a sua</span>':'')},{h:'Status',f:c=>`<span class="chip ${c.status==='ativo'?'low':'gray'}">${esc(c.status||'—')}</span>`},{h:'Plano',f:c=>esc(c.plano||'—')},{h:'',a:1,f:c=>`<button class="btn s" data-a="entrarConsultoria" data-id="${c.id}">Entrar</button>`}],cs)
+ (cs.length?tbl([
+  {h:'Nome',f:c=>esc(c.nome||'—')+(c.id==='main'?' <span class="chip gray">a sua</span>':'')},
+  {h:'Plano',f:c=>esc(c.plano||'—')},
+  {h:'Pagamento',f:c=>`<span class="chip ${PAG_COR[c.statusPagamento]||'gray'}">${esc(PAG_NOME[c.statusPagamento]||c.statusPagamento||'—')}</span>`},
+  {h:'Vence em',f:c=>c.vencimento?fd(c.vencimento):'—'},
+  {h:'Empresas',f:c=>(c.limiteEmpresas?L('empresas').filter(e=>e.consultoriaId===c.id).length+' / '+c.limiteEmpresas:'sem limite')},
+  {h:'',a:1,f:c=>`<button class="btn s" data-a="entrarConsultoria" data-id="${c.id}">Entrar</button> ${c.statusPagamento!=='ok'?`<button class="btn s p" data-a="registrarPagamento" data-id="${c.id}">Registrar pagamento</button>`:''} <button class="btn s g" data-a="editarConsultoria" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button>`}
+ ],cs)
  :emptyBox('Nenhuma consultoria cadastrada ainda','A sua própria já existe (“main”); crie outras para vender o acesso.',`<button class="btn p" data-a="novaConsultoria">${ic('plus')}Nova consultoria</button>`,'build'));
 };
 /* ---- auditoria (somente administrador) ---- */
 VIEWS.auditoria=()=>{
  const ACAO={criar:'Criou',alterar:'Alterou',excluir:'Excluiu',baixar:'Baixou',ver:'Viu',imprimir:'Imprimiu',acessar:'Acessou o sistema',restaurar:'Restaurou backup','apagar tudo':'Apagou todos os dados',exemplo:'Carregou exemplo','permissões':'Atualizou permissões'};
- const ONDE={colaboradores:'Colaborador',solicitacoes:'Solicitação / ASO',psico:'Checklist psicossocial',documentos:'Documento emitido',usuarios:'Usuário',empresas:'Empresa',clinicas:'Clínica',sistema:'Sistema'};
+ const ONDE={colaboradores:'Colaborador',solicitacoes:'Solicitação / ASO',psico:'Checklist psicossocial',documentos:'Documento emitido',usuarios:'Usuário',empresas:'Empresa',clinicas:'Clínica',consultorias:'Consultoria',sistema:'Sistema'};
  const dt=e=>{const q=e.quando;return q&&q.toDate?q.toDate():new Date()};
  const item=e=>{
   const sol=G('solicitacoes',e.docId);
@@ -1694,7 +1708,14 @@ function shell(){
  const al=alertas();
  const grp={empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
  const navHTML=nav.map(n=>(grp[n[0]]?`<div class="navgroup">${grp[n[0]]}</div>`:'')+`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${ic(n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('');
- return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button><small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${VIEWS[S.view]()}</main></div></div>`;
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button><small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
+}
+/* Faixa de aviso para o administrador de UMA consultoria quando o pagamento está pendente ou suspenso. */
+function faixaPagamento(){
+ if(S.role!=='consultoria'||isSuper()||S.verTodas)return '';
+ const c=G('consultorias',CFG_ID());if(!c||!c.statusPagamento||c.statusPagamento==='ok')return '';
+ const susp=c.statusPagamento==='suspenso';
+ return `<div class="card" style="margin-bottom:16px;border-color:var(--${susp?'crit':'med'})"><b>${susp?'Assinatura suspensa':'Pagamento pendente'}</b><p class="sm muted" style="margin:4px 0 0">${susp?'Não é possível cadastrar novas empresas até a situação ser regularizada. Os dados já cadastrados continuam disponíveis.':'Seu plano vence em '+fd(c.vencimento)+'. Regularize para evitar a suspensão de novos cadastros.'} Fale com quem administra o seu acesso ao sistema.</p></div>`;
 }
 function render(){
  if(!S.ready)return;
@@ -1801,7 +1822,7 @@ async migrarConsultorias(){
  ask('Preparar o sistema para várias consultorias? É seguro repetir. A sua consultoria atual passa a se chamar "main" e nada do que já existe muda de lugar.','Preparar',async()=>{
   try{
    toast('Migrando…',2500);
-   if(!G('consultorias','main'))await DB.db.doc('consultorias/main').set({id:'main',nome:CFG().nome||'Minha consultoria',status:'ativo',plano:'próprio',criadoEm:Date.now()});
+   if(!G('consultorias','main'))await DB.db.doc('consultorias/main').set({id:'main',nome:CFG().nome||'Minha consultoria',status:'ativo',plano:'próprio',statusPagamento:'ok',limiteEmpresas:0,criadoEm:Date.now()});
    for(const c of TENANT_COLS){for(const r of L(c)){if(!r.consultoriaId)await DB.db.doc(c+'/'+r.id).update({consultoriaId:'main'})}}
    const cfgMain=G('config','main');if(cfgMain&&!cfgMain.consultoriaId)await DB.db.doc('config/main').update({consultoriaId:'main'});
    await Q;toast('Sistema pronto para multi-tenant.',4000);
@@ -1811,10 +1832,12 @@ verTodasConsultorias(){S.verTodas=true;initData();render()},
 voltarConsultoria(){S.verTodas=false;S.consultoriaId='main';initData();render()},
 entrarConsultoria(d){S.verTodas=false;S.consultoriaId=d.id;initData();render()},
 novaConsultoria(){
- openForm({title:'Nova consultoria',btn:'Criar consultoria',val:{},fields:[
+ openForm({title:'Nova consultoria',btn:'Criar consultoria',val:{plano:'teste',limiteEmpresas:3},fields:[
   {k:'nome',l:'Nome da consultoria',r:1,w:4},
   {k:'email',l:'E-mail do administrador dela',t:'email',r:1,w:4},
-  {k:'senha',l:'Senha provisória',r:1,w:3,h:'Mínimo 10 caracteres, com letras e números.'}
+  {k:'senha',l:'Senha provisória',r:1,w:3,h:'Mínimo 10 caracteres, com letras e números.'},
+  {k:'plano',l:'Plano',t:'select',o:[['teste','Teste'],['basico','Básico'],['pro','Pro'],['personalizado','Personalizado']],w:3},
+  {k:'limiteEmpresas',l:'Limite de empresas',t:'number',w:3,h:'0 = sem limite'}
  ],save:async v=>{
   if(!senhaForte(v.senha)){toast(MSG_SENHA,5000);return false}
   try{
@@ -1822,7 +1845,7 @@ novaConsultoria(){
    await FB.secAuth.createUserWithEmailAndPassword(v.email,v.senha);
    const newUid=FB.secAuth.currentUser.uid;
    await FB.db.collection('usuarios').doc(newUid).set({id:newUid,email:v.email,role:'admin',consultoriaId:cid,criadoEm:Date.now()});
-   await FB.db.collection('consultorias').doc(cid).set({id:cid,nome:v.nome,status:'ativo',plano:'teste',criadoEm:Date.now()});
+   await FB.db.collection('consultorias').doc(cid).set({id:cid,nome:v.nome,status:'ativo',plano:v.plano||'teste',statusPagamento:'ok',vencimento:addM(today(),1),limiteEmpresas:+v.limiteEmpresas||0,criadoEm:Date.now()});
    await FB.secAuth.signOut();
    toast('Consultoria "'+v.nome+'" criada.');
    initData();render();
@@ -1832,6 +1855,26 @@ novaConsultoria(){
    return false;
   }
  }});
+},
+editarConsultoria(d){
+ const c=G('consultorias',d.id);if(!c)return;
+ openForm({title:'Editar — '+c.nome,btn:'Salvar',val:{nome:c.nome,plano:c.plano,statusPagamento:c.statusPagamento||'ok',vencimento:c.vencimento||'',limiteEmpresas:c.limiteEmpresas||0},fields:[
+  {k:'nome',l:'Nome da consultoria',r:1,w:4},
+  {k:'plano',l:'Plano',t:'select',o:[['teste','Teste'],['basico','Básico'],['pro','Pro'],['personalizado','Personalizado'],['próprio','Própria (plataforma)']],w:3},
+  {k:'statusPagamento',l:'Pagamento',t:'select',o:[['ok','Em dia'],['pendente','Pendente'],['suspenso','Suspenso (bloqueia novas empresas)']],w:3},
+  {k:'vencimento',l:'Vence em',t:'date',w:3},
+  {k:'limiteEmpresas',l:'Limite de empresas',t:'number',w:3,h:'0 = sem limite'}
+ ],save:v=>{
+  save('consultorias',Object.assign({},c,{nome:v.nome,plano:v.plano,statusPagamento:v.statusPagamento,vencimento:v.vencimento,limiteEmpresas:+v.limiteEmpresas||0}));
+  toast('Consultoria atualizada.');
+ }});
+},
+registrarPagamento(d){
+ const c=G('consultorias',d.id);if(!c)return;
+ ask('Registrar o pagamento de "'+c.nome+'"? O status volta para "Em dia" e o vencimento avança 1 mês.','Registrar',()=>{
+  save('consultorias',Object.assign({},c,{statusPagamento:'ok',vencimento:addM(c.vencimento&&c.vencimento>today()?c.vencimento:today(),1)}));
+  toast('Pagamento registrado.');
+ });
 },
 instalar(){if(window._deferredInstall){window._deferredInstall.prompt()}else{toast('Para instalar: no menu do navegador, use "Adicionar à tela inicial" ou "Instalar app".',5000)}},
 demo(){

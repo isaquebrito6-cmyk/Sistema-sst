@@ -36,6 +36,12 @@ service cloud.firestore {
 
     function minhaConsultoria() { return temPerfil() ? perfil().consultoriaId : null; }
 
+    // true se a consultoria está com o pagamento suspenso (bloqueia só a criação de novas empresas)
+    function consultoriaSuspensa(cid) {
+      return exists(/databases/$(database)/documents/consultorias/$(cid))
+        && get(/databases/$(database)/documents/consultorias/$(cid)).data.get('statusPagamento', 'ok') == 'suspenso';
+    }
+
     // true se o chamador pode administrar o documento informado: super admin (qualquer um) OU
     // admin da consultoria à qual o documento pertence (consultoriaId precisa bater)
     function podeAdmin(dados) {
@@ -115,7 +121,8 @@ service cloud.firestore {
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
       allow list: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
-      allow create: if podeAdmin(request.resource.data);
+      allow create: if superAdmin()
+        || (consultoriaAdmin() && request.resource.data.consultoriaId == minhaConsultoria() && !consultoriaSuspensa(minhaConsultoria()));
       allow delete: if podeAdmin(resource.data);
       // a empresa só pode liberar leitura para clínicas (campo clinicaIds)
       allow update: if podeAdmin(resource.data) || (ehEmpresa(id) && soMudou(['clinicaIds']));
