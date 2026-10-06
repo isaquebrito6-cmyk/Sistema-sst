@@ -790,6 +790,7 @@ function renderLogin(erro){
  <button class="btn p" type="submit" style="width:100%;margin-top:16px">Entrar</button>
  </form>
  <button type="button" class="btn g s" style="width:100%;margin-top:10px" data-a="esqueciSenha">Esqueci minha senha</button>
+ <p class="sm muted" style="text-align:center;margin:16px 0 0"><a href="termos-de-uso.html" target="_blank" rel="noopener">Termos de Uso</a> · <a href="politica-de-privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> · <a href="acordo-tratamento-dados.html" target="_blank" rel="noopener">Tratamento de Dados</a></p>
  </div>`;
  $('#login-form').addEventListener('submit',e=>{e.preventDefault();doLogin()});
 }
@@ -1331,7 +1332,8 @@ VIEWS.config=()=>{
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
  <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa <b>fictícia</b> completa (não é um cliente real) para você testar a geração dos documentos. Fica junto com os seus dados até você excluir.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
- <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button>${isSuper()?'<button class="btn s" data-a="migrarConsultorias">Preparar multi-tenant</button>':''}</div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.${isSuper()?' "Preparar multi-tenant" cria a sua consultoria ("main") e carimba os dados já existentes, para poder vender acesso a outras consultorias.':''}</p>`:''}</div></div></div>`;
+ <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button>${isSuper()?'<button class="btn s" data-a="migrarConsultorias">Preparar multi-tenant</button>':''}</div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.${isSuper()?' "Preparar multi-tenant" cria a sua consultoria ("main") e carimba os dados já existentes, para poder vender acesso a outras consultorias.':''}</p>`:''}</div>
+ <div class="card"><h3>Documentos legais</h3><p class="sm muted" style="margin:0 0 10px">Termos e políticas que regem o uso da plataforma${isSuper()?' pelas consultorias clientes':''}.</p><div class="row"><a class="btn s" href="termos-de-uso.html" target="_blank" rel="noopener">${ic('file')}Termos de Uso</a><a class="btn s" href="politica-de-privacidade.html" target="_blank" rel="noopener">${ic('file')}Política de Privacidade</a><a class="btn s" href="acordo-tratamento-dados.html" target="_blank" rel="noopener">${ic('file')}Tratamento de Dados</a></div></div></div>`;
 };
 
 /* detalhe da solicitação */
@@ -1832,13 +1834,17 @@ verTodasConsultorias(){S.verTodas=true;initData();render()},
 voltarConsultoria(){S.verTodas=false;S.consultoriaId='main';initData();render()},
 entrarConsultoria(d){S.verTodas=false;S.consultoriaId=d.id;initData();render()},
 novaConsultoria(){
- openForm({title:'Nova consultoria',btn:'Criar consultoria',val:{plano:'teste',limiteEmpresas:3},fields:[
+ openForm({title:'Nova consultoria',btn:'Criar consultoria',val:{plano:'teste',limiteEmpresas:3},
+  pre:'<p class="sm muted" style="margin:0 0 14px">Antes de criar, confira os <a href="termos-de-uso.html" target="_blank" rel="noopener">Termos de Uso</a>, a <a href="politica-de-privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> e o <a href="acordo-tratamento-dados.html" target="_blank" rel="noopener">Acordo de Tratamento de Dados</a> com o cliente.</p>',
+  fields:[
   {k:'nome',l:'Nome da consultoria',r:1,w:4},
   {k:'email',l:'E-mail do administrador dela',t:'email',r:1,w:4},
   {k:'senha',l:'Senha provisória',r:1,w:3,h:'Mínimo 10 caracteres, com letras e números.'},
   {k:'plano',l:'Plano',t:'select',o:[['teste','Teste'],['basico','Básico'],['pro','Pro'],['personalizado','Personalizado']],w:3},
-  {k:'limiteEmpresas',l:'Limite de empresas',t:'number',w:3,h:'0 = sem limite'}
+  {k:'limiteEmpresas',l:'Limite de empresas',t:'number',w:3,h:'0 = sem limite'},
+  {k:'aceite',l:'',t:'checks',r:1,w:6,o:[['ok','O cliente leu e aceitou os Termos de Uso e a Política de Privacidade (links acima)']]}
  ],save:async v=>{
+  if(!v.aceite||!v.aceite.includes('ok')){toast('Confirme que o cliente leu e aceitou os Termos de Uso e a Política de Privacidade.',5000);return false}
   if(!senhaForte(v.senha)){toast(MSG_SENHA,5000);return false}
   try{
    const cid=uid();

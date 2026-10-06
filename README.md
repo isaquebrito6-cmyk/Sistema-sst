@@ -53,6 +53,11 @@ O sistema suporta várias consultorias de SST usando o mesmo site, com os dados 
 - Menu **Consultorias** (só aparece para o super admin): cria uma nova consultoria com seu primeiro administrador (e-mail + senha provisória), lista as existentes e permite "Entrar" em uma delas para ver/configurar os dados daquela consultoria especificamente, ou "Ver todas" para uma visão de suporte sem filtro.
 - O administrador de **uma** consultoria (perfil `admin` com `consultoriaId` preenchido) só vê e só cria usuários (empresa/clínica/colaborador) dentro da própria consultoria — isso é garantido tanto pelo código quanto pelas regras do Firestore (`firestore.rules`), então mesmo alguém adulterando o navegador não consegue ler dados de outra consultoria.
 - Cada consultoria tem seus próprios dados da consultoria (nome, logotipo, responsável técnico) em **Configurações**.
+- Plano e cobrança: `consultorias/{id}` tem `plano`, `statusPagamento` (`ok`/`pendente`/`suspenso`), `vencimento` e `limiteEmpresas`. O super admin edita isso em **Consultorias → Editar** e registra pagamentos manuais (Pix, boleto etc.) em **Registrar pagamento**. Uma consultoria `suspenso` não consegue cadastrar novas empresas (barrado também pelo `firestore.rules`); o limite de empresas só é avisado na tela, sem bloqueio no servidor.
+
+## Documentos legais
+
+`termos-de-uso.html`, `politica-de-privacidade.html` e `acordo-tratamento-dados.html` são páginas estáticas (mesmo padrão visual do sistema) linkadas no rodapé do login e em Configurações → Documentos legais. São **modelos de partida**: têm campos entre `[colchetes]` para preencher com os dados reais de quem presta o serviço, e precisam de revisão por um advogado antes de valer para clientes pagantes — principalmente por tratarem dados de saúde (dado sensível pela LGPD).
 
 ## Observações
 
