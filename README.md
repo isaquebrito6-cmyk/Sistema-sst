@@ -55,6 +55,10 @@ O sistema suporta várias consultorias de SST usando o mesmo site, com os dados 
 - Cada consultoria tem seus próprios dados da consultoria (nome, logotipo, responsável técnico) em **Configurações**.
 - Plano e cobrança: `consultorias/{id}` tem `plano`, `statusPagamento` (`ok`/`pendente`/`suspenso`), `vencimento` e `limiteEmpresas`. O super admin edita isso em **Consultorias → Editar** e registra pagamentos manuais (Pix, boleto etc.) em **Registrar pagamento**. Uma consultoria `suspenso` não consegue cadastrar novas empresas (barrado também pelo `firestore.rules`); o limite de empresas só é avisado na tela, sem bloqueio no servidor.
 
+## Página comercial
+
+`comercial.html` é uma landing page para atrair novas consultorias (problema → o que o sistema cobre por NR → isolamento entre consultorias → segurança → planos → pedir demonstração). Fica separada do `index.html` (o sistema em si) de propósito: ninguém que já usa o sistema é afetado, e o link "Pedir demonstração" aponta para um `mailto:` — troque `[e-mail de contato]` pelo seu e-mail antes de divulgar. Para divulgar como página inicial do site, basta linkar `comercial.html` de onde for anunciar (ex.: redes sociais, Google); o `index.html` continua sendo a porta de entrada do sistema para quem já é cliente.
+
 ## Documentos legais
 
 `termos-de-uso.html`, `politica-de-privacidade.html` e `acordo-tratamento-dados.html` são páginas estáticas (mesmo padrão visual do sistema) linkadas no rodapé do login e em Configurações → Documentos legais. São **modelos de partida**: têm campos entre `[colchetes]` para preencher com os dados reais de quem presta o serviço, e precisam de revisão por um advogado antes de valer para clientes pagantes — principalmente por tratarem dados de saúde (dado sensível pela LGPD).

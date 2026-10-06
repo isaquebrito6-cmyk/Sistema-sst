@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SST Gestão — sistema para consultorias de segurança do trabalho</title>
+<meta name="description" content="PGR, PCMSO, ASO e inventário de riscos num só sistema, com cada consultoria de SST num ambiente isolado. Substitua planilhas e modelos soltos por um fluxo só.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,380;0,9..144,460;0,9..144,600;1,9..144,460&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2F1;--paper:#FFFFFF;--ink:#11242A;--ink2:#4C5E62;--line:#D7E0DE;
+  --brand:#0B5560;--brand2:#083E46;--acc:#E8A62F;--acc-ink:#4A3103;
+  --radius:14px;--serif:'Fraunces',Georgia,serif;--sans:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0E191C;--paper:#152225;--ink:#E7EFEE;--ink2:#9FB3B2;--line:#27383B;--brand:#5FB8C4;--brand2:#7CCAD4;--acc:#F0B429;--acc-ink:#2A1C02}
+}
+:root[data-theme="dark"]{--bg:#0E191C;--paper:#152225;--ink:#E7EFEE;--ink2:#9FB3B2;--line:#27383B;--brand:#5FB8C4;--brand2:#7CCAD4;--acc:#F0B429;--acc-ink:#2A1C02}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+img,svg{display:block}
+a{color:inherit}
+.container{max-width:1120px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:var(--serif);font-weight:460;margin:0;letter-spacing:-.01em}
+.tag{font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;color:var(--brand);background:color-mix(in srgb,var(--brand) 11%,transparent);border:1px solid color-mix(in srgb,var(--brand) 28%,transparent);border-radius:999px;padding:3px 10px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+:root[data-theme="dark"] .tag,@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tag{color:var(--brand)}}
+
+/* -------- nav -------- */
+.nav{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav-row{display:flex;align-items:center;gap:28px;height:68px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-size:18px;font-weight:600;margin-right:auto}
+.brand .mk{width:30px;height:30px;border-radius:8px;background:linear-gradient(155deg,var(--brand2),var(--brand));display:grid;place-items:center;flex:none}
+.brand .mk svg{width:17px;height:17px;stroke:#fff}
+.nav-links{display:flex;gap:26px;font-size:14.5px}
+.nav-links a{text-decoration:none;color:var(--ink2)}
+.nav-links a:hover{color:var(--ink)}
+.nav .cta-row{display:flex;gap:10px;align-items:center}
+@media (max-width:760px){.nav-links{display:none}}
+
+/* -------- buttons -------- */
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:9px;padding:11px 18px;font-size:14.5px;font-weight:600;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:transform .12s ease,background-color .15s ease}
+.btn.primary{background:var(--acc);color:var(--acc-ink)}
+.btn.primary:hover{transform:translateY(-1px)}
+.btn.ghost{border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--brand)}
+.btn.sm{padding:8px 14px;font-size:13.5px}
+
+/* -------- hero -------- */
+.hero{padding:76px 0 64px}
+.hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center}
+.hero h1{font-size:clamp(34px,4.6vw,54px);line-height:1.08}
+.hero .lede{font-size:18px;line-height:1.6;color:var(--ink2);max-width:46ch;margin:20px 0 28px}
+.hero .ctas{display:flex;gap:12px;flex-wrap:wrap}
+.hero .fine{font-size:13px;color:var(--ink2);margin-top:14px}
+
+/* document stack visual */
+.stack{position:relative;height:380px}
+.doc{position:absolute;width:300px;background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 38px -16px rgba(8,30,34,.28);padding:18px 20px}
+.doc .dk{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--brand);text-transform:uppercase}
+.doc h4{font-family:var(--serif);font-size:17px;font-weight:600;margin:4px 0 10px}
+.doc .ln{height:7px;border-radius:3px;background:var(--line);margin:7px 0}
+.doc .ln.s{width:62%}
+.doc .chip{display:inline-block;font-family:var(--mono);font-size:10.5px;border-radius:6px;padding:2px 7px;margin-top:10px}
+.doc.d1{left:0;top:30px;transform:rotate(-3.5deg);z-index:1}
+.doc.d2{right:0;top:0;transform:rotate(3deg);z-index:2}
+.doc.d3{left:46px;bottom:0;transform:rotate(-1deg);z-index:3;width:260px}
+.doc.d3 .chip{background:color-mix(in srgb,var(--acc) 22%,transparent);color:var(--acc-ink)}
+:root[data-theme="dark"] .doc.d3 .chip,@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .doc.d3 .chip{color:var(--bg)}}
+.doc.d1 .chip,.doc.d2 .chip{background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--brand)}
+@media (max-width:900px){.hero-grid{grid-template-columns:1fr}.stack{height:300px;margin-top:10px}.doc{width:72%}.doc.d3{width:60%}}
+
+/* -------- problem section -------- */
+.compare{padding:60px 0;border-top:1px solid var(--line)}
+.compare h2{font-size:clamp(24px,2.6vw,32px);max-width:28ch}
+.compare .sub{color:var(--ink2);max-width:60ch;margin:12px 0 36px;font-size:15.5px}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.compare-col{background:var(--paper);padding:26px 28px}
+.compare-col h3{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:14px}
+.compare-col ul{margin:0;padding:0;list-style:none}
+.compare-col li{display:flex;gap:10px;padding:9px 0;font-size:14.5px;border-top:1px solid var(--line)}
+.compare-col li:first-child{border-top:none}
+.compare-col.before li::before{content:"×";color:#B3261E;font-weight:700;flex:none}
+.compare-col.after li::before{content:"✓";color:var(--brand);font-weight:700;flex:none}
+@media (max-width:700px){.compare-grid{grid-template-columns:1fr}}
+
+/* -------- NR feature grid -------- */
+.features{padding:64px 0;border-top:1px solid var(--line)}
+.features h2{font-size:clamp(24px,2.6vw,32px);max-width:24ch}
+.features .sub{color:var(--ink2);max-width:58ch;margin:12px 0 40px;font-size:15.5px}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.fcard{background:var(--paper);padding:24px 24px 26px}
+.fcard h3{font-size:17.5px;font-weight:600;margin:10px 0 8px}
+.fcard p{font-size:14px;color:var(--ink2);margin:0;line-height:1.55}
+@media (max-width:860px){.fgrid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:600px){.fgrid{grid-template-columns:1fr}}
+
+/* -------- isolation section -------- */
+.iso{padding:64px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:.95fr 1.05fr;gap:52px;align-items:center}
+.iso h2{font-size:clamp(24px,2.6vw,32px);max-width:20ch}
+.iso p{color:var(--ink2);font-size:15.5px;max-width:48ch;margin:14px 0 0}
+.iso-visual{display:flex;flex-direction:column;gap:10px}
+.iso-row{display:flex;align-items:center;gap:14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:13px 16px}
+.iso-row .lock{width:30px;height:30px;border-radius:8px;background:color-mix(in srgb,var(--brand) 13%,transparent);display:grid;place-items:center;flex:none}
+.iso-row .lock svg{width:15px;height:15px;stroke:var(--brand)}
+.iso-row b{font-size:14.5px;display:block}
+.iso-row span{font-size:12.5px;color:var(--ink2);font-family:var(--mono)}
+@media (max-width:860px){.iso{grid-template-columns:1fr}}
+
+/* -------- trust checklist -------- */
+.trust{padding:64px 0;border-top:1px solid var(--line)}
+.trust h2{font-size:clamp(24px,2.6vw,32px);max-width:24ch}
+.trust .sub{color:var(--ink2);max-width:56ch;margin:12px 0 32px;font-size:15.5px}
+.tgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 34px}
+.titem{display:flex;gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px}
+.titem:nth-child(-n+2){border-top:none}
+.titem svg{width:17px;height:17px;stroke:var(--brand);flex:none;margin-top:1px}
+@media (max-width:700px){.tgrid{grid-template-columns:1fr}.titem:nth-child(2){border-top:1px solid var(--line)}}
+
+/* -------- plans -------- */
+.plans{padding:64px 0;border-top:1px solid var(--line)}
+.plans h2{font-size:clamp(24px,2.6vw,32px)}
+.plans .sub{color:var(--ink2);max-width:56ch;margin:12px 0 36px;font-size:15.5px}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:26px 24px}
+.pcard.hi{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+.pcard .pname{font-family:var(--mono);font-size:12px;color:var(--brand);letter-spacing:.03em}
+.pcard h3{font-size:21px;margin:8px 0 12px}
+.pcard ul{margin:0;padding:0;list-style:none;font-size:13.5px;color:var(--ink2)}
+.pcard li{padding:5px 0}
+@media (max-width:860px){.pgrid{grid-template-columns:1fr}}
+
+/* -------- final CTA -------- */
+.final{padding:76px 0 90px;text-align:center}
+.final h2{font-size:clamp(26px,3.4vw,38px);max-width:22ch;margin:0 auto}
+.final p{color:var(--ink2);max-width:46ch;margin:16px auto 28px;font-size:15.5px}
+.final .ctas{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+
+/* -------- footer -------- */
+footer{border-top:1px solid var(--line);padding:30px 0}
+.foot-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--ink2)}
+.foot-links{display:flex;gap:18px;flex-wrap:wrap}
+.foot-links a{text-decoration:none;color:var(--ink2)}
+.foot-links a:hover{color:var(--ink)}
+
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav"><div class="container nav-row">
+  <div class="brand"><div class="mk"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M12 8v5M12 16v.5"/></svg></div>SST Gestão</div>
+  <div class="nav-links">
+    <a href="#problema">Por que trocar</a>
+    <a href="#normas">O que o sistema cobre</a>
+    <a href="#isolamento">Sua consultoria</a>
+    <a href="#planos">Planos</a>
+  </div>
+  <div class="cta-row">
+    <a class="btn ghost sm" href="index.html">Entrar</a>
+    <a class="btn primary sm" href="mailto:[e-mail de contato]?subject=Quero%20conhecer%20o%20SST%20Gest%C3%A3o">Pedir demonstração</a>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="container hero-grid">
+  <div>
+    <h1>O PGR, o PCMSO e os ASOs da sua consultoria, fora da planilha.</h1>
+    <p class="lede">Um sistema só para cadastrar empresas, colaboradores e riscos uma vez — e deixar que os exames, os documentos e os prazos se organizem sozinhos, por NR-1, NR-7, NR-9 e NR-15.</p>
+    <div class="ctas">
+      <a class="btn primary" href="mailto:[e-mail de contato]?subject=Quero%20conhecer%20o%20SST%20Gest%C3%A3o">Pedir demonstração</a>
+      <a class="btn ghost" href="#normas">Ver o que o sistema cobre</a>
+    </div>
+    <p class="fine">Sem cartão de crédito para testar. Sua consultoria entra com acesso próprio, isolado dos demais clientes.</p>
+  </div>
+  <div class="stack" aria-hidden="true">
+    <div class="doc d1"><div class="dk">PGR &middot; NR-1 / NR-9</div><h4>Inventário de riscos</h4><div class="ln"></div><div class="ln"></div><div class="ln s"></div><span class="chip">Grau de risco 2</span></div>
+    <div class="doc d2"><div class="dk">PCMSO &middot; NR-7</div><h4>Exames por função</h4><div class="ln"></div><div class="ln s"></div><span class="chip">Periodicidade 12 m</span></div>
+    <div class="doc d3"><div class="dk">ASO</div><h4>Atestado de saúde</h4><div class="ln"></div><div class="ln s"></div><span class="chip">Apto</span></div>
+  </div>
+</div></header>
+
+<section class="compare" id="problema"><div class="container">
+  <h2>O que muda quando sai da planilha</h2>
+  <p class="sub">Nenhuma consultoria começa com um sistema. Começa com pastas, Word e uma planilha de vencimentos — até ela ficar grande demais para caber numa pessoa só lembrar de tudo.</p>
+  <div class="compare-grid">
+    <div class="compare-col before">
+      <h3>Hoje, sem sistema</h3>
+      <ul>
+        <li>Cada exame vencido é descoberto quando já venceu</li>
+        <li>O PGR e o PCMSO vivem em versões soltas do Word</li>
+        <li>O ASO assinado chega por e-mail e se perde na caixa de entrada</li>
+        <li>A clínica, a empresa e o colaborador não têm onde se falar</li>
+        <li>Nada impede alguém de ver dados de um cliente que não é dela</li>
+      </ul>
+    </div>
+    <div class="compare-col after">
+      <h3>Com o SST Gestão</h3>
+      <ul>
+        <li>O painel avisa quem está vencendo antes de vencer</li>
+        <li>O PGR e o PCMSO saem prontos dos dados já cadastrados</li>
+        <li>A clínica anexa o ASO; a empresa baixa na hora</li>
+        <li>Cada perfil — empresa, clínica, colaborador — vê só o que é dele</li>
+        <li>Cada consultoria cliente fica num ambiente isolado das demais</li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+
+<section class="features" id="normas"><div class="container">
+  <h2>Um módulo para cada parte da rotina de SST</h2>
+  <p class="sub">Organizado pela mesma referência que você já usa no dia a dia — a Norma Regulamentadora.</p>
+  <div class="fgrid">
+    <div class="fcard"><span class="tag">NR-1 · NR-9</span><h3>Inventário de riscos e PGR</h3><p>Cadastre os perigos por setor e função; o Programa de Gerenciamento de Riscos sai como documento, com plano de ação e prazos de revisão.</p></div>
+    <div class="fcard"><span class="tag">NR-7</span><h3>PCMSO e exames por função</h3><p>Os exames exigidos e a periodicidade de cada um saem direto dos riscos vinculados à função — sem copiar matriz de exame à mão.</p></div>
+    <div class="fcard"><span class="tag">NR-15</span><h3>Insalubridade</h3><p>Grau e anexo de insalubridade por risco, com referência direta ao agente (ruído, calor, agentes químicos e biológicos) e base no art. 192 da CLT.</p></div>
+    <div class="fcard"><span class="tag">ASO</span><h3>Encaminhamento e devolução</h3><p>A empresa encaminha o exame, a clínica anexa o ASO assinado (PDF ou foto), e ele fica disponível para a empresa e o próprio colaborador.</p></div>
+    <div class="fcard"><span class="tag">NR-1</span><h3>Checklist psicossocial</h3><p>Aplicado ao colaborador antes do exame, com as respostas guardadas separadas da empresa — só o colaborador, a clínica e a sua consultoria leem.</p></div>
+    <div class="fcard"><span class="tag">LGPD</span><h3>Auditoria e sigilo</h3><p>Registro de quem criou, alterou, excluiu ou baixou cada dado sensível, e logout automático por inatividade.</p></div>
+  </div>
+</div></section>
+
+<section class="iso" id="isolamento"><div class="container iso" style="padding:0">
+  <div>
+    <h2>Sua consultoria, isolada das demais</h2>
+    <p>Cada consultoria que usa o SST Gestão entra num ambiente próprio: os dados das suas empresas, clínicas e colaboradores não aparecem para nenhuma outra consultoria cliente — nem para quem administra a plataforma, fora do estritamente necessário para suporte. O isolamento é reforçado nas regras do banco de dados, não só na tela.</p>
+  </div>
+  <div class="iso-visual">
+    <div class="iso-row"><div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><div><b>Consultoria Horizonte SST</b><span>18 empresas · 340 colaboradores</span></div></div>
+    <div class="iso-row"><div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><div><b>Consultoria Vértice Saúde Ocupacional</b><span>6 empresas · 85 colaboradores</span></div></div>
+    <div class="iso-row"><div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><div><b>A sua consultoria</b><span>o seu próprio espaço, do seu jeito</span></div></div>
+  </div>
+</div></section>
+
+<section class="trust"><div class="container">
+  <h2>Pensado para dado de saúde</h2>
+  <p class="sub">ASO e checklist psicossocial são dados sensíveis pela LGPD. O sistema trata assim desde o primeiro cadastro:</p>
+  <div class="tgrid">
+    <div class="titem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Login individual por e-mail e senha, nunca compartilhado</div>
+    <div class="titem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Cada perfil só consegue pedir ao servidor o que pode ver</div>
+    <div class="titem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Checklist psicossocial fora do alcance da empresa</div>
+    <div class="titem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Sessão encerrada sozinha após período sem uso</div>
+    <div class="titem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Registro de quem viu, baixou ou alterou cada dado sensível</div>
+    <div class="titem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Backup exportável a qualquer momento, pela sua consultoria</div>
+  </div>
+</div></section>
+
+<section class="plans" id="planos"><div class="container">
+  <h2>Comece testando, converse sobre o resto</h2>
+  <p class="sub">Esta é uma plataforma nova, então o plano e o limite de empresas são combinados diretamente com cada consultoria — sem letra miúda escondida.</p>
+  <div class="pgrid">
+    <div class="pcard"><div class="pname">teste</div><h3>Conhecer o sistema</h3><ul><li>Poucas empresas, sem custo</li><li>Todos os módulos liberados</li><li>Suporte direto durante o teste</li></ul></div>
+    <div class="pcard hi"><div class="pname">básico / pro</div><h3>Sua operação no dia a dia</h3><ul><li>Limite de empresas combinado com você</li><li>Cobrança mensal, sem fidelidade imposta</li><li>Exportação de backup sempre disponível</li></ul></div>
+    <div class="pcard"><div class="pname">personalizado</div><h3>Para quem já é grande</h3><ul><li>Volume maior de empresas e colaboradores</li><li>Conversa sobre necessidades específicas</li><li>Mesmo isolamento de dados dos demais planos</li></ul></div>
+  </div>
+</div></section>
+
+<section class="final"><div class="container">
+  <h2>Peça uma demonstração com os seus próprios dados</h2>
+  <p>Sem compromisso. Você vê o PGR e o PCMSO saindo de um cadastro real antes de decidir.</p>
+  <div class="ctas">
+    <a class="btn primary" href="mailto:[e-mail de contato]?subject=Quero%20conhecer%20o%20SST%20Gest%C3%A3o">Pedir demonstração</a>
+    <a class="btn ghost" href="index.html">Já sou cliente — entrar</a>
+  </div>
+</div></section>
+
+<footer><div class="container foot-row">
+  <span>SST Gestão &middot; [razão social / CNPJ a preencher]</span>
+  <div class="foot-links">
+    <a href="termos-de-uso.html">Termos de Uso</a>
+    <a href="politica-de-privacidade.html">Política de Privacidade</a>
+    <a href="acordo-tratamento-dados.html">Tratamento de Dados</a>
+  </div>
+</div></footer>
+
+</body>
+</html>
