@@ -1,11 +1,14 @@
 rules_version = '2';
 
-// Regras de segurança do SST Gestão.
+// Regras de segurança do SST Gestão — multi-tenant (várias consultorias).
 // Publicar em: Firebase Console > Firestore Database > Regras (veja o README).
 //
 // Perfis (documento usuarios/{uid}): admin | empresa | clinica | colaborador.
-// O administrador fixo é o e-mail abaixo; outros administradores têm role == 'admin'.
-// Ninguém além do administrador consegue criar ou alterar perfis (impede auto-promoção).
+// - O super administrador da plataforma é o e-mail fixo abaixo: vê e administra TODAS as consultorias.
+// - "admin" é o administrador de UMA consultoria (perfil().consultoriaId): só vê os dados da própria consultoria.
+// - empresa/clinica/colaborador também pertencem a uma consultoria (perfil().consultoriaId), herdada de quem os criou.
+// Ninguém além de um admin consegue criar ou alterar perfis, e nenhum admin de consultoria consegue
+// criar, editar ou apagar outro admin (impede auto-promoção e invasão entre consultorias).
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -25,8 +28,18 @@ service cloud.firestore {
 
     function perfil() { return get(perfilRef()).data; }
 
-    function admin() {
-      return emailAdmin() || (temPerfil() && perfil().role == 'admin');
+    // super admin da plataforma: vê e administra todas as consultorias, sem restrição
+    function superAdmin() { return emailAdmin(); }
+
+    // administrador de UMA consultoria (perfil().role == 'admin'), isolado das demais
+    function consultoriaAdmin() { return temPerfil() && perfil().role == 'admin'; }
+
+    function minhaConsultoria() { return temPerfil() ? perfil().consultoriaId : null; }
+
+    // true se o chamador pode administrar o documento informado: super admin (qualquer um) OU
+    // admin da consultoria à qual o documento pertence (consultoriaId precisa bater)
+    function podeAdmin(dados) {
+      return superAdmin() || (consultoriaAdmin() && dados.consultoriaId == minhaConsultoria());
     }
 
     function ehEmpresa(id) {
@@ -46,151 +59,180 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/colaboradores/$(perfil().colaboradorId)).data.empresaId;
     }
 
-    function temAcesso() { return admin() || temPerfil(); }
+    function temAcesso() { return superAdmin() || temPerfil(); }
 
     // true se a única alteração foi no(s) campo(s) informado(s)
     function soMudou(campos) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
     }
 
-    // ---------- perfis de usuário ----------
-    match /usuarios/{uid} {
-      allow get: if logado() && (request.auth.uid == uid || admin());
-      allow list: if admin();
-      allow write: if admin();
+    // ---------- consultorias (tenants da plataforma) ----------
+    match /consultorias/{id} {
+      allow get: if superAdmin() || (consultoriaAdmin() && minhaConsultoria() == id);
+      allow list: if superAdmin();
+      allow create, delete: if superAdmin();
+      allow update: if superAdmin()
+        || (consultoriaAdmin() && minhaConsultoria() == id && soMudou(['nome', 'cnpj', 'resp', 'reg', 'email', 'tel', 'logo']));
     }
 
-    // ---------- dados da consultoria (nome, logotipo, responsável) ----------
+    // ---------- perfis de usuário ----------
+    match /usuarios/{uid} {
+      allow get: if logado() && (request.auth.uid == uid || superAdmin()
+        || (consultoriaAdmin() && resource.data.consultoriaId == minhaConsultoria()));
+      allow list: if superAdmin() || (consultoriaAdmin() && resource.data.consultoriaId == minhaConsultoria());
+      allow create: if superAdmin()
+        || (consultoriaAdmin() && request.resource.data.consultoriaId == minhaConsultoria() && request.resource.data.role != 'admin');
+      allow update: if superAdmin()
+        || (consultoriaAdmin() && resource.data.consultoriaId == minhaConsultoria() && resource.data.role != 'admin'
+            && request.resource.data.role != 'admin' && request.resource.data.consultoriaId == minhaConsultoria());
+      allow delete: if superAdmin()
+        || (consultoriaAdmin() && resource.data.consultoriaId == minhaConsultoria() && resource.data.role != 'admin');
+    }
+
+    // ---------- dados da consultoria (nome, logotipo, responsável) — 1 doc por consultoria, id = consultoriaId ----------
     match /config/{id} {
-      allow read: if temAcesso();
-      allow write: if admin();
+      allow read: if superAdmin() || (temPerfil() && perfil().consultoriaId == id);
+      allow write: if superAdmin() || (consultoriaAdmin() && minhaConsultoria() == id);
     }
 
     // ---------- clínicas (dados cadastrais, não sensíveis) ----------
     match /clinicas/{id} {
-      allow get: if admin() || ehClinica(id) || (temPerfil() && perfil().role != 'clinica');
-      allow list: if admin() || (temPerfil() && perfil().role != 'clinica');
-      allow write: if admin();
+      allow get: if podeAdmin(resource.data) || ehClinica(id)
+        || (temPerfil() && perfil().role != 'clinica' && perfil().consultoriaId == resource.data.consultoriaId);
+      allow list: if podeAdmin(resource.data)
+        || (temPerfil() && perfil().role != 'clinica' && perfil().consultoriaId == resource.data.consultoriaId);
+      allow create: if podeAdmin(request.resource.data);
+      allow delete: if podeAdmin(resource.data);
+      // a empresa só pode liberar leitura para clínicas (campo clinicaIds)
+      allow update: if podeAdmin(resource.data) || (ehEmpresa(id) && soMudou(['clinicaIds']));
     }
 
     // ---------- empresas ----------
     match /empresas/{id} {
-      allow get: if admin()
+      allow get: if podeAdmin(resource.data)
         || ehEmpresa(id)
         || (temPerfil() && perfil().role == 'colaborador' && empresaDoColaborador() == id)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
-      allow list: if admin()
+      allow list: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
-      allow create, delete: if admin();
+      allow create: if podeAdmin(request.resource.data);
+      allow delete: if podeAdmin(resource.data);
       // a empresa só pode liberar leitura para clínicas (campo clinicaIds)
-      allow update: if admin() || (ehEmpresa(id) && soMudou(['clinicaIds']));
+      allow update: if podeAdmin(resource.data) || (ehEmpresa(id) && soMudou(['clinicaIds']));
     }
 
     // ---------- colaboradores ----------
     match /colaboradores/{id} {
-      allow get: if admin()
+      allow get: if podeAdmin(resource.data)
         || ehColaborador(id)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
-      allow list: if admin()
+      allow list: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
-      allow create: if admin() || ehEmpresa(request.resource.data.empresaId);
-      allow update: if admin()
-        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId);
-      allow delete: if admin() || ehEmpresa(resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data) || ehEmpresa(request.resource.data.empresaId);
+      allow update: if podeAdmin(resource.data)
+        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.consultoriaId == resource.data.consultoriaId);
+      allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
     // ---------- inventário de riscos (PGR) ----------
     match /riscos/{id} {
-      allow get, list: if admin()
+      allow get, list: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'colaborador' && empresaDoColaborador() == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
-      allow create, delete: if admin();
-      allow update: if admin() || (ehEmpresa(resource.data.empresaId) && soMudou(['clinicaIds']));
+      allow create: if podeAdmin(request.resource.data);
+      allow delete: if podeAdmin(resource.data);
+      allow update: if podeAdmin(resource.data) || (ehEmpresa(resource.data.empresaId) && soMudou(['clinicaIds']));
     }
 
     // ---------- plano de ação ----------
     match /acoes/{id} {
-      allow get, list: if admin() || ehEmpresa(resource.data.empresaId);
-      allow create: if admin() || ehEmpresa(request.resource.data.empresaId);
-      allow update: if admin()
-        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId);
-      allow delete: if admin() || ehEmpresa(resource.data.empresaId);
+      allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data) || ehEmpresa(request.resource.data.empresaId);
+      allow update: if podeAdmin(resource.data)
+        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.consultoriaId == resource.data.consultoriaId);
+      allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
     // ---------- documentos emitidos (histórico de PGR/PCMSO) ----------
     match /documentos/{id} {
-      allow get, list: if admin() || ehEmpresa(resource.data.empresaId);
-      allow write: if admin();
+      allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data);
+      allow update, delete: if podeAdmin(resource.data);
     }
 
     // ---------- solicitações de exame / ASO / checklist psicossocial ----------
     match /solicitacoes/{id} {
-      allow get, list: if admin()
+      allow get, list: if podeAdmin(resource.data)
         || ehEmpresa(resource.data.empresaId)
         || ehClinica(resource.data.clinicaId)
         || ehColaborador(resource.data.colabId);
-      allow create: if admin() || ehEmpresa(request.resource.data.empresaId);
-      allow update: if admin()
+      allow create: if podeAdmin(request.resource.data) || ehEmpresa(request.resource.data.empresaId);
+      allow update: if podeAdmin(resource.data)
         // empresa: edita as solicitações dela, sem trocar de empresa
         || (ehEmpresa(resource.data.empresaId)
-            && request.resource.data.empresaId == resource.data.empresaId)
+            && request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.consultoriaId == resource.data.consultoriaId)
         // clínica: registra o ASO, sem mudar empresa, colaborador ou clínica
         || (ehClinica(resource.data.clinicaId)
             && request.resource.data.clinicaId == resource.data.clinicaId
             && request.resource.data.empresaId == resource.data.empresaId
-            && request.resource.data.colabId == resource.data.colabId)
+            && request.resource.data.colabId == resource.data.colabId
+            && request.resource.data.consultoriaId == resource.data.consultoriaId)
         // colaborador: só marca que respondeu o checklist (a data); as respostas ficam em /psico
         || (ehColaborador(resource.data.colabId) && soMudou(['psicoData', 'psico', 'upd']));
-      allow delete: if admin() || ehEmpresa(resource.data.empresaId);
+      allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
     // ---------- respostas individuais do checklist psicossocial ----------
     // Dado sensível: a empresa NÃO lê. Só o próprio colaborador, a clínica da solicitação e o administrador.
     // O id do documento é o id da solicitação.
     match /psico/{id} {
-      allow get, list: if admin()
+      allow get, list: if podeAdmin(resource.data)
         || ehClinica(resource.data.clinicaId)
         || ehColaborador(resource.data.colabId);
       // só cria se a solicitação existe e pertence a quem está gravando (evita ocupar o id de outra pessoa)
-      allow create: if admin()
+      allow create: if podeAdmin(request.resource.data)
         || (ehColaborador(request.resource.data.colabId)
             && get(/databases/$(database)/documents/solicitacoes/$(id)).data.colabId == request.resource.data.colabId
             && get(/databases/$(database)/documents/solicitacoes/$(id)).data.clinicaId == request.resource.data.clinicaId)
         || (ehClinica(request.resource.data.clinicaId)
             && get(/databases/$(database)/documents/solicitacoes/$(id)).data.clinicaId == request.resource.data.clinicaId
             && get(/databases/$(database)/documents/solicitacoes/$(id)).data.colabId == request.resource.data.colabId);
-      allow update: if admin()
+      allow update: if podeAdmin(resource.data)
         || ((ehColaborador(resource.data.colabId) || ehClinica(resource.data.clinicaId))
             && request.resource.data.colabId == resource.data.colabId
             && request.resource.data.clinicaId == resource.data.clinicaId
-            && request.resource.data.empresaId == resource.data.empresaId);
-      allow delete: if admin();
+            && request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.consultoriaId == resource.data.consultoriaId);
+      allow delete: if podeAdmin(resource.data);
     }
 
     // ---------- arquivos de ASO (PDF/foto em pedaços) ----------
     match /arquivos/{id} {
-      allow get, list: if admin()
+      allow get, list: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId);
-      allow create: if admin()
+      allow create: if podeAdmin(request.resource.data)
         || ehEmpresa(request.resource.data.empresaId)
         || ehClinica(request.resource.data.clinicaId);
-      allow update: if admin();
-      allow delete: if admin()
+      allow update: if podeAdmin(resource.data);
+      allow delete: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId);
     }
 
     // ---------- auditoria (LGPD): quem fez o quê ----------
     // Qualquer usuário com perfil grava a PRÓPRIA linha (identidade e hora vêm do servidor);
-    // só o administrador lê; ninguém edita nem apaga pelo sistema.
+    // só o admin da consultoria (ou o super admin) lê a dela; ninguém edita nem apaga pelo sistema.
     match /auditoria/{id} {
-      allow read: if admin();
+      allow read: if podeAdmin(resource.data);
       allow create: if temAcesso()
-        && request.resource.data.keys().hasOnly(['quando', 'uid', 'email', 'papel', 'acao', 'colecao', 'docId', 'empresaId', 'clinicaId', 'det'])
+        && request.resource.data.keys().hasOnly(['quando', 'uid', 'email', 'papel', 'acao', 'colecao', 'docId', 'empresaId', 'clinicaId', 'consultoriaId', 'det'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.quando == request.time;

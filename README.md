@@ -4,7 +4,7 @@ Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMS
 
 ## Como funciona
 
-- **Login** por e-mail e senha (Firebase Authentication). Perfis: administrador, empresa, clínica e colaborador.
+- **Login** por e-mail e senha (Firebase Authentication). Perfis: administrador (da plataforma ou de uma consultoria), empresa, clínica e colaborador.
 - **Dados** no Firestore. Cada perfil só consulta o que pode ver, e o servidor garante isso pelas regras de `firestore.rules`.
 - Sem conexão com o Firebase (por exemplo, abrindo o arquivo direto no computador), o sistema funciona em **modo local**: os dados ficam só naquele navegador. Use **Configurações → Exportar backup** para guardá-los.
 
@@ -43,6 +43,16 @@ O menu **Auditoria** (só administrador) lista quem criou, alterou, excluiu, bai
 - Operações em massa (restaurar backup, apagar tudo, carregar exemplo, atualizar permissões) geram uma única linha.
 - A tela mostra as 300 linhas mais recentes; as anteriores continuam no banco. Cada ação auditada usa 1 gravação extra, o que cabe com folga na cota gratuita do Firebase.
 - Para testar: entre como empresa, abra um colaborador e volte como administrador; a ação deve aparecer em **Auditoria**. Uma conta que não seja administrador não consegue ler a coleção `auditoria`.
+
+## Multi-tenant (várias consultorias)
+
+O sistema suporta várias consultorias de SST usando o mesmo site, com os dados totalmente isolados entre elas:
+
+- O **e-mail fixo do super admin** (hoje `isaquebrito6@gmail.com`) sempre vê e administra todas as consultorias, e é também, por padrão, o administrador da consultoria "main" — a sua própria, que já existia antes desta funcionalidade e não precisa de nenhuma migração manual.
+- No primeiro login do super admin depois de publicar esta versão, o sistema carimba automaticamente os dados já existentes com `consultoriaId: "main"` e cria o documento `consultorias/main`. Isso acontece sozinho; não é preciso clicar em nada.
+- Menu **Consultorias** (só aparece para o super admin): cria uma nova consultoria com seu primeiro administrador (e-mail + senha provisória), lista as existentes e permite "Entrar" em uma delas para ver/configurar os dados daquela consultoria especificamente, ou "Ver todas" para uma visão de suporte sem filtro.
+- O administrador de **uma** consultoria (perfil `admin` com `consultoriaId` preenchido) só vê e só cria usuários (empresa/clínica/colaborador) dentro da própria consultoria — isso é garantido tanto pelo código quanto pelas regras do Firestore (`firestore.rules`), então mesmo alguém adulterando o navegador não consegue ler dados de outra consultoria.
+- Cada consultoria tem seus próprios dados da consultoria (nome, logotipo, responsável técnico) em **Configurações**.
 
 ## Observações
 

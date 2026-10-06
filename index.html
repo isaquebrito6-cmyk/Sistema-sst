@@ -331,6 +331,9 @@ function toCSV(headers,rows){
 /* ====================== CAMADA DE DADOS ====================== */
 const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
+/* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios'];
+const CFG_ID=()=>S.consultoriaId||'main';
 const DB={data:{},db:null,dl:null,mem:{},unsubs:[]};
 COLS.forEach(c=>DB.data[c]={});
 let Q=Promise.resolve();
@@ -339,7 +342,7 @@ const persist=()=>{try{localStorage.setItem('sst.v1',JSON.stringify(DB.data))}ca
 const loadLocal=()=>{try{const j=JSON.parse(localStorage.getItem('sst.v1')||'null');if(j)COLS.forEach(c=>DB.data[c]=j[c]||{})}catch(e){}};
 const L=c=>Object.values(DB.data[c]||{});
 const G=(c,id)=>(DB.data[c]||{})[id];
-const CFG=()=>G('config','main')||{};
+const CFG=()=>G('config',CFG_ID())||{};
 /* ---------- auditoria (LGPD): quem fez o quê; só o administrador lê; ninguém edita nem apaga ---------- */
 const AUD_COLS=['colaboradores','solicitacoes','psico','documentos','usuarios','empresas','clinicas'];
 let audOff=0;
@@ -349,7 +352,7 @@ function audit(acao,col,id,r,det){
  let d=det||'';
  if(!d){if(col==='solicitacoes')d=[r.tipo,r.status].filter(Boolean).join(' · ');else if(col==='documentos')d=[r.tipo,r.rev!=null?'rev. '+r.rev:''].filter(Boolean).join(' ');else if(col==='usuarios')d=r.role?'perfil '+r.role:''}
  const e={quando:firebase.firestore.FieldValue.serverTimestamp(),uid:S.authUser.uid,email:S.authUser.email||'',papel:S.papel||'',acao,colecao:col,docId:String(id||''),
-  empresaId:r.empresaId||(col==='empresas'?id:'')||'',clinicaId:r.clinicaId||(col==='clinicas'?id:'')||'',det:String(d).slice(0,160)};
+  empresaId:r.empresaId||(col==='empresas'?id:'')||'',clinicaId:r.clinicaId||(col==='clinicas'?id:'')||'',consultoriaId:r.consultoriaId||CFG_ID(),det:String(d).slice(0,160)};
  enqueue(()=>DB.db.collection('auditoria').add(e));
 }
 /* operações em massa (restaurar backup, apagar tudo, exemplo, migração): uma linha só */
@@ -358,6 +361,8 @@ function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now(
  /* clinicaIds = clínicas que podem ler o registro (regras do Firestore); nunca se perde ao salvar */
  const ant=(DB.data[c]||{})[rec.id];
  if(ant&&ant.clinicaIds&&!rec.clinicaIds)rec.clinicaIds=ant.clinicaIds.slice();
+ /* multi-tenant: todo registro carimba a consultoria de quem o cria; nunca muda depois de criado */
+ if(TENANT_COLS.includes(c)){if(ant&&ant.consultoriaId)rec.consultoriaId=ant.consultoriaId;else if(!rec.consultoriaId)rec.consultoriaId=CFG_ID()}
  if(c==='riscos'&&!rec.clinicaIds){const em=G('empresas',rec.empresaId);if(em&&em.clinicaIds&&em.clinicaIds.length)rec.clinicaIds=em.clinicaIds.slice()}
  DB.data[c][rec.id]=rec;
  if(AUD_COLS.includes(c))audit(ant?'alterar':'criar',c,rec.id,rec);
@@ -374,28 +379,54 @@ async function initData(){
    DB.db=window.FB.db;stopListeners();
    const col=c=>DB.db.collection(c),ref=(c,id)=>DB.db.doc(c+'/'+id),rid=S.rid;
    const ouvir=(c,q,umDoc)=>{DB.unsubs.push(q.onSnapshot(s=>{const m={};if(umDoc){if(s.exists)m[s.id]=s.data()}else s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.')}))};
+   /* primeiro acesso após a atualização multi-tenant: carimba a consultoria "main" nos dados que já existiam, sem precisar de ação manual */
+   if(S.role==='consultoria'&&isSuper())await garantirConsultoriaMain(col,ref);
    if(S.role==='empresa'){
-    ouvir('config',ref('config','main'),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas'));
+    ouvir('config',ref('config',CFG_ID()),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
     ['colaboradores','riscos','acoes','solicitacoes','documentos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
     /* respostas do checklist psicossocial: a empresa não recebe */
    }else if(S.role==='clinica'){
-    ouvir('config',ref('config','main'),1);ouvir('clinicas',ref('clinicas',rid),1);
+    ouvir('config',ref('config',CFG_ID()),1);ouvir('clinicas',ref('clinicas',rid),1);
     ouvir('solicitacoes',col('solicitacoes').where('clinicaId','==',rid));ouvir('psico',col('psico').where('clinicaId','==',rid));
     ['colaboradores','empresas','riscos'].forEach(c=>ouvir(c,col(c).where('clinicaIds','array-contains',rid)));
    }else if(S.role==='colaborador'){
     const cs=await ref('colaboradores',rid).get(),eid=cs.exists?(cs.data().empresaId||''):'';
-    ouvir('config',ref('config','main'),1);ouvir('colaboradores',ref('colaboradores',rid),1);ouvir('clinicas',col('clinicas'));
+    ouvir('config',ref('config',CFG_ID()),1);ouvir('colaboradores',ref('colaboradores',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
     if(eid){ouvir('empresas',ref('empresas',eid),1);ouvir('riscos',col('riscos').where('empresaId','==',eid))}
     ouvir('solicitacoes',col('solicitacoes').where('colabId','==',rid));ouvir('psico',col('psico').where('colabId','==',rid));
-   }else{
-    COLS.forEach(c=>ouvir(c,col(c)));ouvir('usuarios',col('usuarios'));
+   }else if(isSuper()&&S.verTodas){
+    /* super admin olhando a plataforma inteira (todas as consultorias), só para suporte/gestão */
+    COLS.forEach(c=>ouvir(c,col(c)));ouvir('usuarios',col('usuarios'));ouvir('consultorias',col('consultorias'));
     ouvir('auditoria',col('auditoria').orderBy('quando','desc').limit(300));
+   }else{
+    /* administrador de UMA consultoria (ou o super admin vendo a própria, 'main'): só os dados dela */
+    const cid=CFG_ID();
+    COLS.filter(c=>c!=='config').forEach(c=>ouvir(c,col(c).where('consultoriaId','==',cid)));
+    ouvir('config',ref('config',cid),1);
+    ouvir('usuarios',col('usuarios').where('consultoriaId','==',cid));
+    ouvir('auditoria',col('auditoria').where('consultoriaId','==',cid));
+    if(isSuper())ouvir('consultorias',col('consultorias'));else ouvir('consultorias',ref('consultorias',cid),1);
    }
    ok=true;
   }
  }catch(e){console.warn(e);errBanner('Não foi possível carregar os dados ('+(e&&e.code||e&&e.message||'erro')+').')}
  if(!ok)loadLocal();
  return ok;
+}
+/* Garante que a consultoria "main" (a do próprio administrador) exista e que os dados criados antes do
+   multi-tenant tenham o campo consultoriaId; roda uma única vez (fica pronto depois da primeira execução). */
+async function garantirConsultoriaMain(col,ref){
+ try{
+  const snap=await ref('consultorias','main').get();
+  if(snap.exists)return;
+  for(const c of TENANT_COLS){
+   const qs=await col(c).get();
+   for(const d of qs.docs){if(!d.data().consultoriaId)await DB.db.doc(c+'/'+d.id).update({consultoriaId:'main'})}
+  }
+  const cfgSnap=await ref('config','main').get();
+  if(cfgSnap.exists&&!cfgSnap.data().consultoriaId)await ref('config','main').update({consultoriaId:'main'});
+  await ref('consultorias','main').set({id:'main',nome:(cfgSnap.exists&&cfgSnap.data().nome)||'Minha consultoria',status:'ativo',plano:'próprio',criadoEm:Date.now()});
+ }catch(e){console.warn('migração automática (consultoria main)',e)}
 }
 /* Retira a clínica de clinicaIds quando não resta nenhuma solicitação que justifique o acesso. */
 function revogarClinica(s){
@@ -440,7 +471,7 @@ async function putFile(file,ctx){
  file=await comprimirImagem(file);
  if(file.size>ASO_MAX)throw new Error(/pdf/i.test(file.type||'')?'O PDF tem mais de 3 MB. Reduza o arquivo (por exemplo, escaneie em qualidade menor) ou envie uma foto.':'Não foi possível reduzir esta imagem para menos de 3 MB. Envie em JPG (ou em PDF) e tente de novo.');
  const b64=b64enc(await file.arrayBuffer()),fid=uid();
- const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||''};
+ const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||'',consultoriaId:CFG_ID()};
  if(DB.db){const CH=180000,n=Math.max(1,Math.ceil(b64.length/CH));
   for(let i=0;i<n;i++)await DB.db.doc('arquivos/'+fid+'_'+i).set(Object.assign({fid,n:i,total:n,data:b64.slice(i*CH,(i+1)*CH)},dono));
   return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n}}
@@ -464,13 +495,15 @@ async function saveAs(filename,data){
 }
 
 /* ====================== ESTADO E REGRAS ====================== */
-const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null};
+const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
 empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
 const isC=()=>S.role==='consultoria';
+/* super admin da plataforma: dono fixo do sistema, ou o próprio modo sem login real (demo local) */
+const isSuper=()=>!S.usingAuth||!S.authUser||S.authUser.email===ADMIN_EMAIL;
 const byN=(a,b)=>norm(a.razao||a.nome).localeCompare(norm(b.razao||b.nome));
 const nEmp=id=>(G('empresas',id)||{}).razao||'—';
 const nCol=id=>(G('colaboradores',id)||{}).nome||'—';
@@ -800,17 +833,17 @@ function abrirTrocarSenha(){
 }
 async function resolverPerfil(user){
  S.authUser=user;
-S.papel='';
- if(user.email===ADMIN_EMAIL){S.papel='admin';S.role='consultoria';S.rid='';S.authLocked=false;return true}
+S.papel='';S.consultoriaId='';S.verTodas=false;
+ if(user.email===ADMIN_EMAIL){S.papel='admin';S.role='consultoria';S.rid='';S.authLocked=false;S.consultoriaId='main';return true}
  try{
   const snap=await FB.db.collection('usuarios').doc(user.uid).get();
   if(!snap.exists)return false;
   const p=snap.data();
-  S.papel=p.role||'';
+  S.papel=p.role||'';S.consultoriaId=p.consultoriaId||'';
   if(p.role==='empresa'&&p.empresaId){S.role='empresa';S.rid=p.empresaId;S.authLocked=true;return true}
   if(p.role==='clinica'&&p.clinicaId){S.role='clinica';S.rid=p.clinicaId;S.authLocked=true;return true}
   if(p.role==='colaborador'&&p.colaboradorId){S.role='colaborador';S.rid=p.colaboradorId;S.authLocked=true;return true}
-  if(p.role==='admin'){S.role='consultoria';S.rid='';S.authLocked=false;return true}
+  if(p.role==='admin'&&p.consultoriaId){S.role='consultoria';S.rid='';S.authLocked=true;return true}
   return false;
  }catch(e){console.warn(e);return false}
 }
@@ -829,7 +862,7 @@ function abrirNovoUsuario(){
   try{
    await FB.secAuth.createUserWithEmailAndPassword(v.email,v.senha);
    const newUid=FB.secAuth.currentUser.uid;
-   const perfil={id:newUid,email:v.email,role:v.role,empresaId:v.role==='empresa'?v.vinculo:'',clinicaId:v.role==='clinica'?v.vinculo:'',colaboradorId:v.role==='colaborador'?v.vinculo:'',criadoEm:Date.now()};
+   const perfil={id:newUid,email:v.email,role:v.role,empresaId:v.role==='empresa'?v.vinculo:'',clinicaId:v.role==='clinica'?v.vinculo:'',colaboradorId:v.role==='colaborador'?v.vinculo:'',consultoriaId:CFG_ID(),criadoEm:Date.now()};
    await FB.db.collection('usuarios').doc(newUid).set(perfil);
    await FB.secAuth.signOut();
    toast('Acesso criado para '+v.email+'.');
@@ -1147,6 +1180,17 @@ VIEWS.usuarios=()=>{
  (us.length?tbl([{h:'E-mail',f:u=>esc(u.email)},{h:'Perfil',f:u=>({empresa:'Empresa',clinica:'Clínica',colaborador:'Colaborador',admin:'Administrador'}[u.role]||u.role)},{h:'Vinculado a',f:u=>esc(nomeDoVinculo(u))},{h:'',a:1,f:u=>`<button class="btn s g" data-a="editUsuario" data-id="${u.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delUsuario" data-id="${u.id}" aria-label="Remover">${ic('trash')}</button>`}],us)
  :emptyBox('Nenhum usuário criado ainda','Crie o primeiro acesso para uma empresa, clínica ou colaborador.',`<button class="btn p" data-a="novoUsuario">${ic('plus')}Novo usuário</button>`,'users'));
 };
+/* ---- consultorias (SaaS multi-tenant; só o super admin vê este menu) ---- */
+VIEWS.consultorias=()=>{
+ if(!isSuper())return emptyBox('Sem acesso','Esta área é exclusiva do administrador da plataforma.',null,'shield');
+ const cs=L('consultorias').sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+ const barra=S.verTodas
+  ?`<div class="card" style="margin-bottom:16px"><b>Vendo todas as consultorias da plataforma</b><p class="sm muted" style="margin:4px 0 10px">Modo de suporte: aqui aparecem os dados de todas, misturados. Para trabalhar dentro de uma consultoria específica, entre nela.</p><button class="btn s" data-a="voltarConsultoria">Voltar para a minha consultoria</button></div>`
+  :`<div class="card" style="margin-bottom:16px"><b>Consultoria atual: ${esc((G('consultorias',CFG_ID())||{}).nome||(CFG_ID()==='main'?'Minha consultoria':CFG_ID()))}</b><p class="sm muted" style="margin:4px 0 10px">Você está vendo e editando apenas os dados desta consultoria.</p><button class="btn s" data-a="verTodasConsultorias">Ver todas as consultorias</button></div>`;
+ return barra+`<div class="bar"><div class="grow muted">Cada consultoria é um cliente do sistema, com seus próprios dados, totalmente isolados dos demais.</div><button class="btn p" data-a="novaConsultoria">${ic('plus')}Nova consultoria</button></div>`+
+ (cs.length?tbl([{h:'Nome',f:c=>esc(c.nome||'—')+(c.id==='main'?' <span class="chip gray">a sua</span>':'')},{h:'Status',f:c=>`<span class="chip ${c.status==='ativo'?'low':'gray'}">${esc(c.status||'—')}</span>`},{h:'Plano',f:c=>esc(c.plano||'—')},{h:'',a:1,f:c=>`<button class="btn s" data-a="entrarConsultoria" data-id="${c.id}">Entrar</button>`}],cs)
+ :emptyBox('Nenhuma consultoria cadastrada ainda','A sua própria já existe (“main”); crie outras para vender o acesso.',`<button class="btn p" data-a="novaConsultoria">${ic('plus')}Nova consultoria</button>`,'build'));
+};
 /* ---- auditoria (somente administrador) ---- */
 VIEWS.auditoria=()=>{
  const ACAO={criar:'Criou',alterar:'Alterou',excluir:'Excluiu',baixar:'Baixou',ver:'Viu',imprimir:'Imprimiu',acessar:'Acessou o sistema',restaurar:'Restaurou backup','apagar tudo':'Apagou todos os dados',exemplo:'Carregou exemplo','permissões':'Atualizou permissões'};
@@ -1272,7 +1316,7 @@ VIEWS.config=()=>{
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
  <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa fictícia completa para você testar a geração dos documentos.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
- <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button></div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.</p>`:''}</div></div></div>`;
+ <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button>${isSuper()?'<button class="btn s" data-a="migrarConsultorias">Preparar multi-tenant</button>':''}</div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.${isSuper()?' "Preparar multi-tenant" cria a sua consultoria ("main") e carimba os dados já existentes, para poder vender acesso a outras consultorias.':''}</p>`:''}</div></div></div>`;
 };
 
 /* detalhe da solicitação */
@@ -1644,7 +1688,7 @@ function roleSel(){
  return h;
 }
 function shell(){
- const nav=NAV[S.role];if(!nav.some(n=>n[0]===S.view))S.view=nav[0][0];
+ const nav=NAV[S.role].filter(n=>n[0]!=='consultorias'||isSuper());if(!nav.some(n=>n[0]===S.view))S.view=nav[0][0];
  const tt=(nav.find(n=>n[0]===S.view)||[])[1]||'';
  const al=alertas();
  const grp={empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
@@ -1694,7 +1738,7 @@ pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
 newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},gerenciarSetores(d){abrirGerenciarSetores(d.id)},geRenomear(d){geRenomear(d.emp,d.campo,d.old,d.in)},geExcluir(d){geExcluir(d.emp,d.campo,d.val)},
-doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){abrirNovoUsuario()},editUsuario(d){abrirEditarUsuario(d.id)},delUsuario(d){excluirUsuario(d.id)},trocarSenha(){abrirTrocarSenha()},
+doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){if(S.verTodas){toast('Escolha uma consultoria específica (menu Consultorias) antes de criar um usuário.',5000);return}abrirNovoUsuario()},editUsuario(d){abrirEditarUsuario(d.id)},delUsuario(d){excluirUsuario(d.id)},trocarSenha(){abrirTrocarSenha()},
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
@@ -1725,9 +1769,9 @@ blank(d){const aso=d.t==='aso';openDoc({title:aso?'ASO em branco':'Checklist psi
 dPrint(){let ok=false;const f=()=>{ok=true};window.addEventListener('beforeprint',f,{once:true});try{window.print()}catch(e){}setTimeout(()=>{window.removeEventListener('beforeprint',f);if(!ok)toast('A impressão não abriu aqui. Use Baixar e imprima o arquivo salvo.',5000)},1200)},
 async dSave(){const d=S.doc;if(d&&await saveAs(d.filename,standalone(d.title,d.html)))toast('Arquivo salvo.')},
 dSend(){sendDoc()},dClose(){closeDoc()},
-cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'}],save:v=>{save('config',Object.assign({},c,v,{id:'main'}))}})},
+cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
 logo(){$('#logo-f').click()},
-logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:'main'}))},
+logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:CFG_ID()}))},
 async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j))toast('Backup salvo.')},
 restore(){$('#bk-f').click()},
 async migrarAcessos(){
@@ -1750,6 +1794,44 @@ async migrarAcessos(){
   }catch(e){toast('Não foi possível atualizar ('+(e&&e.code||e&&e.message||'erro')+').',5000)}
  })},
 wipe(){ask('Apagar TODOS os dados do sistema? Faça um backup antes.','Apagar tudo',()=>{emMassa('apagar tudo','todos os dados',async()=>{COLS.forEach(c=>delMany(c,()=>true))});toast('Dados apagados.')})},
+async migrarConsultorias(){
+ if(!DB.db)return;
+ audit('permissões','sistema','',{},'migrar para multi-tenant (consultoria \"main\")');
+ ask('Preparar o sistema para várias consultorias? É seguro repetir. A sua consultoria atual passa a se chamar "main" e nada do que já existe muda de lugar.','Preparar',async()=>{
+  try{
+   toast('Migrando…',2500);
+   if(!G('consultorias','main'))await DB.db.doc('consultorias/main').set({id:'main',nome:CFG().nome||'Minha consultoria',status:'ativo',plano:'próprio',criadoEm:Date.now()});
+   for(const c of TENANT_COLS){for(const r of L(c)){if(!r.consultoriaId)await DB.db.doc(c+'/'+r.id).update({consultoriaId:'main'})}}
+   const cfgMain=G('config','main');if(cfgMain&&!cfgMain.consultoriaId)await DB.db.doc('config/main').update({consultoriaId:'main'});
+   await Q;toast('Sistema pronto para multi-tenant.',4000);
+  }catch(e){toast('Não foi possível migrar ('+(e&&e.code||e&&e.message||'erro')+').',5000)}
+ })},
+verTodasConsultorias(){S.verTodas=true;initData();render()},
+voltarConsultoria(){S.verTodas=false;S.consultoriaId='main';initData();render()},
+entrarConsultoria(d){S.verTodas=false;S.consultoriaId=d.id;initData();render()},
+novaConsultoria(){
+ openForm({title:'Nova consultoria',btn:'Criar consultoria',val:{},fields:[
+  {k:'nome',l:'Nome da consultoria',r:1,w:4},
+  {k:'email',l:'E-mail do administrador dela',t:'email',r:1,w:4},
+  {k:'senha',l:'Senha provisória',r:1,w:3,h:'Mínimo 10 caracteres, com letras e números.'}
+ ],save:async v=>{
+  if(!senhaForte(v.senha)){toast(MSG_SENHA,5000);return false}
+  try{
+   const cid=uid();
+   await FB.secAuth.createUserWithEmailAndPassword(v.email,v.senha);
+   const newUid=FB.secAuth.currentUser.uid;
+   await FB.db.collection('usuarios').doc(newUid).set({id:newUid,email:v.email,role:'admin',consultoriaId:cid,criadoEm:Date.now()});
+   await FB.db.collection('consultorias').doc(cid).set({id:cid,nome:v.nome,status:'ativo',plano:'teste',criadoEm:Date.now()});
+   await FB.secAuth.signOut();
+   toast('Consultoria "'+v.nome+'" criada.');
+   initData();render();
+  }catch(e){
+   const msgs={'auth/email-already-in-use':'Já existe uma conta com esse e-mail.','auth/invalid-email':'E-mail inválido.','auth/weak-password':'Senha muito fraca.'};
+   toast(msgs[e.code]||'Não foi possível criar a consultoria.',5000);
+   return false;
+  }
+ }});
+},
 instalar(){if(window._deferredInstall){window._deferredInstall.prompt()}else{toast('Para instalar: no menu do navegador, use "Adicionar à tela inicial" ou "Instalar app".',5000)}},
 demo(){emMassa('exemplo','dados de exemplo',async()=>carregarDemo())}
 };
@@ -1815,7 +1897,7 @@ async asoF(t){
 },
 logoF(t){
  const f=t.files[0];if(!f)return;const r=new FileReader();
- r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/im.width),cv=document.createElement('canvas');cv.width=im.width*k;cv.height=im.height*k;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);let u=cv.toDataURL('image/png');if(u.length>150000)u=cv.toDataURL('image/jpeg',.8);save('config',Object.assign({},CFG(),{logo:u,id:'main'}));toast('Logotipo salvo.')};im.src=r.result};r.readAsDataURL(f);
+ r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/im.width),cv=document.createElement('canvas');cv.width=im.width*k;cv.height=im.height*k;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);let u=cv.toDataURL('image/png');if(u.length>150000)u=cv.toDataURL('image/jpeg',.8);save('config',Object.assign({},CFG(),{logo:u,id:CFG_ID()}));toast('Logotipo salvo.')};im.src=r.result};r.readAsDataURL(f);
 },
 bkF(t){
  const f=t.files[0];if(!f)return;const r=new FileReader();
