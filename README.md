@@ -2,6 +2,10 @@
 
 Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMSO (NR-7), ASO, clínicas, colaboradores e inventário de riscos. Responsivo (celular e computador), em um único arquivo `index.html`.
 
+## Cores (NR-26)
+
+As cores de risco e alerta do sistema seguem a lógica de cores de segurança da NR-26: **verde** = segurança/risco baixo, **amarelo** = atenção/risco médio, **laranja** = perigo/risco alto, **vermelho** = perigo grave/risco crítico. Essa mesma paleta é usada em todo o sistema (chips de risco no inventário, distribuição de riscos, faixa de pagamento suspenso, erros e botões de exclusão), para que cada cor signifique sempre a mesma coisa, inclusive nos documentos impressos (PGR/matriz de risco).
+
 ## Como funciona
 
 - **Login** por e-mail e senha (Firebase Authentication). Perfis: administrador (da plataforma ou de uma consultoria), empresa, clínica e colaborador.
