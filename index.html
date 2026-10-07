@@ -336,10 +336,24 @@ const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solic
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
+/* Suporte: sem backend próprio, o "suporte" de quem administra uma consultoria é falar com o dono da plataforma (super admin);
+   o suporte de quem usa uma consultoria (empresa/clínica/colaborador) é falar com a própria consultoria, pelos dados em Configurações. */
+const SUPORTE_EMAIL=ADMIN_EMAIL;
+function lastBackup(){try{return localStorage.getItem('sst_last_backup')||''}catch(e){return ''}}
+function setLastBackup(){try{localStorage.setItem('sst_last_backup',today())}catch(e){}}
+function diasDesde(d){if(!d)return null;const dt=new Date(d+'T00:00:00');if(isNaN(dt))return null;return Math.floor((Date.now()-dt.getTime())/86400000)}
 const DB={data:{},db:null,dl:null,mem:{},unsubs:[]};
 COLS.forEach(c=>DB.data[c]={});
 let Q=Promise.resolve();
-const enqueue=fn=>{Q=Q.then(fn).catch(e=>{console.error(e);errBanner('Não foi possível salvar no servidor ('+(e&&e.code||e&&e.message||'erro desconhecido')+'). Os dados mostrados na tela podem não estar realmente salvos.')})};
+/* Erros de gravação/leitura ficam visíveis na tela (errBanner) e, quando dá, registrados na Auditoria,
+   para quem administra a consultoria conseguir ver que algo falhou mesmo sem estar olhando na hora.
+   Sem backend próprio, não há como avisar por e-mail/push: a Auditoria é o jeito gratuito de monitorar isso. */
+const errLogged=new Set();
+function logErro(msg,chave){
+ if(chave){if(errLogged.has(chave))return;errLogged.add(chave)}
+ try{audit('erro','sistema','',{},String(msg).slice(0,160))}catch(e){}
+}
+const enqueue=fn=>{Q=Q.then(fn).catch(e=>{console.error(e);const msg='Não foi possível salvar no servidor ('+(e&&e.code||e&&e.message||'erro desconhecido')+'). Os dados mostrados na tela podem não estar realmente salvos.';errBanner(msg);logErro('gravação: '+(e&&e.code||e&&e.message||'erro'))})};
 const persist=()=>{try{localStorage.setItem('sst.v1',JSON.stringify(DB.data))}catch(e){}};
 const loadLocal=()=>{try{const j=JSON.parse(localStorage.getItem('sst.v1')||'null');if(j)COLS.forEach(c=>DB.data[c]=j[c]||{})}catch(e){}};
 const L=c=>Object.values(DB.data[c]||{});
@@ -380,7 +394,7 @@ async function initData(){
   if(window.__fbOk&&window.FB){
    DB.db=window.FB.db;stopListeners();
    const col=c=>DB.db.collection(c),ref=(c,id)=>DB.db.doc(c+'/'+id),rid=S.rid;
-   const ouvir=(c,q,umDoc)=>{DB.unsubs.push(q.onSnapshot(s=>{const m={};if(umDoc){if(s.exists)m[s.id]=s.data()}else s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.')}))};
+   const ouvir=(c,q,umDoc)=>{DB.unsubs.push(q.onSnapshot(s=>{const m={};if(umDoc){if(s.exists)m[s.id]=s.data()}else s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.');logErro('leitura de "'+c+'": '+(e&&e.code||'erro'),'leitura:'+c)}))};
    /* primeiro acesso após a atualização multi-tenant: carimba a consultoria "main" nos dados que já existiam, sem precisar de ação manual */
    if(S.role==='consultoria'&&isSuper())await garantirConsultoriaMain(col,ref);
    if(S.role==='empresa'){
@@ -1209,7 +1223,7 @@ VIEWS.consultorias=()=>{
 };
 /* ---- auditoria (somente administrador) ---- */
 VIEWS.auditoria=()=>{
- const ACAO={criar:'Criou',alterar:'Alterou',excluir:'Excluiu',baixar:'Baixou',ver:'Viu',imprimir:'Imprimiu',acessar:'Acessou o sistema',restaurar:'Restaurou backup','apagar tudo':'Apagou todos os dados',exemplo:'Carregou exemplo','permissões':'Atualizou permissões'};
+ const ACAO={criar:'Criou',alterar:'Alterou',excluir:'Excluiu',baixar:'Baixou',ver:'Viu',imprimir:'Imprimiu',acessar:'Acessou o sistema',restaurar:'Restaurou backup','apagar tudo':'Apagou todos os dados',exemplo:'Carregou exemplo','permissões':'Atualizou permissões',erro:'Falha no sistema'};
  const ONDE={colaboradores:'Colaborador',solicitacoes:'Solicitação / ASO',psico:'Checklist psicossocial',documentos:'Documento emitido',usuarios:'Usuário',empresas:'Empresa',clinicas:'Clínica',consultorias:'Consultoria',sistema:'Sistema'};
  const dt=e=>{const q=e.quando;return q&&q.toDate?q.toDate():new Date()};
  const item=e=>{
@@ -1330,8 +1344,10 @@ VIEWS.documentos=()=>{
 VIEWS.config=()=>{
  const c=CFG();
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
- <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p><div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
+ <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p>${backupAviso()}<div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa <b>fictícia</b> completa (não é um cliente real) para você testar a geração dos documentos. Fica junto com os seus dados até você excluir.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
+ ${planoCard()}
+ <div class="card"><h3>Suporte</h3><p class="sm muted" style="margin:0 0 10px">${isSuper()?'Você é quem administra a plataforma.':'Dúvidas, problemas ou mudança de plano: fale com quem administra o seu acesso à plataforma.'}</p>${isSuper()?'':`<a class="btn s" href="mailto:${esc(SUPORTE_EMAIL)}?subject=${encodeURIComponent('Suporte — SST Gestão')}">${ic('send')}Falar com o suporte</a>`}</div>
  <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button>${isSuper()?'<button class="btn s" data-a="migrarConsultorias">Preparar multi-tenant</button>':''}</div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.${isSuper()?' "Preparar multi-tenant" cria a sua consultoria ("main") e carimba os dados já existentes, para poder vender acesso a outras consultorias.':''}</p>`:''}</div>
  <div class="card"><h3>Documentos legais</h3><p class="sm muted" style="margin:0 0 10px">Termos e políticas que regem o uso da plataforma${isSuper()?' pelas consultorias clientes':''}.</p><div class="row"><a class="btn s" href="termos-de-uso.html" target="_blank" rel="noopener">${ic('file')}Termos de Uso</a><a class="btn s" href="politica-de-privacidade.html" target="_blank" rel="noopener">${ic('file')}Política de Privacidade</a><a class="btn s" href="acordo-tratamento-dados.html" target="_blank" rel="noopener">${ic('file')}Tratamento de Dados</a></div></div></div>`;
 };
@@ -1710,14 +1726,35 @@ function shell(){
  const al=alertas();
  const grp={empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
  const navHTML=nav.map(n=>(grp[n[0]]?`<div class="navgroup">${grp[n[0]]}</div>`:'')+`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${ic(n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('');
- return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button><small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
 }
 /* Faixa de aviso para o administrador de UMA consultoria quando o pagamento está pendente ou suspenso. */
+/* Empresa/clínica/colaborador não têm tela de Configurações: o contato de suporte delas é a própria consultoria. */
+function suporteSide(){
+ if(S.role==='consultoria')return '';
+ const c=CFG();if(!c.email)return '';
+ return `<a class="nav" href="mailto:${esc(c.email)}" style="text-decoration:none">${ic('send')}<span style="flex:1">Falar com ${esc(c.nome||'o suporte')}</span></a>`;
+}
 function faixaPagamento(){
  if(S.role!=='consultoria'||isSuper()||S.verTodas)return '';
  const c=G('consultorias',CFG_ID());if(!c||!c.statusPagamento||c.statusPagamento==='ok')return '';
  const susp=c.statusPagamento==='suspenso';
  return `<div class="card" style="margin-bottom:16px;border-color:var(--${susp?'crit':'med'})"><b>${susp?'Assinatura suspensa':'Pagamento pendente'}</b><p class="sm muted" style="margin:4px 0 0">${susp?'Não é possível cadastrar novas empresas até a situação ser regularizada. Os dados já cadastrados continuam disponíveis.':'Seu plano vence em '+fd(c.vencimento)+'. Regularize para evitar a suspensão de novos cadastros.'} Fale com quem administra o seu acesso ao sistema.</p></div>`;
+}
+/* Lembrete de backup: sem servidor próprio para agendar isso sozinho, o lembrete fica na tela de Configurações,
+   guardado neste navegador (cada aparelho tem o seu). Não bloqueia nada, é só um empurrão. */
+function backupAviso(){
+ if(!DB.db)return '';
+ const last=lastBackup(),dias=diasDesde(last);
+ if(dias!==null&&dias<30)return '';
+ return `<p class="sm" style="margin:8px 0 0;color:var(--med)">${last?'Seu último backup foi há '+dias+' dias.':'Você ainda não exportou um backup neste aparelho.'} Mesmo com os dados salvos no servidor, vale guardar uma cópia local de vez em quando.</p>`;
+}
+/* Uso do plano: visível para o administrador da própria consultoria (o super admin já vê isso para todas, em Consultorias). */
+function planoCard(){
+ if(S.role!=='consultoria'||isSuper()||S.verTodas)return '';
+ const c=G('consultorias',CFG_ID());if(!c)return '';
+ const usados=L('empresas').length,lim=+c.limiteEmpresas||0;
+ return `<div class="card"><h3>Plano</h3><div class="kv"><div><span>Plano</span>${esc(c.plano||'—')}</div><div><span>Pagamento</span><span class="chip ${PAG_COR[c.statusPagamento||'ok']}">${PAG_NOME[c.statusPagamento||'ok']}</span></div><div><span>Vencimento</span>${fd(c.vencimento)}</div><div><span>Empresas cadastradas</span>${usados}${lim?' de '+lim:' (sem limite)'}</div></div>${lim&&usados>=lim?`<p class="sm" style="margin:8px 0 0;color:var(--med)">Limite de empresas atingido. Fale com o suporte para aumentar o plano.</p>`:''}</div>`;
 }
 function render(){
  if(!S.ready)return;
@@ -1796,7 +1833,7 @@ dSend(){sendDoc()},dClose(){closeDoc()},
 cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
 logo(){$('#logo-f').click()},
 logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:CFG_ID()}))},
-async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j))toast('Backup salvo.')},
+async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j)){setLastBackup();toast('Backup salvo.');render()}},
 restore(){$('#bk-f').click()},
 async migrarAcessos(){
  if(!DB.db)return;

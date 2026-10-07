@@ -59,6 +59,15 @@ O sistema suporta várias consultorias de SST usando o mesmo site, com os dados 
 
 `comercial.html` é uma landing page para atrair novas consultorias (problema → o que o sistema cobre por NR → isolamento entre consultorias → segurança → planos → pedir demonstração). Fica separada do `index.html` (o sistema em si) de propósito: ninguém que já usa o sistema é afetado, e o link "Pedir demonstração" aponta para um `mailto:` — troque `[e-mail de contato]` pelo seu e-mail antes de divulgar. Para divulgar como página inicial do site, basta linkar `comercial.html` de onde for anunciar (ex.: redes sociais, Google); o `index.html` continua sendo a porta de entrada do sistema para quem já é cliente.
 
+## Operação (monitoramento, backup, suporte, limites)
+
+Como o sistema não tem servidor próprio (só o site estático + Firebase), algumas rotinas que normalmente ficariam num backend acontecem assim:
+
+- **Erros:** se uma gravação ou leitura falhar, além do aviso vermelho na tela, fica uma linha em **Auditoria** (ação "Falha no sistema"). Não existe aviso por e-mail/push automático — vale dar uma olhada na Auditoria de vez em quando, principalmente se um cliente relatar algo estranho.
+- **Backup:** em **Configurações**, se fizer mais de 30 dias desde o último "Exportar backup" feito *naquele aparelho* (ou se nunca foi feito), aparece um lembrete. É um empurrão local, guardado só no navegador — não é um backup automático agendado no servidor (o plano gratuito do Firebase não tem como agendar isso sozinho).
+- **Suporte:** quem administra uma consultoria tem, em Configurações, um botão para falar com quem administra a plataforma (super admin). Quem usa uma consultoria (empresa, clínica, colaborador) vê, no menu lateral, um link para falar com a própria consultoria — usa o e-mail cadastrado em Configurações → Editar dados; se não tiver e-mail cadastrado, o link não aparece.
+- **Limite do plano:** quem administra uma consultoria vê, em Configurações, quantas empresas já cadastrou em relação ao limite do plano (o super admin já via isso em **Consultorias**, para todas de uma vez). Como já registrado acima, esse limite só é avisado na tela — o bloqueio real de novas empresas quando suspenso está nas regras do Firestore, mas contar quantas empresas existem não é algo que o Firestore consiga garantir sozinho.
+
 ## Documentos legais
 
 `termos-de-uso.html`, `politica-de-privacidade.html` e `acordo-tratamento-dados.html` são páginas estáticas (mesmo padrão visual do sistema) linkadas no rodapé do login e em Configurações → Documentos legais. São **modelos de partida**: têm campos entre `[colchetes]` para preencher com os dados reais de quem presta o serviço, e precisam de revisão por um advogado antes de valer para clientes pagantes — principalmente por tratarem dados de saúde (dado sensível pela LGPD).
