@@ -1,6 +1,13 @@
 # Sistema SST Gestão
 
-Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMSO (NR-7), ASO, clínicas, colaboradores e inventário de riscos. Responsivo (celular e computador), em um único arquivo `index.html`.
+Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMSO (NR-7), LTCAT, PPP, ASO, clínicas, colaboradores e inventário de riscos. Responsivo (celular e computador), em um único arquivo `index.html`.
+
+## LTCAT e PPP
+
+- Em cada risco do inventário (Inventário de riscos → Editar), além da insalubridade (NR-15), agora dá para registrar a **periculosidade (NR-16)** — campo "Atividade ou operação perigosa", com o anexo correspondente. Os dois campos não se acumulam (o trabalhador tem direito ao mais vantajoso).
+- **LTCAT** (Laudo Técnico das Condições Ambientais do Trabalho): nova minuta em "PGR, PCMSO e modelos", ao lado do PGR e do PCMSO, com o mesmo fluxo de revisões. Reaproveita o inventário de riscos e os campos de insalubridade/periculosidade para listar os agentes físicos, químicos e biológicos e o enquadramento para fins de aposentadoria especial.
+- **PPP** (Perfil Profissiográfico Previdenciário): botão "Emitir PPP" na ficha de cada colaborador. Reúne os dados cadastrais, o período do vínculo (admissão/desligamento), os fatores de risco ligados à função/setor do colaborador e a caracterização de atividade especial, com os responsáveis técnicos já cadastrados no PGR/PCMSO.
+- Como os dois dependem de avaliação técnica (muitas vezes com medição em campo) e de confirmação de um profissional habilitado — engenheiro de segurança do trabalho ou médico do trabalho —, ambos saem como **minuta**, com o mesmo aviso dos demais documentos do sistema, e não substituem o laudo técnico assinado nem o envio oficial pelo eSocial (evento S-2240, no caso do PPP).
 
 ## Cores (NR-26)
 
