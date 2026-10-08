@@ -30,8 +30,8 @@ As cores de risco e alerta do sistema seguem a lógica de cores de segurança da
 O arquivo `firestore.rules` define quem pode ler e gravar cada coleção. Ele **não é publicado automaticamente** com o site. Para ativar:
 
 1. Faça o deploy desta versão do site (o código novo já consulta só o que cada perfil pode ver).
-2. Entre como administrador e abra **Configurações → Perfis de acesso → Atualizar permissões de acesso** (uma vez; é seguro repetir). Isso libera para cada clínica os dados das solicitações que já existem, identifica de quem é cada arquivo de ASO já enviado e **move as respostas do checklist psicossocial** para uma área que a empresa não lê.
-3. No Firebase Console, abra **Firestore Database → Regras**, cole o conteúdo de `firestore.rules` e clique em **Publicar**.
+2. No Firebase Console, abra **Firestore Database → Regras**, cole o conteúdo de `firestore.rules` e clique em **Publicar**.
+3. Entre como administrador: no primeiro acesso depois da publicação, o sistema já libera sozinho para cada clínica os dados das solicitações existentes, identifica de quem é cada arquivo de ASO já enviado e **move as respostas do checklist psicossocial** para uma área que a empresa não lê — sem precisar clicar em nada. O botão **Configurações → Perfis de acesso → Atualizar permissões de acesso** continua disponível e é seguro repetir, caso algum dado novo precise do mesmo tratamento.
 4. Teste com uma conta de cada perfil (veja abaixo).
 
 ### Roteiro de teste depois de publicar

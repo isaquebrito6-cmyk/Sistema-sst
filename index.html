@@ -293,6 +293,7 @@ const HAZ=[
 {id:'fumos',cat:'quimico',perigo:'Fumos metálicos e gases de soldagem',fonte:'Processos de soldagem e corte térmico',danos:'Febre dos fumos metálicos, irritação respiratória',medidas:'Exaustão localizada, respirador para fumos, ventilação geral',ex:['clinico','espirometria','rxtorax'],s:3,p:3,nr15:'Anexo nº 13 da NR-15 — Agentes químicos'},
 {id:'solvente',cat:'quimico',perigo:'Solventes, tintas e vapores orgânicos',fonte:'Pintura, limpeza e desengraxe de peças',danos:'Dermatites, irritação, intoxicação por inalação ou contato',medidas:'Ventilação, luvas, respirador com filtro para vapores orgânicos, FISPQ acessível',ex:['clinico','hemograma','hepatico','ibe'],s:3,p:3,nr15:'Anexo nº 13 da NR-15 — Agentes químicos (ou Anexo nº 11, para os agentes ali listados com limite de tolerância específico)'},
 {id:'quimlimp',cat:'quimico',perigo:'Produtos químicos de limpeza',fonte:'Higienização de ambientes e superfícies',danos:'Dermatites, irritação de vias aéreas e olhos',medidas:'Luvas, diluição correta, rotulagem, treinamento sobre FISPQ',ex:['clinico'],s:2,p:3,nr15:'Anexo nº 13 da NR-15 — Agentes químicos, se o produto estiver ali listado'},
+{id:'hidrocarb',cat:'quimico',perigo:'Hidrocarbonetos (óleos, graxas e combustíveis)',fonte:'Troca e manuseio de óleo e graxa, abastecimento e manuseio de gasolina e outros combustíveis, limpeza de peças',danos:'Dermatites e lesões de pele por contato, intoxicação por inalação dos vapores, risco de incêndio e explosão',medidas:'Luvas e avental impermeáveis, óculos de proteção, ventilação/exaustão onde há vapores, proibição de chama ou fagulha perto do manuseio, FISPQ acessível, lavagem das mãos antes de comer',ex:['clinico','hemograma','hepatico'],s:3,p:3,nr15:'Anexo nº 13 da NR-15 — Agentes químicos (derivados de petróleo)'},
 {id:'biolog',cat:'biologico',perigo:'Contato com agentes biológicos (fluidos, resíduos)',fonte:'Manipulação de material potencialmente contaminado, resíduos e esgoto',danos:'Infecções e doenças infecto-contagiosas',medidas:'Luvas, higienização das mãos, esquema vacinal, descarte adequado',ex:['clinico','vacinas'],s:3,p:3,nr15:'Anexo nº 14 da NR-15 — Agentes biológicos'},
 {id:'carga',cat:'ergonomico',perigo:'Levantamento e transporte manual de cargas',fonte:'Movimentação manual de materiais e volumes',danos:'Lombalgias, lesões musculoesqueléticas',medidas:'Auxílio mecânico, limite de peso, treinamento, rodízio',ex:['clinico'],s:3,p:4},
 {id:'postura',cat:'ergonomico',perigo:'Postura sentada prolongada e uso de computador',fonte:'Trabalho administrativo com mobiliário e equipamentos',danos:'DORT/LER, dor cervical e lombar, fadiga visual',medidas:'Mobiliário ajustável, pausas, análise ergonômica (AET) quando aplicável',ex:['clinico','acuidade'],s:2,p:4},
@@ -401,6 +402,7 @@ async function initData(){
    const ouvir=(c,q,umDoc)=>{DB.unsubs.push(q.onSnapshot(s=>{const m={};if(umDoc){if(s.exists)m[s.id]=s.data()}else s.docs.forEach(d=>{m[d.id]=d.data()});DB.data[c]=m;render()},e=>{console.warn('snapshot',c,e);errBanner('Não foi possível carregar os dados de "'+c+'" ('+(e&&e.code||'erro')+'). Verifique as regras do Firestore.');logErro('leitura de "'+c+'": '+(e&&e.code||'erro'),'leitura:'+c)}))};
    /* primeiro acesso após a atualização multi-tenant: carimba a consultoria "main" nos dados que já existiam, sem precisar de ação manual */
    if(S.role==='consultoria'&&isSuper())await garantirConsultoriaMain(col,ref);
+   if(S.role==='consultoria')await garantirPsicoMigrado(col,ref,CFG_ID());
    if(S.role==='empresa'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
     ['colaboradores','riscos','acoes','solicitacoes','documentos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
@@ -447,6 +449,27 @@ async function garantirConsultoriaMain(col,ref){
   if(cfgSnap.exists&&!cfgSnap.data().consultoriaId)await ref('config','main').update({consultoriaId:'main'});
   await ref('consultorias','main').set({id:'main',nome:(cfgSnap.exists&&cfgSnap.data().nome)||'Minha consultoria',status:'ativo',plano:'próprio',statusPagamento:'ok',limiteEmpresas:0,criadoEm:Date.now()});
  }catch(e){console.warn('migração automática (consultoria main)',e)}
+}
+/* Primeiro acesso do administrador: migra sozinho as solicitações antigas que ainda guardam as respostas do
+   checklist psicossocial dentro do próprio documento (formato anterior à coleção "psico", que a empresa não lê)
+   e completa empresaId/clinicaId nos arquivos de ASO que ainda não tinham essas marcações. Equivalente ao botão
+   "Atualizar permissões de acesso", mas automático; roda uma única vez por consultoria (fica marcado em config). */
+async function garantirPsicoMigrado(col,ref,cid){
+ try{
+  const cfgSnap=await ref('config',cid).get();
+  if(cfgSnap.exists&&cfgSnap.data().psicoMigrado)return;
+  const qs=await col('solicitacoes').where('consultoriaId','==',cid).get();
+  for(const d of qs.docs){
+   const s=d.data();
+   if(s.psico){
+    const p=s.psico;
+    await DB.db.doc('psico/'+d.id).set({id:d.id,solicitacaoId:d.id,colabId:s.colabId||'',empresaId:s.empresaId||'',clinicaId:s.clinicaId||'',resp:p.resp||{},obs:p.obs||'',data:p.data||'',upd:Date.now()});
+    await DB.db.doc('solicitacoes/'+d.id).update({psicoData:p.data||'',psico:firebase.firestore.FieldValue.delete()});
+   }
+   if(s.arquivo&&s.arquivo.fid){for(let i=0;i<(s.arquivo.n||1);i++){try{await DB.db.doc('arquivos/'+s.arquivo.fid+'_'+i).update({empresaId:s.empresaId||'',clinicaId:s.clinicaId||''})}catch(e){console.warn('arquivo',e)}}}
+  }
+  await ref('config',cid).set({psicoMigrado:true},{merge:true});
+ }catch(e){console.warn('migração automática (psico/arquivos)',e)}
 }
 /* Retira a clínica de clinicaIds quando não resta nenhuma solicitação que justifique o acesso. */
 function revogarClinica(s){
@@ -1904,6 +1927,7 @@ async migrarAcessos(){
     }
     if(s.arquivo&&s.arquivo.fid){for(let i=0;i<(s.arquivo.n||1);i++){try{await DB.db.doc('arquivos/'+s.arquivo.fid+'_'+i).update({empresaId:s.empresaId||'',clinicaId:s.clinicaId||''})}catch(e){console.warn('arquivo',e)}}}
    }
+   await DB.db.doc('config/'+CFG_ID()).set({psicoMigrado:true},{merge:true});
    await Q;toast('Permissões atualizadas.',4000);
   }catch(e){toast('Não foi possível atualizar ('+(e&&e.code||e&&e.message||'erro')+').',5000)}
  })},

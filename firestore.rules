@@ -67,6 +67,17 @@ service cloud.firestore {
 
     function temAcesso() { return superAdmin() || temPerfil(); }
 
+    // true se a clínica/empresa referenciada (campo opcional, pode vir vazio) pertence à MESMA consultoria
+    // de quem está gravando — evita que alguém aponte um documento para uma clínica/empresa de outro cliente da plataforma
+    function clinicaDaConsultoria(cid) {
+      return cid == null || cid == '' || (exists(/databases/$(database)/documents/clinicas/$(cid))
+        && get(/databases/$(database)/documents/clinicas/$(cid)).data.consultoriaId == minhaConsultoria());
+    }
+    function empresaDaConsultoria(eid) {
+      return eid == null || eid == '' || (exists(/databases/$(database)/documents/empresas/$(eid))
+        && get(/databases/$(database)/documents/empresas/$(eid)).data.consultoriaId == minhaConsultoria());
+    }
+
     // true se a única alteração foi no(s) campo(s) informado(s)
     function soMudou(campos) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
@@ -137,7 +148,8 @@ service cloud.firestore {
       allow list: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId in resource.data.clinicaIds);
-      allow create: if podeAdmin(request.resource.data) || ehEmpresa(request.resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data)
+        || (ehEmpresa(request.resource.data.empresaId) && request.resource.data.consultoriaId == minhaConsultoria());
       allow update: if podeAdmin(resource.data)
         || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId
             && request.resource.data.consultoriaId == resource.data.consultoriaId);
@@ -158,7 +170,8 @@ service cloud.firestore {
     // ---------- plano de ação ----------
     match /acoes/{id} {
       allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
-      allow create: if podeAdmin(request.resource.data) || ehEmpresa(request.resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data)
+        || (ehEmpresa(request.resource.data.empresaId) && request.resource.data.consultoriaId == minhaConsultoria());
       allow update: if podeAdmin(resource.data)
         || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId
             && request.resource.data.consultoriaId == resource.data.consultoriaId);
@@ -178,12 +191,15 @@ service cloud.firestore {
         || ehEmpresa(resource.data.empresaId)
         || ehClinica(resource.data.clinicaId)
         || ehColaborador(resource.data.colabId);
-      allow create: if podeAdmin(request.resource.data) || ehEmpresa(request.resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data)
+        || (ehEmpresa(request.resource.data.empresaId) && request.resource.data.consultoriaId == minhaConsultoria()
+            && clinicaDaConsultoria(request.resource.data.clinicaId));
       allow update: if podeAdmin(resource.data)
-        // empresa: edita as solicitações dela, sem trocar de empresa
+        // empresa: edita as solicitações dela, sem trocar de empresa; só troca de clínica para uma da mesma consultoria
         || (ehEmpresa(resource.data.empresaId)
             && request.resource.data.empresaId == resource.data.empresaId
-            && request.resource.data.consultoriaId == resource.data.consultoriaId)
+            && request.resource.data.consultoriaId == resource.data.consultoriaId
+            && clinicaDaConsultoria(request.resource.data.clinicaId))
         // clínica: registra o ASO, sem mudar empresa, colaborador ou clínica
         || (ehClinica(resource.data.clinicaId)
             && request.resource.data.clinicaId == resource.data.clinicaId
@@ -202,14 +218,20 @@ service cloud.firestore {
       allow get, list: if podeAdmin(resource.data)
         || ehClinica(resource.data.clinicaId)
         || ehColaborador(resource.data.colabId);
-      // só cria se a solicitação existe e pertence a quem está gravando (evita ocupar o id de outra pessoa)
+      // só cria se a solicitação existe e pertence a quem está gravando (evita ocupar o id de outra pessoa),
+      // e os campos de escopo (empresa/consultoria) batem com os da própria solicitação — evita que alguém
+      // grave uma resposta "apontando" para outra consultoria ou empresa diferente da solicitação real
       allow create: if podeAdmin(request.resource.data)
         || (ehColaborador(request.resource.data.colabId)
             && get(/databases/$(database)/documents/solicitacoes/$(id)).data.colabId == request.resource.data.colabId
-            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.clinicaId == request.resource.data.clinicaId)
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.clinicaId == request.resource.data.clinicaId
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.empresaId == request.resource.data.empresaId
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.consultoriaId == request.resource.data.consultoriaId)
         || (ehClinica(request.resource.data.clinicaId)
             && get(/databases/$(database)/documents/solicitacoes/$(id)).data.clinicaId == request.resource.data.clinicaId
-            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.colabId == request.resource.data.colabId);
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.colabId == request.resource.data.colabId
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.empresaId == request.resource.data.empresaId
+            && get(/databases/$(database)/documents/solicitacoes/$(id)).data.consultoriaId == request.resource.data.consultoriaId);
       allow update: if podeAdmin(resource.data)
         || ((ehColaborador(resource.data.colabId) || ehClinica(resource.data.clinicaId))
             && request.resource.data.colabId == resource.data.colabId
@@ -226,8 +248,10 @@ service cloud.firestore {
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId)
         || ehColaborador(resource.data.colabId);
       allow create: if podeAdmin(request.resource.data)
-        || ehEmpresa(request.resource.data.empresaId)
-        || ehClinica(request.resource.data.clinicaId);
+        || (ehEmpresa(request.resource.data.empresaId) && request.resource.data.consultoriaId == minhaConsultoria()
+            && clinicaDaConsultoria(request.resource.data.clinicaId))
+        || (ehClinica(request.resource.data.clinicaId) && request.resource.data.consultoriaId == minhaConsultoria()
+            && empresaDaConsultoria(request.resource.data.empresaId));
       allow update: if podeAdmin(resource.data);
       allow delete: if podeAdmin(resource.data)
         || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
