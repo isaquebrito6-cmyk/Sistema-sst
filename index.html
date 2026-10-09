@@ -256,7 +256,8 @@ x:'<path d="M6 6l12 12M18 6L6 18"/>',
 edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
 trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
 check:'<path d="M5 12l5 5 9-10"/>',
-alert:'<path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17v.5"/>'
+alert:'<path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17v.5"/>',
+lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'
 };
 const ic=(n,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]||''}</svg>`;
 function toast(m,ms=3200){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms)}
@@ -335,10 +336,10 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
-const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis'];
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts'];
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
@@ -406,7 +407,7 @@ async function initData(){
    if(S.role==='consultoria')await garantirPsicoMigrado(col,ref,CFG_ID());
    if(S.role==='empresa'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
-    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
+    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis','pts'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
     /* respostas do checklist psicossocial: a empresa não recebe */
    }else if(S.role==='clinica'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('clinicas',ref('clinicas',rid),1);
@@ -542,9 +543,9 @@ async function saveAs(filename,data){
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
-empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['documentos','Documentos','file']],
+empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
 const isC=()=>S.role==='consultoria';
 /* super admin da plataforma: dono fixo do sistema, ou o próprio modo sem login real (demo local) */
@@ -1221,6 +1222,27 @@ function abrirEpi(id,pre){
  save:v=>{
   Object.assign(rec,v);const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
 }
+/* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
+function abrirPt(id,pre){
+ const rec=id?clone(G('pts',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),tipo:'Espaço confinado (NR-33)',situacao:'Emitida'},pre||{});
+ const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
+ window._colOptsPt=colOpts;
+ openForm({title:id?'Editar Permissão de Trabalho':'Nova Permissão de Trabalho',btn:'Salvar',val:rec,
+ fields:[
+  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'ptEmp',ph:'Selecione'},
+  {k:'colabId',l:'Responsável pela execução',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
+  {k:'data',l:'Data',t:'date',r:1,w:3},
+  {k:'tipo',l:'Tipo de atividade',t:'select',o:['Espaço confinado (NR-33)','Trabalho em altura (NR-35)','Serviços em eletricidade (NR-10)','Outra atividade crítica'],w:3},
+  {k:'local',l:'Local / setor',w:4},
+  {k:'inicio',l:'Início previsto',w:2,h:'Ex.: 08:00'},{k:'fim',l:'Término previsto',w:2,h:'Ex.: 17:00'},
+  {k:'equipe',l:'Equipe envolvida',w:4,h:'Nomes, se houver mais de um colaborador na atividade'},
+  {k:'medidas',l:'Medidas de controle verificadas',t:'textarea',rows:2,h:'Ex.: isolamento da área, teste de atmosfera, ponto de ancoragem, EPI específico, vigia'},
+  {k:'responsavelTecnico',l:'Responsável técnico que autorizou',w:3},
+  {k:'situacao',l:'Situação',t:'select',o:['Emitida','Encerrada','Cancelada'],w:3},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{
+  Object.assign(rec,v);const r=save('pts',rec);toast('Permissão de Trabalho salva.');return r}})
+}
 /* ASO (clínica) */
 function abrirAso(id){
  const s=G('solicitacoes',id),c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
@@ -1399,6 +1421,14 @@ VIEWS.epis=()=>{
  (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>nl(a.epi)},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma entrega registrada','Registre aqui cada entrega ou troca de EPI por colaborador.',`<button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button>`,'check'));
 };
+VIEWS.pts=()=>{
+ let l=L('pts');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
+ l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button></div>
+ <p class="sm muted" style="margin:0 0 14px">Permissão de Trabalho para atividades críticas (espaço confinado, altura, eletricidade): registra quem autorizou, as medidas de controle verificadas e a situação, para ter o histórico à mão numa fiscalização.</p>`+
+ (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhuma PT registrada','Antes de uma atividade crítica (espaço confinado, altura, eletricidade), registre aqui a autorização.',`<button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button>`,'lock'));
+};
 VIEWS.solicitacoes=()=>{
  const q=norm(S.q);let l=solScope();
  const tabs=['Todas',...STATUS];
@@ -1470,6 +1500,7 @@ function renderFicha(){
  const sols=L('solicitacoes').filter(s=>s.colabId===c.id).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
  const cats=L('cats').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const epis=L('epis').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ const pts=L('pts').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const canReq=S.role!=='clinica';
  const pend=ks.filter(k=>statusExame(c,k,m).k!=='low').length;
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header><h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
@@ -1487,7 +1518,9 @@ function renderFicha(){
  ${canReq?`<h3 style="font-size:15px;margin:18px 0 8px">4. Acidentes de trabalho (CAT) <button class="btn s g" style="margin-left:6px" data-a="fichaCat" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${cats.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Lesão',f:a=>esc(a.lesao||'—')},{h:'Afastamento',f:a=>a.houveAfastamento==='Sim'?(a.dias||'')+' d':'Não'},{h:'CAT',f:a=>esc(a.cat||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editCat" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],cats):'<p class="muted sm">Nenhum acidente registrado.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>nl(a.epi)},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}`:''}
+ ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>nl(a.epi)},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
+ <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
+ ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -1931,6 +1964,7 @@ docFicha(d){docFicha(G('colaboradores',d.id))},
 docPPPA(d){docPPP(G('colaboradores',d.id))},
 fichaCat(d){const c=G('colaboradores',d.id);abrirCat(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaEpi(d){const c=G('colaboradores',d.id);abrirEpi(null,{empresaId:c.empresaId,colabId:c.id})},
+fichaPt(d){const c=G('colaboradores',d.id);abrirPt(null,{empresaId:c.empresaId,colabId:c.id})},
 expCol(d){exportColaboradores(d.id)},expRiscos(d){exportRiscos(d.id)},expAcoes(d){exportAcoes(d.id)},
 resumoSemana(){openDoc({title:'Resumo da semana',html:docResumoSemana(),filename:'resumo-semana-'+today()+'.html',assunto:'Resumo semanal de pendências',corpo:'Segue o resumo semanal de exames e ações pendentes.'})},
 irClinicas(){closeForm();S.view='clinicas';render();setTimeout(()=>abrirEnt('clinica'),30)},
@@ -1944,9 +1978,9 @@ doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){if(S.verToda
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
-delEmp(d){ask('Excluir a empresa e TODOS os colaboradores, riscos, ações, solicitações, documentos, CATs e EPIs dela?','Excluir tudo',()=>{
- delMany('colaboradores',x=>x.empresaId===d.id);delMany('riscos',x=>x.empresaId===d.id);delMany('acoes',x=>x.empresaId===d.id);delMany('solicitacoes',x=>x.empresaId===d.id);delMany('documentos',x=>x.empresaId===d.id);delMany('cats',x=>x.empresaId===d.id);delMany('epis',x=>x.empresaId===d.id);del('empresas',d.id);toast('Empresa excluída.')})},
-delCol(d){ask('Excluir este colaborador e as solicitações de exame, CATs e EPIs dele?','Excluir',()=>{delMany('solicitacoes',x=>x.colabId===d.id);delMany('cats',x=>x.colabId===d.id);delMany('epis',x=>x.colabId===d.id);del('colaboradores',d.id)})},
+delEmp(d){ask('Excluir a empresa e TODOS os colaboradores, riscos, ações, solicitações, documentos, CATs, EPIs e PTs dela?','Excluir tudo',()=>{
+ delMany('colaboradores',x=>x.empresaId===d.id);delMany('riscos',x=>x.empresaId===d.id);delMany('acoes',x=>x.empresaId===d.id);delMany('solicitacoes',x=>x.empresaId===d.id);delMany('documentos',x=>x.empresaId===d.id);delMany('cats',x=>x.empresaId===d.id);delMany('epis',x=>x.empresaId===d.id);delMany('pts',x=>x.empresaId===d.id);del('empresas',d.id);toast('Empresa excluída.')})},
+delCol(d){ask('Excluir este colaborador e as solicitações de exame, CATs, EPIs e PTs dele?','Excluir',()=>{delMany('solicitacoes',x=>x.colabId===d.id);delMany('cats',x=>x.colabId===d.id);delMany('epis',x=>x.colabId===d.id);delMany('pts',x=>x.colabId===d.id);del('colaboradores',d.id)})},
 delCli(d){if(L('solicitacoes').some(s=>s.clinicaId===d.id)){toast('Esta clínica tem solicitações vinculadas e não pode ser excluída.');return}ask('Excluir esta clínica?','Excluir',()=>del('clinicas',d.id))},
 impAcoes(){
  const e=empAtual();if(!e)return;let n=0;
@@ -1956,6 +1990,7 @@ impAcoes(){
 newSol(){abrirSol()},editSol(d){abrirSol(d.id)},
 newCat(){abrirCat()},editCat(d){abrirCat(d.id)},delCat(d){ask('Excluir este registro de CAT?','Excluir',()=>del('cats',d.id))},
 newEpi(){abrirEpi()},editEpi(d){abrirEpi(d.id)},delEpi(d){ask('Excluir este registro de entrega de EPI?','Excluir',()=>del('epis',d.id))},
+newPt(){abrirPt()},editPt(d){abrirPt(d.id)},delPt(d){ask('Excluir esta Permissão de Trabalho?','Excluir',()=>del('pts',d.id))},
 solPara(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:'Periódico',exames:chavesOrd(examesDe(riscosDoColab(c)))})},
 delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const s=G('solicitacoes',d.id);delFile(s&&s.arquivo);S.det=null;$('#modal-root').innerHTML='';del('solicitacoes',d.id);revogarClinica(s)})},
 stf(d){S.sst=d.v;render()},
@@ -2084,6 +2119,7 @@ solCol(){preencherExames()},
 solTipo(){preencherExames()},
 catEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsCat(t.value),'','Selecione')},
 epiEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsEpi(t.value),'','Selecione')},
+ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.value),'','Selecione')},
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},

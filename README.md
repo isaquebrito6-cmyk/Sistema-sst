@@ -13,7 +13,8 @@ Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMS
 
 - **Acidentes (CAT)**: cadastro de acidentes e doenças ocupacionais por colaborador (data, tipo, lesão, afastamento e situação da CAT). Não emite nem transmite a CAT ao eSocial/INSS — isso continua feito à parte —, mas mantém o histórico e alimenta sozinho o número de CATs do período no relatório analítico do PCMSO.
 - **EPI**: ficha de entrega e troca de Equipamento de Proteção Individual por colaborador (data, item, CA, validade e se o recibo foi assinado), para ter o histórico à mão numa fiscalização.
-- Os dois aparecem no menu (para administrador e empresa) e também na ficha do colaborador, junto com os exames.
+- **Permissão de Trabalho (PT)**: registro de autorização para atividades críticas (espaço confinado NR-33, trabalho em altura NR-35, eletricidade NR-10 e outras), com responsável, medidas de controle verificadas, responsável técnico e situação (emitida/encerrada/cancelada).
+- Os três aparecem no menu (para administrador e empresa) e também na ficha do colaborador, junto com os exames.
 
 ## Cores (NR-26)
 

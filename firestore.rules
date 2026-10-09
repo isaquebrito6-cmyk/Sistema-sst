@@ -200,6 +200,17 @@ service cloud.firestore {
       allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
+    // ---------- PT (Permissão de Trabalho para atividades críticas) ----------
+    match /pts/{id} {
+      allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data)
+        || (ehEmpresa(request.resource.data.empresaId) && request.resource.data.consultoriaId == minhaConsultoria());
+      allow update: if podeAdmin(resource.data)
+        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.consultoriaId == resource.data.consultoriaId);
+      allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
+    }
+
     // ---------- documentos emitidos (histórico de PGR/PCMSO) ----------
     match /documentos/{id} {
       allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
