@@ -9,6 +9,12 @@ Sistema web de gestão de Segurança e Saúde no Trabalho: PGR (NR-1/NR-9), PCMS
 - **PPP** (Perfil Profissiográfico Previdenciário): botão "Emitir PPP" na ficha de cada colaborador. Reúne os dados cadastrais, o período do vínculo (admissão/desligamento), os fatores de risco ligados à função/setor do colaborador e a caracterização de atividade especial, com os responsáveis técnicos já cadastrados no PGR/PCMSO.
 - Como os dois dependem de avaliação técnica (muitas vezes com medição em campo) e de confirmação de um profissional habilitado — engenheiro de segurança do trabalho ou médico do trabalho —, ambos saem como **minuta**, com o mesmo aviso dos demais documentos do sistema, e não substituem o laudo técnico assinado nem o envio oficial pelo eSocial (evento S-2240, no caso do PPP).
 
+## CAT e EPI
+
+- **Acidentes (CAT)**: cadastro de acidentes e doenças ocupacionais por colaborador (data, tipo, lesão, afastamento e situação da CAT). Não emite nem transmite a CAT ao eSocial/INSS — isso continua feito à parte —, mas mantém o histórico e alimenta sozinho o número de CATs do período no relatório analítico do PCMSO.
+- **EPI**: ficha de entrega e troca de Equipamento de Proteção Individual por colaborador (data, item, CA, validade e se o recibo foi assinado), para ter o histórico à mão numa fiscalização.
+- Os dois aparecem no menu (para administrador e empresa) e também na ficha do colaborador, junto com os exames.
+
 ## Cores (NR-26)
 
 As cores de risco e alerta do sistema seguem a lógica de cores de segurança da NR-26: **verde** = segurança/risco baixo, **amarelo** = atenção/risco médio, **laranja** = perigo/risco alto, **vermelho** = perigo grave/risco crítico. Essa mesma paleta é usada em todo o sistema (chips de risco no inventário, distribuição de riscos, faixa de pagamento suspenso, erros e botões de exclusão), para que cada cor signifique sempre a mesma coisa, inclusive nos documentos impressos (PGR/matriz de risco).

@@ -255,7 +255,8 @@ up:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
 x:'<path d="M6 6l12 12M18 6L6 18"/>',
 edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
 trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
-check:'<path d="M5 12l5 5 9-10"/>'
+check:'<path d="M5 12l5 5 9-10"/>',
+alert:'<path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17v.5"/>'
 };
 const ic=(n,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]||''}</svg>`;
 function toast(m,ms=3200){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms)}
@@ -334,10 +335,10 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
-const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios'];
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis'];
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
@@ -405,7 +406,7 @@ async function initData(){
    if(S.role==='consultoria')await garantirPsicoMigrado(col,ref,CFG_ID());
    if(S.role==='empresa'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
-    ['colaboradores','riscos','acoes','solicitacoes','documentos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
+    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
     /* respostas do checklist psicossocial: a empresa não recebe */
    }else if(S.role==='clinica'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('clinicas',ref('clinicas',rid),1);
@@ -541,9 +542,9 @@ async function saveAs(filename,data){
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
-empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['documentos','Documentos','file']],
+empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
 const isC=()=>S.role==='consultoria';
 /* super admin da plataforma: dono fixo do sistema, ou o próprio modo sem login real (demo local) */
@@ -1181,6 +1182,45 @@ function mostrarTodosExames(){
  const marcados=[...document.querySelectorAll('#f_exames input:checked')].map(x=>x.value);
  renderExamesChecklist(marcados,null);
 }
+/* CAT (Comunicação de Acidente de Trabalho) */
+function abrirCat(id,pre){
+ const rec=id?clone(G('cats',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),tipo:'Típico',houveAfastamento:'Não',cat:'Emitida'},pre||{});
+ const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
+ window._colOptsCat=colOpts;
+ openForm({title:id?'Editar CAT':'Nova CAT (acidente de trabalho)',btn:'Salvar',val:rec,
+ fields:[
+  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'catEmp',ph:'Selecione'},
+  {k:'colabId',l:'Colaborador acidentado',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
+  {k:'data',l:'Data do acidente',t:'date',r:1,w:3},
+  {k:'tipo',l:'Tipo',t:'select',o:['Típico','Trajeto','Doença ocupacional'],w:3},
+  {k:'lesao',l:'Parte do corpo / natureza da lesão',w:4,h:'Ex.: corte no dedo indicador direito'},
+  {k:'local',l:'Local e descrição do acidente',t:'textarea',rows:2},
+  {k:'houveAfastamento',l:'Houve afastamento?',t:'select',o:['Não','Sim'],w:3},
+  {k:'dias',l:'Dias de afastamento',t:'number',w:3,inp:'numeric'},
+  {k:'cat',l:'Situação da CAT',t:'select',o:['Emitida','Em providência','Não aplicável'],w:3},
+  {k:'numCat',l:'Nº da CAT (eSocial/INSS)',w:3},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{
+  Object.assign(rec,v);const r=save('cats',rec);toast('CAT salva.');return r}})
+}
+/* EPI (entrega/troca por colaborador) */
+function abrirEpi(id,pre){
+ const rec=id?clone(G('epis',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today()},pre||{});
+ const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
+ window._colOptsEpi=colOpts;
+ openForm({title:id?'Editar entrega de EPI':'Nova entrega de EPI',btn:'Salvar',val:rec,
+ fields:[
+  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'epiEmp',ph:'Selecione'},
+  {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
+  {k:'data',l:'Data da entrega/troca',t:'date',r:1,w:3},
+  {k:'epi',l:'EPI(s) entregue(s)',r:1,t:'textarea',rows:2,h:'Ex.: Luva de raspa, óculos de proteção, protetor auricular'},
+  {k:'ca',l:'CA (Certificado de Aprovação)',w:3,h:'Opcional, por item'},
+  {k:'validade',l:'Validade / próxima troca',t:'date',w:3},
+  {k:'assinado',l:'Colaborador assinou o recibo?',t:'select',o:['Não','Sim'],w:3},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{
+  Object.assign(rec,v);const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
+}
 /* ASO (clínica) */
 function abrirAso(id){
  const s=G('solicitacoes',id),c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
@@ -1343,6 +1383,22 @@ VIEWS.acoes=()=>{
  (l.length?tbl([{h:'Ação',f:a=>nl(a.acao)},{h:'Responsável',f:a=>esc(a.responsavel||'—')},{h:'Prazo',f:a=>{const at=a.status!=='Concluída'&&a.prazo&&a.prazo<today();return `<span class="chip ${at?'crit':'gray'}">${fd(a.prazo)}</span>`}},{h:'Situação',f:a=>`<select data-c="acaoSt" data-id="${a.id}" style="min-width:140px">${opts(['Pendente','Em andamento','Concluída'],a.status)}</select>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="edit" data-e="acao" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delAcao" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Plano de ação vazio','Cadastre ações manualmente ou importe as medidas propostas no inventário de riscos.',`<button class="btn" data-a="impAcoes">Importar propostas do inventário</button>`));
 };
+VIEWS.cats=()=>{
+ let l=L('cats');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
+ l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newCat">${ic('plus')}Nova CAT</button></div>
+ <p class="sm muted" style="margin:0 0 14px">Registro de acidentes de trabalho (CAT), para manter o histórico e alimentar o número de CATs do período no PGR. Não emite nem envia a CAT ao eSocial/INSS — isso continua feito à parte.</p>`+
+ (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Lesão',f:a=>esc(a.lesao||'—')},{h:'Afastamento',f:a=>a.houveAfastamento==='Sim'?`<span class="chip med">Sim${a.dias?' · '+a.dias+' d':''}</span>`:'<span class="chip gray">Não</span>'},{h:'CAT',f:a=>`<span class="chip ${a.cat==='Emitida'?'low':a.cat==='Em providência'?'med':'gray'}">${esc(a.cat||'—')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editCat" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delCat" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhuma CAT registrada','Quando ocorrer um acidente de trabalho, registre aqui para manter o histórico.',`<button class="btn p" data-a="newCat">${ic('plus')}Nova CAT</button>`,'alert'));
+};
+VIEWS.epis=()=>{
+ let l=L('epis');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
+ l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button></div>
+ <p class="sm muted" style="margin:0 0 14px">Ficha de entrega e troca de EPI por colaborador: o que ela faz é registrar e guardar o histórico — a entrega do equipamento em si continua sendo física.</p>`+
+ (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>nl(a.epi)},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhuma entrega registrada','Registre aqui cada entrega ou troca de EPI por colaborador.',`<button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button>`,'check'));
+};
 VIEWS.solicitacoes=()=>{
  const q=norm(S.q);let l=solScope();
  const tabs=['Todas',...STATUS];
@@ -1412,6 +1468,8 @@ function renderFicha(){
  const e=G('empresas',c.empresaId)||{};
  const rs=riscosDoColab(c).sort((a,b)=>nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v),m=examesDe(rs),ks=chavesOrd(m);
  const sols=L('solicitacoes').filter(s=>s.colabId===c.id).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
+ const cats=L('cats').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ const epis=L('epis').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const canReq=S.role!=='clinica';
  const pend=ks.filter(k=>statusExame(c,k,m).k!=='low').length;
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header><h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
@@ -1426,6 +1484,10 @@ function renderFicha(){
  ${tbl([{h:'Exame',f:k=>`<b>${esc(EXAMES[k].n)}</b>`},{h:'Motivo (PGR)',f:k=>`<span class="sm">${esc(origemExame(rs,k).join('; '))}</span>`},{h:'Periodicidade',f:k=>m[k]+' meses'},{h:'Último',f:k=>fd(statusExame(c,k,m).last)},{h:'Vence em',f:k=>fd(statusExame(c,k,m).due)},{h:'Situação',f:k=>{const s=statusExame(c,k,m);return `<span class="chip ${s.k==='gray'?'gray':s.k}">${s.t}</span>`}}],ks)}
  <h3 style="font-size:15px;margin:18px 0 8px">3. Pedidos de exame e ASOs</h3>
  ${sols.length?tbl([{h:'Data',f:s=>fd(s.dataSolic)},{h:'Exame',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'ASO',f:s=>s.aso&&s.aso.data?esc(s.aso.resultado||'')+' · '+fd(s.aso.data):'—'},{h:'Situação',f:s=>`<span class="chip ${s.status==='Realizado'?'low':''}">${s.status}</span>${s.arquivo?' <span class="chip low">arquivo</span>':''}`}],sols,s=>`class="click" data-a="det" data-id="${s.id}"`):'<p class="muted sm">Nenhum pedido ainda. Use "Enviar pedido de exame à clínica".</p>'}
+ ${canReq?`<h3 style="font-size:15px;margin:18px 0 8px">4. Acidentes de trabalho (CAT) <button class="btn s g" style="margin-left:6px" data-a="fichaCat" data-id="${c.id}">${ic('plus')}Nova</button></h3>
+ ${cats.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Lesão',f:a=>esc(a.lesao||'—')},{h:'Afastamento',f:a=>a.houveAfastamento==='Sim'?(a.dias||'')+' d':'Não'},{h:'CAT',f:a=>esc(a.cat||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editCat" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],cats):'<p class="muted sm">Nenhum acidente registrado.</p>'}
+ <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
+ ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>nl(a.epi)},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -1571,6 +1633,7 @@ function docPCMSO(e,meta){
  const pgrRef=pgrDocs[0];
  const cols=L('colaboradores').filter(x=>x.empresaId===e.id&&x.status!=='Desligado');
  const ano=L('solicitacoes').filter(s=>s.empresaId===e.id&&s.status==='Realizado'&&s.aso&&s.aso.data&&dias(s.aso.data)>=-365);
+ const catsAno=L('cats').filter(x=>x.empresaId===e.id&&x.data&&dias(x.data)>=-365);
  const cl=[...new Set(L('solicitacoes').filter(s=>s.empresaId===e.id).map(s=>s.clinicaId))].map(id=>G('clinicas',id)).filter(Boolean);
  let h=dHead('PCMSO — Programa de Controle Médico de Saúde Ocupacional','Rev. '+String(meta.rev).padStart(2,'0'));
  h+=`<div class="cover"><p class="kk">Vigilância da saúde dos trabalhadores</p><h1>Programa de Controle Médico de Saúde Ocupacional</h1><p class="sub">NR-7 — Programa de Controle Médico de Saúde Ocupacional (PCMSO)</p><div class="emp"><b>${esc(e.razao)}</b>CNPJ ${esc(e.cnpj||'—')}<br>${esc(endEmp(e))}</div>${kv([['Revisão','Rev. '+String(meta.rev).padStart(2,'0')+(meta.rascunho?' — MINUTA (não emitida)':'')],['Data de emissão',fd(meta.emissao)],['Relatório analítico até',fd(addM(meta.emissao,12))],['Médico coordenador',esc((e.medico_nome||'—')+(e.medico_crm?' — '+e.medico_crm:''))],['Baseado no PGR',pgrRef?('Rev. '+String(pgrRef.rev).padStart(2,'0')+' — emitido em '+fd(pgrRef.emissao)):'PGR ainda não emitido — usando o inventário de riscos atual'],['Elaborado por',esc(c.nome||'—')]])}</div>`;
@@ -1597,7 +1660,7 @@ function docPCMSO(e,meta){
  if(!simplif){
  h+=`<h3>c) Estatística de resultados anormais dos exames complementares, por unidade/setor/função</h3><table><tr><th>Setor</th><th>Exames realizados</th><th>Resultados anormais (a preencher pelo médico)</th></tr>${Object.keys(porSetor).length?Object.keys(porSetor).map(k=>`<tr><td>${esc(k)}</td><td>${porSetor[k]}</td><td><span class="blank"></span></td></tr>`).join(''):'<tr><td colspan="3" class="small">Sem registros no período.</td></tr>'}</table>
  <h3>d) Incidência e prevalência de doenças relacionadas ao trabalho, por unidade/setor/função</h3><p><span class="blank l"></span></p><p><span class="blank l"></span></p>
- <h3>e) CAT emitidas no período (número e tipos de eventos/doenças)</h3><p>Número de CAT emitidas: <span class="blank"></span> &nbsp;&nbsp; Tipos de eventos/doenças: <span class="blank l"></span></p>
+ <h3>e) CAT emitidas no período (número e tipos de eventos/doenças)</h3><p>Número de CAT emitidas: ${catsAno.filter(x=>x.cat==='Emitida').length} de ${catsAno.length} registro(s) de acidente no período${catsAno.length?' (cadastro de CAT do sistema)':''}. ${catsAno.length?'Tipos de eventos/doenças: '+esc([...new Set(catsAno.map(x=>x.tipo).filter(Boolean))].join(', ')||'—'):'Tipos de eventos/doenças: <span class="blank l"></span>'}</p>
  <h3>f) Análise comparativa com o relatório anterior e discussão das variações</h3><p><span class="blank l"></span></p><p><span class="blank l"></span></p>`;
  }else{
  h+=`<p class="small">Organização de grau de risco ${esc(e.grau||'—')} com ${cols.length} trabalhador(es): conforme o item 7.6.6 da NR-7, o relatório analítico pode limitar-se às informações das alíneas "a" e "b" acima.</p>`;
@@ -1866,6 +1929,8 @@ fichaSol(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId
 fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='riscos';render()},
 docFicha(d){docFicha(G('colaboradores',d.id))},
 docPPPA(d){docPPP(G('colaboradores',d.id))},
+fichaCat(d){const c=G('colaboradores',d.id);abrirCat(null,{empresaId:c.empresaId,colabId:c.id})},
+fichaEpi(d){const c=G('colaboradores',d.id);abrirEpi(null,{empresaId:c.empresaId,colabId:c.id})},
 expCol(d){exportColaboradores(d.id)},expRiscos(d){exportRiscos(d.id)},expAcoes(d){exportAcoes(d.id)},
 resumoSemana(){openDoc({title:'Resumo da semana',html:docResumoSemana(),filename:'resumo-semana-'+today()+'.html',assunto:'Resumo semanal de pendências',corpo:'Segue o resumo semanal de exames e ações pendentes.'})},
 irClinicas(){closeForm();S.view='clinicas';render();setTimeout(()=>abrirEnt('clinica'),30)},
@@ -1879,9 +1944,9 @@ doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){if(S.verToda
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
-delEmp(d){ask('Excluir a empresa e TODOS os colaboradores, riscos, ações, solicitações e documentos dela?','Excluir tudo',()=>{
- delMany('colaboradores',x=>x.empresaId===d.id);delMany('riscos',x=>x.empresaId===d.id);delMany('acoes',x=>x.empresaId===d.id);delMany('solicitacoes',x=>x.empresaId===d.id);delMany('documentos',x=>x.empresaId===d.id);del('empresas',d.id);toast('Empresa excluída.')})},
-delCol(d){ask('Excluir este colaborador e as solicitações de exame dele?','Excluir',()=>{delMany('solicitacoes',x=>x.colabId===d.id);del('colaboradores',d.id)})},
+delEmp(d){ask('Excluir a empresa e TODOS os colaboradores, riscos, ações, solicitações, documentos, CATs e EPIs dela?','Excluir tudo',()=>{
+ delMany('colaboradores',x=>x.empresaId===d.id);delMany('riscos',x=>x.empresaId===d.id);delMany('acoes',x=>x.empresaId===d.id);delMany('solicitacoes',x=>x.empresaId===d.id);delMany('documentos',x=>x.empresaId===d.id);delMany('cats',x=>x.empresaId===d.id);delMany('epis',x=>x.empresaId===d.id);del('empresas',d.id);toast('Empresa excluída.')})},
+delCol(d){ask('Excluir este colaborador e as solicitações de exame, CATs e EPIs dele?','Excluir',()=>{delMany('solicitacoes',x=>x.colabId===d.id);delMany('cats',x=>x.colabId===d.id);delMany('epis',x=>x.colabId===d.id);del('colaboradores',d.id)})},
 delCli(d){if(L('solicitacoes').some(s=>s.clinicaId===d.id)){toast('Esta clínica tem solicitações vinculadas e não pode ser excluída.');return}ask('Excluir esta clínica?','Excluir',()=>del('clinicas',d.id))},
 impAcoes(){
  const e=empAtual();if(!e)return;let n=0;
@@ -1889,6 +1954,8 @@ impAcoes(){
  render();toast(n?n+' ação(ões) importada(s) para o plano.':'Nenhuma proposta nova para importar.');
 },
 newSol(){abrirSol()},editSol(d){abrirSol(d.id)},
+newCat(){abrirCat()},editCat(d){abrirCat(d.id)},delCat(d){ask('Excluir este registro de CAT?','Excluir',()=>del('cats',d.id))},
+newEpi(){abrirEpi()},editEpi(d){abrirEpi(d.id)},delEpi(d){ask('Excluir este registro de entrega de EPI?','Excluir',()=>del('epis',d.id))},
 solPara(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:'Periódico',exames:chavesOrd(examesDe(riscosDoColab(c)))})},
 delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const s=G('solicitacoes',d.id);delFile(s&&s.arquivo);S.det=null;$('#modal-root').innerHTML='';del('solicitacoes',d.id);revogarClinica(s)})},
 stf(d){S.sst=d.v;render()},
@@ -2015,6 +2082,8 @@ solSt(t){const s=clone(G('solicitacoes',t.dataset.id));s.status=t.value;save('so
 solEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOpts(t.value),'','Selecione');solInfoUpdate();},
 solCol(){preencherExames()},
 solTipo(){preencherExames()},
+catEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsCat(t.value),'','Selecione')},
+epiEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsEpi(t.value),'','Selecione')},
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
