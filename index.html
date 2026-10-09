@@ -1249,17 +1249,23 @@ function abrirAso(id){
  const a=clone(s.aso||{});
  const rs=riscosDoColab(c);
  const val={data:a.data||s.dataAgend||today(),medico_nome:a.medico_nome||cl.medico_nome||'',medico_crm:a.medico_crm||cl.medico_crm||'',resultado:a.resultado||'',
-  riscos:a.riscos!=null?a.riscos:(rs.map(r=>r.perigo).join('; ')||'Ausência de riscos específicos'),obs:a.obs||'',proximo:a.proximo||''};
+  riscos:a.riscos!=null?a.riscos:(rs.map(r=>r.perigo).join('; ')||'Ausência de riscos específicos'),obs:a.obs||'',proximo:a.proximo||'',
+  aptoAltura:a.aptoAltura||'',aptoConfinado:a.aptoConfinado||'',aptoMaquinas:a.aptoMaquinas||''};
  const fs=[{sec:'Exame clínico'},
   {k:'data',l:'Data do exame clínico',t:'date',r:1,w:2},{k:'medico_nome',l:'Médico examinador',r:1,w:2},{k:'medico_crm',l:'CRM',r:1,w:2},
   {k:'resultado',l:'Conclusão',t:'select',r:1,o:['Apto','Inapto'],ph:'Selecione',w:3},{k:'proximo',l:'Próximo exame periódico',t:'date',w:3,h:'Em branco: calculado pela periodicidade.'},
   {k:'riscos',l:'Riscos ocupacionais informados no ASO',t:'textarea',rows:2},
   {sec:'Exames complementares (data de realização)'}];
  (s.exames||[]).filter(k=>k!=='clinico').forEach(k=>{fs.push({k:'ex_'+k,l:(EXAMES[k]||{n:k}).n,t:'date',w:3});val['ex_'+k]=(a.exames||{})[k]||''});
+ fs.push({sec:'Aptidões específicas (preencha só quando a função exigir)'},
+  {k:'aptoAltura',l:'Trabalho em altura (NR-35)',t:'select',o:['Apto','Inapto'],ph:'Não avaliado / não se aplica',w:3},
+  {k:'aptoConfinado',l:'Espaço confinado (NR-33)',t:'select',o:['Apto','Inapto'],ph:'Não avaliado / não se aplica',w:3},
+  {k:'aptoMaquinas',l:'Operação de máquinas e equipamentos',t:'select',o:['Apto','Inapto'],ph:'Não avaliado / não se aplica',w:3});
  fs.push({k:'obs',l:'Observações (restrições, recomendações)',t:'textarea'});
  openForm({title:'Dados do ASO — '+(c.nome||''),val,fields:fs,btn:'Salvar ASO',save:v=>{
   const ex={};(s.exames||[]).forEach(k=>{if(v['ex_'+k])ex[k]=v['ex_'+k]});
-  const n=clone(s);n.aso={data:v.data,medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:v.riscos,obs:v.obs,exames:ex};
+  const n=clone(s);n.aso={data:v.data,medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:v.riscos,obs:v.obs,exames:ex,
+   aptoAltura:v.aptoAltura||'',aptoConfinado:v.aptoConfinado||'',aptoMaquinas:v.aptoMaquinas||''};
   if(n.status!=='Cancelado')n.status='Realizado';
   save('solicitacoes',n);toast('ASO registrado. Anexe o arquivo assinado, se houver.');
  }});
@@ -1744,7 +1750,10 @@ function docAso(s){
  h+=`<h2>3. Tipo de exame</h2><p class="box">${TIPOS.map(t=>`${chk(s&&s.tipo===t)} ${t}`).join('&nbsp;&nbsp; ')}</p>`;
  h+=`<h2>4. Perigos ou fatores de risco ocupacionais</h2><p>${riscosTxt?esc(riscosTxt):'<span class="blank l"></span><br><br><span class="blank l"></span>'}</p>`;
  h+=`<h2>5. Exames realizados</h2><table><tr><th>Exame</th><th style="width:22%">Data</th></tr><tr><td>${esc(EXAMES.clinico.n)}</td><td>${a.data?fd(a.data):'&nbsp;'}</td></tr>${(s?ex.filter(k=>k!=='clinico'):[]).map(k=>`<tr><td>${esc((EXAMES[k]||{n:k}).n)}</td><td>${(a.exames||{})[k]?fd(a.exames[k]):'&nbsp;'}</td></tr>`).join('')}${s?'':'<tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr>'}</table>`;
- h+=`<h2>6. Conclusão</h2><p class="box">${chk(a.resultado==='Apto')} <b>Apto</b> para a função &nbsp;&nbsp;&nbsp; ${chk(a.resultado==='Inapto')} <b>Inapto</b> para a função</p>${a.obs?`<p><b>Observações:</b> ${nl(a.obs)}</p>`:'<p><b>Observações:</b> <span class="blank l"></span></p>'}<p><b>Próximo exame periódico até:</b> ${a.data?fd(a.proximo||addM(a.data,examesDe(rs).clinico||12)):'<span class="blank"></span>'}</p>`;
+ h+=`<h2>6. Conclusão</h2><p class="box">${chk(a.resultado==='Apto')} <b>Apto</b> para a função &nbsp;&nbsp;&nbsp; ${chk(a.resultado==='Inapto')} <b>Inapto</b> para a função</p>`;
+ const apts=[['Trabalho em altura (NR-35)',a.aptoAltura],['Espaço confinado (NR-33)',a.aptoConfinado],['Operação de máquinas e equipamentos',a.aptoMaquinas]].filter(x=>x[1]);
+ if(apts.length)h+=`<p><b>Aptidões específicas:</b></p><table><tr><th>Atividade</th><th style="width:26%">Conclusão</th></tr>${apts.map(x=>`<tr><td>${esc(x[0])}</td><td>${esc(x[1])}</td></tr>`).join('')}</table>`;
+ h+=`${a.obs?`<p><b>Observações:</b> ${nl(a.obs)}</p>`:'<p><b>Observações:</b> <span class="blank l"></span></p>'}<p><b>Próximo exame periódico até:</b> ${a.data?fd(a.proximo||addM(a.data,examesDe(rs).clinico||12)):'<span class="blank"></span>'}</p>`;
  h+=`<h2>7. Médicos responsáveis</h2>${kv([['Médico coordenador do PCMSO',BL((e.medico_nome||'')+(e.medico_crm?' — '+e.medico_crm:''))],['Médico examinador',BL((a.medico_nome||'')+(a.medico_crm?' — '+a.medico_crm:''))],['Data do exame',a.data?fd(a.data):B('')]])}`;
  h+=`<div class="sig"><div>Assinatura e carimbo do médico examinador<span>Nome, CRM e data</span></div><div>Ciência e recebimento do trabalhador<span>${esc(c.nome||'Nome')} — Data: ____/____/______</span></div></div>`;
  h+=`<p class="small" style="margin-top:14pt">Documento com dados de saúde sujeito a sigilo (LGPD). Uma via deve ser entregue ao trabalhador e outra arquivada pela organização.</p>`;
