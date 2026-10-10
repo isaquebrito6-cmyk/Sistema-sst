@@ -155,6 +155,7 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .fld.bad input,.fld.bad select,.fld.bad textarea{border-color:var(--danger)}
 .sec{grid-column:span 6;font:700 14px 'Bricolage Grotesque',sans-serif;color:var(--brand);border-bottom:1px solid var(--line);padding-bottom:4px;margin-top:8px}
 .checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
+.sigpad canvas{width:100%;max-width:420px;height:140px;background:#fff;border:1px dashed var(--line);border-radius:8px;touch-action:none;cursor:crosshair;display:block}
 .chk{display:flex;gap:8px;align-items:flex-start;font-weight:400!important;font-size:14px!important;background:var(--sf2);border:1px solid var(--line);padding:7px 9px;border-radius:8px;margin:0!important}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#11262B;color:#fff;padding:11px 16px;border-radius:10px;z-index:200;max-width:92vw;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start}
@@ -547,6 +548,24 @@ async function saveAs(filename,data){
  try{if(DB.dl){await DB.dl.save({filename,data});return true}}catch(e){if(e&&e.code==='declined')return false;console.warn(e)}
  try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);return true}catch(e){toast('Não foi possível baixar o arquivo neste ambiente.');return false}
 }
+/* Campo de assinatura digital (desenhada na tela): grava a imagem direto no registro (rec), sem coleção/arquivo novo no Firestore */
+function initSigPad(canvasId,rec,statusId,clearId,selId){
+ const cv=document.getElementById(canvasId);if(!cv)return;
+ cv.width=500;cv.height=150;
+ const cx=cv.getContext('2d');cx.lineWidth=2.2;cx.lineCap='round';cx.lineJoin='round';cx.strokeStyle='#17323a';
+ const status=document.getElementById(statusId);
+ const upd=()=>{if(status)status.textContent=rec.assinaturaImg?'Assinatura digital registrada em '+fd(rec.assinaturaData)+'.':'Nenhuma assinatura digital ainda — desenhe acima com o dedo ou o mouse.'};
+ if(rec.assinaturaImg){const im=new Image();im.onload=()=>cx.drawImage(im,0,0,cv.width,cv.height);im.src=rec.assinaturaImg}
+ upd();
+ let drawing=false,moved=false;
+ const pos=ev=>{const r=cv.getBoundingClientRect();return[(ev.clientX-r.left)*(cv.width/r.width),(ev.clientY-r.top)*(cv.height/r.height)]};
+ cv.addEventListener('pointerdown',ev=>{drawing=true;moved=false;const[x,y]=pos(ev);cx.beginPath();cx.moveTo(x,y);ev.preventDefault()});
+ cv.addEventListener('pointermove',ev=>{if(!drawing)return;const[x,y]=pos(ev);cx.lineTo(x,y);cx.stroke();moved=true;ev.preventDefault()});
+ const fim=()=>{if(!drawing)return;drawing=false;if(moved){rec.assinaturaImg=cv.toDataURL('image/png');rec.assinaturaData=today();upd();const sel=selId&&document.getElementById(selId);if(sel)sel.value='Sim'}};
+ cv.addEventListener('pointerup',fim);cv.addEventListener('pointerleave',fim);
+ const btn=document.getElementById(clearId);
+ if(btn)btn.onclick=()=>{cx.clearRect(0,0,cv.width,cv.height);delete rec.assinaturaImg;delete rec.assinaturaData;upd()};
+}
 
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
@@ -626,6 +645,7 @@ function fieldHTML(f,v){
  if(f.t==='select')inner=`<select id="${id}" name="${f.k}"${at}>${opts(typeof f.o==='function'?f.o():f.o,v,f.ph)}</select>`;
  else if(f.t==='textarea'){const dl=f.dl&&f.dl.length?` list="dl_${id}"`:'';inner=`<textarea id="${id}" name="${f.k}" rows="${f.rows||3}"${at}${dl}>${esc(v)}</textarea>${f.dl&&f.dl.length?`<datalist id="dl_${id}">${f.dl.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`:''}`;}
  else if(f.t==='checks'){const sel=v||[];inner=`<div class="checks" id="${id}">${f.o.map(([k,l])=>`<label class="chk"><input type="checkbox" name="${f.k}" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}</div>`}
+ else if(f.t==='html')return `<div class="fld ${f.w?'w'+f.w:''}">${f.html}</div>`;
  else{const dl=f.dl&&f.dl.length?` list="dl_${id}"`:'';inner=`<input id="${id}" name="${f.k}" type="${f.t||'text'}" value="${esc(v)}"${f.max?` maxlength="${f.max}"`:''}${f.min!=null?` min="${f.min}" max="${f.mx}"`:''}${f.inp?` inputmode="${f.inp}"`:''}${at}${dl} autocomplete="off">${f.dl&&f.dl.length?`<datalist id="dl_${id}">${f.dl.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>`:''}`;}
  const hide=f.hideUnless?' style="display:none"':'';
  return `<div class="fld ${f.w?'w'+f.w:''}" id="w_${f.k}"${hide}><label for="${id}">${esc(f.l)}${f.r?' *':''}</label>${inner}${f.h?`<small>${esc(f.h)}</small>`:''}</div>`;
@@ -639,7 +659,7 @@ function closeForm(){S.form=null;$('#modal-root').innerHTML='';if(S.det)renderDe
 function submitForm(e){
  e.preventDefault();const cfg=S.form;if(!cfg)return;const vals={};let bad=null;
  cfg.fields.forEach(f=>{
-  if(f.sec)return;
+  if(f.sec||f.t==='html')return;
   if(f.t==='checks')vals[f.k]=[...document.querySelectorAll(`#fm input[name="${f.k}"]:checked`)].map(x=>x.value);
   else{const el=document.getElementById('f_'+f.k);vals[f.k]=el?el.value.trim():''}
   const w=document.getElementById('w_'+f.k);
@@ -1229,9 +1249,11 @@ function abrirEpi(id,pre){
   {k:'ca',l:'CA (Certificado de Aprovação)',w:3,h:'Opcional, por item'},
   {k:'validade',l:'Validade / próxima troca',t:'date',w:3},
   {k:'assinado',l:'Colaborador assinou o recibo?',t:'select',o:['Não','Sim'],w:3},
-  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+  {sec:'Assinatura'},
+  {t:'html',w:6,html:'<label>Assinatura digital do colaborador (opcional)</label><div class="sigpad"><canvas id="epiSigCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="epiSigClear">Limpar assinatura</button><span class="sm muted" id="epiSigStatus"></span></div><small>Peça para o colaborador assinar acima com o dedo (celular/tablet) ou o mouse. Prefere colher no papel? Deixe em branco e use "Imprimir recibo" depois de salvar — o documento sai com uma linha para assinatura física.</small>'}],
  save:v=>{
   Object.assign(rec,v);const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
+ setTimeout(()=>initSigPad('epiSigCv',rec,'epiSigStatus','epiSigClear','f_assinado'),30)
 }
 /* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
 function abrirPt(id,pre){
@@ -1435,7 +1457,7 @@ VIEWS.epis=()=>{
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button></div>
  <p class="sm muted" style="margin:0 0 14px">Ficha de entrega e troca de EPI por colaborador: o que ela faz é registrar e guardar o histórico — a entrega do equipamento em si continua sendo física.</p>`+
- (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinaturaImg?'<span class="chip low">Sim (digital)</span>':a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma entrega registrada','Registre aqui cada entrega ou troca de EPI por colaborador.',`<button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button>`,'check'));
 };
 VIEWS.pts=()=>{
@@ -1536,7 +1558,7 @@ function renderFicha(){
  <p class="muted sm" style="margin:0 0 8px">A emissão oficial da CAT é feita pelo serviço "Registrar Comunicação de Acidente de Trabalho" em gov.br ou pelo eSocial (evento S-2210). O registro abaixo é só o histórico interno deste sistema.</p>
  ${cats.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Lesão',f:a=>esc(a.lesao||'—')},{h:'Afastamento',f:a=>a.houveAfastamento==='Sim'?(a.dias||'')+' d':'Não'},{h:'CAT',f:a=>esc(a.cat||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editCat" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],cats):'<p class="muted sm">Nenhum acidente registrado.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
+ ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
@@ -1802,6 +1824,20 @@ function docPsico(s){
  return h;
 }
 
+/* ---------- recibo de entrega de EPI ---------- */
+function docEpi(a){
+ const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
+ let h=dHead('Recibo de entrega de EPI',fd(a.data));
+ h+=`<h1 style="font-size:18pt">Recibo de Entrega de Equipamento de Proteção Individual (EPI)</h1><p class="small">NR-6 — Equipamento de Proteção Individual</p>`;
+ h+=`<h2>Empresa</h2>${kv([['Razão social',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')]])}`;
+ h+=`<h2>Colaborador</h2>${kv([['Nome',esc(c.nome||'—')],['CPF',esc(c.cpf||'—')],['Função / setor',esc((c.funcao||'—')+(c.setor?' · '+c.setor:''))]])}`;
+ h+=`<h2>Equipamento(s) entregue(s)</h2><p>${esc(epiTxt(a))||'<span class="blank l"></span>'}</p><table><tr><th>CA (Certificado de Aprovação)</th><th>Validade / próxima troca</th></tr><tr><td>${a.ca?esc(a.ca):'<span class="blank"></span>'}</td><td>${a.validade?fd(a.validade):'<span class="blank"></span>'}</td></tr></table>`;
+ h+=`<div class="note">Declaro ter recebido o(s) equipamento(s) de proteção individual acima, em perfeito estado, e ter sido orientado sobre o uso correto, a guarda e a conservação, conforme a NR-6. Comprometo-me a usá-lo(s) e comunicar qualquer dano, extravio ou necessidade de troca.</div>`;
+ if(a.assinaturaImg)h+=`<h2>Assinatura digital</h2><img src="${a.assinaturaImg}" alt="Assinatura do colaborador" style="max-width:320px;max-height:110px;border-bottom:1px solid #999"><p class="small">${esc(c.nome||'')} — assinado digitalmente em ${a.assinaturaData?fd(a.assinaturaData):'—'}</p>`;
+ else h+=`<div class="sig"><div>Assinatura do colaborador<span>${esc(c.nome||'Nome')}</span></div><div>Data<span>____/____/______</span></div></div>`;
+ return h;
+}
+
 /* ---------- resumo semanal ---------- */
 function docResumoSemana(){
  const cols=colsEscopo();
@@ -2020,6 +2056,7 @@ stf(d){S.sst=d.v;render()},
 det(d){S.det=d.id;renderDetalhe()},
 docPacote(d){docDe(G('solicitacoes',d.id),'pacote')},docGuia(d){docDe(G('solicitacoes',d.id),'guia')},
 docAso(d){docDe(G('solicitacoes',d.id),'aso')},docPsico(d){docDe(G('solicitacoes',d.id),'psico')},
+docEpi(d){const a=G('epis',d.id);if(!a)return;openDoc({title:'Recibo de EPI — '+nCol(a.colabId),html:docEpi(a),filename:'recibo-epi-'+slug(nCol(a.colabId))+'.html',assunto:'Recibo de entrega de EPI — '+nCol(a.colabId),corpo:'Segue o recibo de entrega de EPI de '+nCol(a.colabId)+'.'})},
 psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
 pickAso(){const i=$('#aso-f');if(i)i.click()},
 async getAso(d){const s=G('solicitacoes',d.id);audit('baixar','solicitacoes',d.id,s,'arquivo do ASO');try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},
