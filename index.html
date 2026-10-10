@@ -1256,22 +1256,35 @@ function abrirEpi(id,pre){
  setTimeout(()=>initSigPad('epiSigCv',rec,'epiSigStatus','epiSigClear','f_assinado'),30)
 }
 /* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
+const PET_MEDIDAS={bloqueio:'Bloqueio e etiquetagem (LOTO) das energias perigosas',ventilacao:'Ventilação forçada contínua',isolamento:'Isolamento e sinalização da área',resgate_testado:'Procedimento de resgate testado/revisado',comunicacao:'Sistema de comunicação contínuo com o vigia'};
+const PET_EQUIP={detector:'Detector de gases portátil (calibrado)',tripe:'Tripé e cabo de segurança / sistema de içamento',resp:'Equipamento de respiração autônomo ou suprido',ilum:'Iluminação adequada (antiexplosão, se necessário)',kit:'Kit de primeiros socorros no local'};
 function abrirPt(id,pre){
  const rec=id?clone(G('pts',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),tipo:'Espaço confinado (NR-33)',situacao:'Emitida'},pre||{});
  const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
  window._colOptsPt=colOpts;
+ const ehConf=rec.tipo==='Espaço confinado (NR-33)';
  openForm({title:id?'Editar Permissão de Trabalho':'Nova Permissão de Trabalho',btn:'Salvar',val:rec,
  fields:[
   {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'ptEmp',ph:'Selecione'},
   {k:'colabId',l:'Responsável pela execução',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
   {k:'data',l:'Data',t:'date',r:1,w:3},
-  {k:'tipo',l:'Tipo de atividade',t:'select',o:['Espaço confinado (NR-33)','Trabalho em altura (NR-35)','Serviços em eletricidade (NR-10)','Outra atividade crítica'],w:3},
+  {k:'tipo',l:'Tipo de atividade',t:'select',o:['Espaço confinado (NR-33)','Trabalho em altura (NR-35)','Serviços em eletricidade (NR-10)','Outra atividade crítica'],w:3,c:'ptTipo'},
   {k:'local',l:'Local / setor',w:4},
   {k:'inicio',l:'Início previsto',w:2,h:'Ex.: 08:00'},{k:'fim',l:'Término previsto',w:2,h:'Ex.: 17:00'},
   {k:'equipe',l:'Equipe envolvida',w:4,h:'Nomes, se houver mais de um colaborador na atividade'},
   {k:'medidas',l:'Medidas de controle verificadas',t:'textarea',rows:2,h:'Ex.: isolamento da área, teste de atmosfera, ponto de ancoragem, EPI específico, vigia'},
   {k:'responsavelTecnico',l:'Responsável técnico que autorizou',w:3},
   {k:'situacao',l:'Situação',t:'select',o:['Emitida','Encerrada','Cancelada'],w:3},
+  {sec:'Permissão de Entrada e Trabalho (PET) — específico para espaço confinado, NR-33 Anexo II'},
+  {k:'petVigia',l:'Vigia (nome)',w:3,hideUnless:ehConf?null:'tipo'},
+  {k:'petResgate',l:'Equipe/contato de resgate',w:3,hideUnless:ehConf?null:'tipo',h:'Nome e telefone a acionar em emergência'},
+  {k:'petValidade',l:'Validade da PET',w:3,hideUnless:ehConf?null:'tipo',h:'Ex.: mesmo turno de trabalho, até 24h — NR-33'},
+  {k:'petO2',l:'O₂ medido (%)',w:2,hideUnless:ehConf?null:'tipo',h:'Faixa aceitável: 20,9% a 23%'},
+  {k:'petLel',l:'Inflamáveis (% LIE)',w:2,hideUnless:ehConf?null:'tipo',h:'Aceitável: abaixo de 10%'},
+  {k:'petToxicos',l:'Gases tóxicos (CO/H₂S)',w:2,hideUnless:ehConf?null:'tipo',h:'Conforme limites da NR-15'},
+  {k:'petHorarioTestes',l:'Horário dos testes atmosféricos',w:3,hideUnless:ehConf?null:'tipo'},
+  {k:'petMedidas',l:'Medidas de controle verificadas',t:'checks',w:6,hideUnless:ehConf?null:'tipo',o:Object.entries(PET_MEDIDAS)},
+  {k:'petEquip',l:'Equipamentos de emergência disponíveis',t:'checks',w:6,hideUnless:ehConf?null:'tipo',o:Object.entries(PET_EQUIP)},
   {k:'obs',l:'Observações',t:'textarea',rows:2}],
  save:v=>{
   Object.assign(rec,v);const r=save('pts',rec);toast('Permissão de Trabalho salva.');return r}})
@@ -1465,7 +1478,7 @@ VIEWS.pts=()=>{
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button></div>
  <p class="sm muted" style="margin:0 0 14px">Permissão de Trabalho para atividades críticas (espaço confinado, altura, eletricidade): registra quem autorizou, as medidas de controle verificadas e a situação, para ter o histórico à mão numa fiscalização.</p>`+
- (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`${a.tipo==='Espaço confinado (NR-33)'?`<button class="btn s g" data-a="docPet" data-id="${a.id}" aria-label="Imprimir PET">${ic('print')}</button>`:''}<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma PT registrada','Antes de uma atividade crítica (espaço confinado, altura, eletricidade), registre aqui a autorização.',`<button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button>`,'lock'));
 };
 VIEWS.solicitacoes=()=>{
@@ -1560,7 +1573,7 @@ function renderFicha(){
  <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
+ ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`${a.tipo==='Espaço confinado (NR-33)'?`<button class="btn s g" data-a="docPet" data-id="${a.id}" aria-label="Imprimir PET">${ic('print')}</button>`:''}<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -1838,6 +1851,23 @@ function docEpi(a){
  return h;
 }
 
+/* ---------- PET — Permissão de Entrada e Trabalho em espaço confinado (NR-33, Anexo II) ---------- */
+function docPet(a){
+ const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
+ let h=dHead('Permissão de Entrada e Trabalho (PET)',fd(a.data));
+ h+=`<h1 style="font-size:18pt">Permissão de Entrada e Trabalho — PET</h1><p class="small">NR-33 — Segurança e Saúde nos Trabalhos em Espaços Confinados (conforme modelo do Anexo II)</p>`;
+ h+=`<h2>1. Identificação</h2>${kv([['Empresa',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Local / espaço confinado',esc(a.local||'—')],['Data',fd(a.data)],['Horário previsto',esc((a.inicio||'—')+' às '+(a.fim||'—'))],['Validade da PET',a.petValidade?esc(a.petValidade):'<span class="blank l"></span>']])}`;
+ h+=`<h2>2. Equipe</h2>${kv([['Responsável pela execução',esc(c.nome||'—')],['Equipe envolvida',esc(a.equipe||'—')],['Vigia',a.petVigia?esc(a.petVigia):'<span class="blank l"></span>'],['Responsável técnico / supervisor de entrada',esc(a.responsavelTecnico||'—')],['Equipe/contato de resgate',a.petResgate?esc(a.petResgate):'<span class="blank l"></span>']])}`;
+ h+=`<h2>3. Testes atmosféricos</h2><table><tr><th>Oxigênio (O₂)</th><th>Inflamáveis (% LIE)</th><th>Gases tóxicos (CO/H₂S)</th><th>Horário</th></tr><tr><td>${a.petO2?esc(a.petO2)+'%':'<span class="blank"></span>'}</td><td>${a.petLel?esc(a.petLel)+'%':'<span class="blank"></span>'}</td><td>${a.petToxicos?esc(a.petToxicos):'<span class="blank"></span>'}</td><td>${a.petHorarioTestes?esc(a.petHorarioTestes):'<span class="blank"></span>'}</td></tr></table><p class="small">Faixas de referência: O₂ entre 20,9% e 23%; inflamáveis abaixo de 10% do LIE; gases tóxicos conforme limites de tolerância da NR-15. Repetir a medição sempre que houver interrupção e nova entrada.</p>`;
+ h+=`<h2>4. Medidas de controle verificadas</h2><table><tr><th style="width:8%"></th><th>Medida</th></tr>${Object.entries(PET_MEDIDAS).map(([k,l])=>`<tr><td class="box">${chk((a.petMedidas||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
+ h+=`<h2>5. Equipamentos de emergência disponíveis</h2><table><tr><th style="width:8%"></th><th>Equipamento</th></tr>${Object.entries(PET_EQUIP).map(([k,l])=>`<tr><td class="box">${chk((a.petEquip||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
+ h+=`<h2>6. Outras medidas de controle / observações</h2><p>${a.medidas?nl(a.medidas):'<span class="blank l"></span>'}</p>${a.obs?`<p><b>Observações:</b> ${nl(a.obs)}</p>`:''}`;
+ h+=`<div class="note">Esta PET autoriza a entrada e a permanência no espaço confinado identificado acima, pelo prazo de validade indicado, desde que mantidas as condições verificadas. Qualquer alteração nas condições (atmosfera, energias perigosas, clima, emergência) encerra automaticamente esta autorização, exigindo nova avaliação antes de qualquer reentrada.</div>`;
+ h+=`<div class="sig"><div>Supervisor de entrada / responsável técnico<span>${esc(a.responsavelTecnico||'Nome e assinatura')}</span></div><div>Vigia<span>${esc(a.petVigia||'Nome e assinatura')}</span></div></div>`;
+ h+=`<div class="sig"><div>Executante(s)<span>${esc(c.nome||a.equipe||'Nome e assinatura')}</span></div><div>Encerramento da PET<span>Horário: ____:____ — Motivo: ___________________</span></div></div>`;
+ return h;
+}
+
 /* ---------- resumo semanal ---------- */
 function docResumoSemana(){
  const cols=colsEscopo();
@@ -2057,6 +2087,7 @@ det(d){S.det=d.id;renderDetalhe()},
 docPacote(d){docDe(G('solicitacoes',d.id),'pacote')},docGuia(d){docDe(G('solicitacoes',d.id),'guia')},
 docAso(d){docDe(G('solicitacoes',d.id),'aso')},docPsico(d){docDe(G('solicitacoes',d.id),'psico')},
 docEpi(d){const a=G('epis',d.id);if(!a)return;openDoc({title:'Recibo de EPI — '+nCol(a.colabId),html:docEpi(a),filename:'recibo-epi-'+slug(nCol(a.colabId))+'.html',assunto:'Recibo de entrega de EPI — '+nCol(a.colabId),corpo:'Segue o recibo de entrega de EPI de '+nCol(a.colabId)+'.'})},
+docPet(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PET — '+nCol(a.colabId),html:docPet(a),filename:'pet-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Entrada e Trabalho (PET) — '+nCol(a.colabId),corpo:'Segue a PET de '+nCol(a.colabId)+'.'})},
 psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
 pickAso(){const i=$('#aso-f');if(i)i.click()},
 async getAso(d){const s=G('solicitacoes',d.id);audit('baixar','solicitacoes',d.id,s,'arquivo do ASO');try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},
@@ -2183,6 +2214,7 @@ ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.va
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
+ptTipo(t){const show=t.value==='Espaço confinado (NR-33)';['petVigia','petResgate','petValidade','petO2','petLel','petToxicos','petHorarioTestes','petMedidas','petEquip'].forEach(k=>{const w=document.getElementById('w_'+k);if(w)w.style.display=show?'':'none'})},
 async cep(t){
  const digits=t.value.replace(/\D/g,'');if(digits.length!==8)return;
  const key=t.id.replace(/^f_/,'');const prefix=key.slice(0,-3);
