@@ -288,6 +288,10 @@ const CATS={fisico:'Físico',quimico:'Químico',biologico:'Biológico',ergonomic
 const APTOS={altura:'Trabalho em altura (NR-35)',confinado:'Espaço confinado (NR-33)',maquinas:'Operação de máquinas e equipamentos'};
 /* [rótulo, campo correspondente no ASO (s.aso.<campo>), chave em APTOS/s.aptos] — usado no ASO e na guia de encaminhamento */
 const APTOS_F=[['Trabalho em altura (NR-35)','aptoAltura','altura'],['Espaço confinado (NR-33)','aptoConfinado','confinado'],['Operação de máquinas e equipamentos','aptoMaquinas','maquinas']];
+/* Catálogo fixo de EPIs comuns, para marcar com checkbox na entrega (além do campo "Outros", para o que não estiver na lista) */
+const EPI_ITENS={luva_raspa:'Luva de raspa',luva_latex:'Luva de látex / nitrílica',luva_termica:'Luva de proteção térmica',oculos:'Óculos de proteção',protetor_plug:'Protetor auricular (plug)',protetor_concha:'Protetor auricular (concha)',capacete:'Capacete de segurança',botina:'Botina de segurança',mascara_pff2:'Máscara/respirador PFF2',mascara_filtro:'Máscara semifacial com filtro',cinto_paraquedista:'Cinto de segurança tipo paraquedista',avental_raspa:'Avental de raspa',perneira:'Perneira',manga_raspa:'Manga de raspa',protetor_facial:'Protetor facial (viseira)',capa_chuva:'Capa de chuva',uniforme:'Uniforme / vestimenta de proteção'};
+/* Texto de exibição da entrega de EPI: aceita tanto o formato novo (array de chaves + epiOutros) quanto registros antigos (texto livre em a.epi) */
+function epiTxt(a){if(Array.isArray(a.epi))return[...a.epi.map(k=>EPI_ITENS[k]||k),a.epiOutros].filter(Boolean).join(', ');return a.epi||''}
 const TIPOS=['Admissional','Periódico','Retorno ao trabalho','Mudança de risco ocupacional','Demissional'];
 const STATUS=['Solicitado','Agendado','Realizado','Cancelado'];
 const HAZ=[
@@ -1212,6 +1216,7 @@ function abrirCat(id,pre){
 /* EPI (entrega/troca por colaborador) */
 function abrirEpi(id,pre){
  const rec=id?clone(G('epis',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today()},pre||{});
+ if(rec.epi&&!Array.isArray(rec.epi)){rec.epiOutros=[rec.epi,rec.epiOutros].filter(Boolean).join(', ');rec.epi=[]}
  const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
  window._colOptsEpi=colOpts;
  openForm({title:id?'Editar entrega de EPI':'Nova entrega de EPI',btn:'Salvar',val:rec,
@@ -1219,7 +1224,8 @@ function abrirEpi(id,pre){
   {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'epiEmp',ph:'Selecione'},
   {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
   {k:'data',l:'Data da entrega/troca',t:'date',r:1,w:3},
-  {k:'epi',l:'EPI(s) entregue(s)',r:1,t:'textarea',rows:2,h:'Ex.: Luva de raspa, óculos de proteção, protetor auricular'},
+  {k:'epi',l:'EPI(s) entregue(s)',t:'checks',o:Object.entries(EPI_ITENS),w:6,h:'Marque os itens entregues. Use "Outros EPIs" abaixo para o que não estiver na lista.'},
+  {k:'epiOutros',l:'Outros EPIs (não listados acima)',w:6,h:'Ex.: protetor solar, creme de proteção — separe por vírgula se for mais de um'},
   {k:'ca',l:'CA (Certificado de Aprovação)',w:3,h:'Opcional, por item'},
   {k:'validade',l:'Validade / próxima troca',t:'date',w:3},
   {k:'assinado',l:'Colaborador assinou o recibo?',t:'select',o:['Não','Sim'],w:3},
@@ -1429,7 +1435,7 @@ VIEWS.epis=()=>{
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button></div>
  <p class="sm muted" style="margin:0 0 14px">Ficha de entrega e troca de EPI por colaborador: o que ela faz é registrar e guardar o histórico — a entrega do equipamento em si continua sendo física.</p>`+
- (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>nl(a.epi)},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma entrega registrada','Registre aqui cada entrega ou troca de EPI por colaborador.',`<button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button>`,'check'));
 };
 VIEWS.pts=()=>{
@@ -1530,7 +1536,7 @@ function renderFicha(){
  <p class="muted sm" style="margin:0 0 8px">A emissão oficial da CAT é feita pelo serviço "Registrar Comunicação de Acidente de Trabalho" em gov.br ou pelo eSocial (evento S-2210). O registro abaixo é só o histórico interno deste sistema.</p>
  ${cats.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Lesão',f:a=>esc(a.lesao||'—')},{h:'Afastamento',f:a=>a.houveAfastamento==='Sim'?(a.dias||'')+' d':'Não'},{h:'CAT',f:a=>esc(a.cat||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editCat" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],cats):'<p class="muted sm">Nenhum acidente registrado.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>nl(a.epi)},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
+ ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
