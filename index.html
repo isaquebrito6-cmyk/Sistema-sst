@@ -1277,6 +1277,11 @@ function abrirEpi(id,pre){
 /* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
 const PET_MEDIDAS={bloqueio:'Bloqueio e etiquetagem (LOTO) das energias perigosas',ventilacao:'Ventilação forçada contínua',isolamento:'Isolamento e sinalização da área',resgate_testado:'Procedimento de resgate testado/revisado',comunicacao:'Sistema de comunicação contínuo com o vigia'};
 const PET_EQUIP={detector:'Detector de gases portátil (calibrado)',tripe:'Tripé e cabo de segurança / sistema de içamento',resp:'Equipamento de respiração autônomo ou suprido',ilum:'Iluminação adequada (antiexplosão, se necessário)',kit:'Kit de primeiros socorros no local'};
+/* Medidas de controle verificadas, por tipo de atividade crítica da PT (NR-35, NR-10, outra) */
+const MEDIDAS_ALTURA={ancoragem:'Ponto de ancoragem certificado e verificado',cinto:'Cinto de segurança tipo paraquedista com talabarte duplo',travaquedas:'Trava-quedas / absorvedor de energia',isolamento:'Isolamento e sinalização da área abaixo',capacete:'Capacete com jugular',clima:'Condições climáticas verificadas (vento, chuva)',resgate:'Plano de resgate em altura definido',inspecao:'Inspeção prévia do EPI e equipamentos de acesso'};
+const MEDIDAS_ELET={desenergizacao:'Desenergização do circuito',ausenciaTensao:'Teste de ausência de tensão',aterramento:'Aterramento temporário das fases',bloqueio:'Bloqueio e etiquetagem (LOTO)',epiIsolante:'EPI isolante (luva, calçado, protetor facial)',ferramentasIsoladas:'Ferramentas isoladas e certificadas',sinalizacao:'Sinalização e isolamento da área',distanciaSegura:'Distância de segurança de partes energizadas próximas'};
+const MEDIDAS_OUTRA={isolamento:'Isolamento e sinalização da área',epiEspecifico:'EPI específico para a atividade',comunicacao:'Comunicação contínua com a equipe',planoEmergencia:'Plano de emergência definido',autorizacao:'Autorização do responsável técnico',inspecaoPrevia:'Inspeção prévia do local e dos equipamentos'};
+const MEDIDAS_POR_TIPO={'Trabalho em altura (NR-35)':MEDIDAS_ALTURA,'Serviços em eletricidade (NR-10)':MEDIDAS_ELET,'Outra atividade crítica':MEDIDAS_OUTRA};
 function abrirPt(id,pre){
  const rec=id?clone(G('pts',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),tipo:'Espaço confinado (NR-33)',situacao:'Emitida'},pre||{});
  const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
@@ -1291,7 +1296,7 @@ function abrirPt(id,pre){
   {k:'local',l:'Local / setor',w:4},
   {k:'inicio',l:'Início previsto',w:2,h:'Ex.: 08:00'},{k:'fim',l:'Término previsto',w:2,h:'Ex.: 17:00'},
   {t:'html',w:4,html:'<label>Executante(s) / equipe envolvida</label><div id="ptEquipeList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar nome</button></div><small>Um nome por linha — além do responsável pela execução, se houver mais de uma pessoa na atividade</small>'},
-  {k:'medidas',l:'Medidas de controle verificadas',t:'textarea',rows:2,h:'Ex.: isolamento da área, teste de atmosfera, ponto de ancoragem, EPI específico, vigia'},
+  {k:'medidas',l:'Medidas de controle verificadas',t:'checks',w:6,hideUnless:ehConf?'tipo':null,o:Object.entries(MEDIDAS_POR_TIPO[rec.tipo]||MEDIDAS_OUTRA),h:'Marque as medidas já verificadas para esta atividade'},
   {k:'responsavelTecnico',l:'Responsável técnico que autorizou',w:3},
   {k:'situacao',l:'Situação',t:'select',o:['Emitida','Encerrada','Cancelada'],w:3},
   {sec:'Permissão de Entrada e Trabalho (PET) — específico para espaço confinado, NR-33 Anexo II'},
@@ -1656,6 +1661,14 @@ const kv=(rows)=>`<table>${rows.map(r=>`<tr><td class="k">${r[0]}</td><td>${r[1]
 const equipeArr=a=>Array.isArray(a.equipe)?a.equipe.filter(Boolean):(a.equipe?String(a.equipe).split(/[,;\n]/).map(s=>s.trim()).filter(Boolean):[]);
 const listHtml=arr=>arr.length?`<ul style="margin:4pt 0 0 16pt;padding:0">${arr.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:'<span class="blank l"></span>';
 const sigRows=names=>names.length?names.map((n,i)=>`<div>Executante ${names.length>1?i+1:''}<span>${esc(n)}</span></div>`).join(''):`<div>Executante(s)<span>Nome e assinatura</span></div>`;
+/* Medidas de controle verificadas na PT: lista de marcar conforme o tipo de atividade (array) — com fallback para registros antigos em texto livre */
+function medidasHtml(a){
+ if(Array.isArray(a.medidas)){
+  const cat=MEDIDAS_POR_TIPO[a.tipo]||MEDIDAS_OUTRA;
+  return `<table><tr><th style="width:8%"></th><th>Medida</th></tr>${Object.entries(cat).map(([k,l])=>`<tr><td class="box">${chk(a.medidas.includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
+ }
+ return `<p>${a.medidas?nl(a.medidas):'<span class="blank l"></span><br><br><span class="blank l"></span>'}</p>`;
+}
 const lvl=(s,p)=>{const n=nivel(s,p);return `<span class="tag m-${n.k}">${n.n} (${n.v})</span>`};
 const endEmp=e=>[e.endereco,e.cidade&&(e.cidade+(e.uf?'/'+e.uf.toUpperCase():''))].filter(Boolean).join(' — ');
 function assin(e,extra){
@@ -1885,7 +1898,7 @@ function docPt(a){
  h+=`<h1 style="font-size:18pt">Permissão de Trabalho — PT</h1><p class="small">Autorização para execução de atividade crítica${a.tipo?' — '+esc(a.tipo):''}</p>`;
  h+=`<h2>1. Identificação</h2>${kv([['Empresa',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Tipo de atividade',esc(a.tipo||'—')],['Local / setor',esc(a.local||'—')],['Data',fd(a.data)],['Horário previsto',esc((a.inicio||'—')+' às '+(a.fim||'—'))]])}`;
  h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s):</b></p>${listHtml(names)}<p style="margin-top:8pt"><b>Responsável técnico que autorizou:</b> ${esc(a.responsavelTecnico||'—')}</p>`;
- h+=`<h2>3. Medidas de controle verificadas</h2><p>${a.medidas?nl(a.medidas):'<span class="blank l"></span><br><br><span class="blank l"></span>'}</p>`;
+ h+=`<h2>3. Medidas de controle verificadas</h2>${medidasHtml(a)}`;
  h+=`<h2>4. Observações</h2><p>${a.obs?nl(a.obs):'<span class="blank l"></span>'}</p>`;
  h+=`<div class="note">Esta PT autoriza a execução da atividade identificada acima, no local, data e horário indicados, desde que mantidas as condições e medidas de controle verificadas. Qualquer alteração nas condições de risco encerra automaticamente esta autorização, exigindo nova avaliação antes de prosseguir.</div>`;
  h+=`<div class="sig"><div>Responsável técnico que autorizou<span>${esc(a.responsavelTecnico||'Nome e assinatura')}</span></div></div>`;
@@ -1905,7 +1918,7 @@ function docPet(a){
  h+=`<h2>3. Testes atmosféricos</h2><table><tr><th>Oxigênio (O₂)</th><th>Inflamáveis (% LIE)</th><th>Gases tóxicos (CO/H₂S)</th><th>Horário</th></tr><tr><td>${a.petO2?esc(a.petO2)+'%':'<span class="blank"></span>'}</td><td>${a.petLel?esc(a.petLel)+'%':'<span class="blank"></span>'}</td><td>${a.petToxicos?esc(a.petToxicos):'<span class="blank"></span>'}</td><td>${a.petHorarioTestes?esc(a.petHorarioTestes):'<span class="blank"></span>'}</td></tr></table><p class="small">Faixas de referência: O₂ entre 20,9% e 23%; inflamáveis abaixo de 10% do LIE; gases tóxicos conforme limites de tolerância da NR-15. Repetir a medição sempre que houver interrupção e nova entrada.</p>`;
  h+=`<h2>4. Medidas de controle verificadas</h2><table><tr><th style="width:8%"></th><th>Medida</th></tr>${Object.entries(PET_MEDIDAS).map(([k,l])=>`<tr><td class="box">${chk((a.petMedidas||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
  h+=`<h2>5. Equipamentos de emergência disponíveis</h2><table><tr><th style="width:8%"></th><th>Equipamento</th></tr>${Object.entries(PET_EQUIP).map(([k,l])=>`<tr><td class="box">${chk((a.petEquip||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
- h+=`<h2>6. Outras medidas de controle / observações</h2><p>${a.medidas?nl(a.medidas):'<span class="blank l"></span>'}</p>${a.obs?`<p><b>Observações:</b> ${nl(a.obs)}</p>`:''}`;
+ h+=`<h2>6. Observações</h2><p>${a.obs?nl(a.obs):(typeof a.medidas==='string'&&a.medidas?nl(a.medidas):'<span class="blank l"></span>')}</p>`;
  h+=`<div class="note">Esta PET autoriza a entrada e a permanência no espaço confinado identificado acima, pelo prazo de validade indicado, desde que mantidas as condições verificadas. Qualquer alteração nas condições (atmosfera, energias perigosas, clima, emergência) encerra automaticamente esta autorização, exigindo nova avaliação antes de qualquer reentrada.</div>`;
  h+=`<div class="sig"><div>Supervisor de entrada / responsável técnico<span>${esc(a.responsavelTecnico||'Nome e assinatura')}</span></div><div>Vigia<span>${esc(a.petVigia||'Nome e assinatura')}</span></div></div>`;
  h+=`<div class="sig">${sigRows(names)}</div>`;
@@ -2260,7 +2273,9 @@ ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.va
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
-ptTipo(t){const show=t.value==='Espaço confinado (NR-33)';['petVigia','petResgate','petValidade','petO2','petLel','petToxicos','petHorarioTestes','petMedidas','petEquip'].forEach(k=>{const w=document.getElementById('w_'+k);if(w)w.style.display=show?'':'none'})},
+ptTipo(t){const show=t.value==='Espaço confinado (NR-33)';['petVigia','petResgate','petValidade','petO2','petLel','petToxicos','petHorarioTestes','petMedidas','petEquip'].forEach(k=>{const w=document.getElementById('w_'+k);if(w)w.style.display=show?'':'none'});
+ const wm=document.getElementById('w_medidas');
+ if(wm){wm.style.display=show?'none':'';const cat=MEDIDAS_POR_TIPO[t.value]||MEDIDAS_OUTRA,box=document.getElementById('f_medidas');if(box){const sel=[...box.querySelectorAll('input:checked')].map(x=>x.value);box.innerHTML=Object.entries(cat).map(([k,l])=>`<label class="chk"><input type="checkbox" name="medidas" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}}},
 async cep(t){
  const digits=t.value.replace(/\D/g,'');if(digits.length!==8)return;
  const key=t.id.replace(/^f_/,'');const prefix=key.slice(0,-3);
