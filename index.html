@@ -551,39 +551,51 @@ async function saveAs(filename,data){
  try{if(DB.dl){await DB.dl.save({filename,data});return true}}catch(e){if(e&&e.code==='declined')return false;console.warn(e)}
  try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);return true}catch(e){toast('Não foi possível baixar o arquivo neste ambiente.');return false}
 }
-/* Campo de assinatura digital (desenhada na tela): grava a imagem direto no registro (rec), sem coleção/arquivo novo no Firestore */
-function initSigPad(canvasId,rec,statusId,clearId,selId){
+/* Campo de assinatura digital (desenhada na tela): grava a imagem direto no registro (rec), sem coleção/arquivo novo no Firestore.
+   imgKey/dataKey permitem mais de uma assinatura no mesmo registro (ex.: responsável técnico e vigia na PET) — padrão 'assinaturaImg'/'assinaturaData' (EPI). */
+function initSigPad(canvasId,rec,statusId,clearId,selId,imgKey,dataKey){
+ imgKey=imgKey||'assinaturaImg';dataKey=dataKey||'assinaturaData';
  const cv=document.getElementById(canvasId);if(!cv)return;
  cv.width=500;cv.height=150;
  const cx=cv.getContext('2d');cx.lineWidth=2.2;cx.lineCap='round';cx.lineJoin='round';cx.strokeStyle='#17323a';
  const status=document.getElementById(statusId);
- const upd=()=>{if(status)status.textContent=rec.assinaturaImg?'Assinatura digital registrada em '+fd(rec.assinaturaData)+'.':'Nenhuma assinatura digital ainda — desenhe acima com o dedo ou o mouse.'};
- if(rec.assinaturaImg){const im=new Image();im.onload=()=>cx.drawImage(im,0,0,cv.width,cv.height);im.src=rec.assinaturaImg}
+ const upd=()=>{if(status)status.textContent=rec[imgKey]?'Assinatura digital registrada em '+fd(rec[dataKey])+'.':'Nenhuma assinatura digital ainda — desenhe acima com o dedo ou o mouse.'};
+ if(rec[imgKey]){const im=new Image();im.onload=()=>cx.drawImage(im,0,0,cv.width,cv.height);im.src=rec[imgKey]}
  upd();
  let drawing=false,moved=false;
  const pos=ev=>{const r=cv.getBoundingClientRect();return[(ev.clientX-r.left)*(cv.width/r.width),(ev.clientY-r.top)*(cv.height/r.height)]};
  cv.addEventListener('pointerdown',ev=>{drawing=true;moved=false;const[x,y]=pos(ev);cx.beginPath();cx.moveTo(x,y);ev.preventDefault()});
  cv.addEventListener('pointermove',ev=>{if(!drawing)return;const[x,y]=pos(ev);cx.lineTo(x,y);cx.stroke();moved=true;ev.preventDefault()});
- const fim=()=>{if(!drawing)return;drawing=false;if(moved){rec.assinaturaImg=cv.toDataURL('image/png');rec.assinaturaData=today();upd();const sel=selId&&document.getElementById(selId);if(sel)sel.value='Sim'}};
+ const fim=()=>{if(!drawing)return;drawing=false;if(moved){rec[imgKey]=cv.toDataURL('image/png');rec[dataKey]=today();upd();const sel=selId&&document.getElementById(selId);if(sel)sel.value='Sim'}};
  cv.addEventListener('pointerup',fim);cv.addEventListener('pointerleave',fim);
  const btn=document.getElementById(clearId);
- if(btn)btn.onclick=()=>{cx.clearRect(0,0,cv.width,cv.height);delete rec.assinaturaImg;delete rec.assinaturaData;upd()};
+ if(btn)btn.onclick=()=>{cx.clearRect(0,0,cv.width,cv.height);delete rec[imgKey];delete rec[dataKey];upd()};
 }
-/* Campo de lista de nomes (adicionar/remover linhas): grava um array direto no registro (rec[key]) */
-function initListField(wrapId,rec,key,placeholder){
+/* Campo de lista de executantes (adicionar/remover linhas): grava um array de {nome,entrada,saida} direto no registro (rec[key]).
+   entrada/saida só fazem sentido para a PET (espaço confinado) — ficam ocultas (mas preservadas) nos demais tipos via toggleEquipeTimes. */
+function initEquipeList(wrapId,rec,key,placeholder,showTimes){
  const wrap=document.getElementById(wrapId);if(!wrap)return;
+ const norm=x=>{if(x&&typeof x==='object')return{nome:x.nome||'',entrada:x.entrada||'',saida:x.saida||''};return{nome:String(x||''),entrada:'',saida:''}};
  if(!Array.isArray(rec[key]))rec[key]=(rec[key]?String(rec[key]).split(/[,;\n]/).map(s=>s.trim()).filter(Boolean):[]);
+ rec[key]=rec[key].map(norm);
  const rows=wrap.querySelector('.listrows'),addBtn=wrap.querySelector('.listadd');
- const sync=()=>{rec[key]=Array.from(rows.querySelectorAll('input')).map(i=>i.value.trim()).filter(Boolean)};
- const addRow=val=>{
-  const row=document.createElement('div');row.className='row';row.style.cssText='gap:6px;margin-bottom:6px';
-  row.innerHTML=`<input type="text" value="${esc(val||'')}" placeholder="${esc(placeholder||'Nome')}" style="flex:1"><button type="button" class="btn s g d" aria-label="Remover" style="flex:0 0 auto">${ic('trash')}</button>`;
-  row.querySelector('input').addEventListener('input',sync);
+ const sync=()=>{rec[key]=Array.from(rows.children).map(row=>({nome:row.querySelector('.eq-nome').value.trim(),entrada:row.querySelector('.eq-ent').value,saida:row.querySelector('.eq-sai').value})).filter(r=>r.nome||r.entrada||r.saida)};
+ const addRow=o=>{
+  o=norm(o);
+  const row=document.createElement('div');row.className='row';row.style.cssText='gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap';
+  row.innerHTML=`<input type="text" class="eq-nome" value="${esc(o.nome)}" placeholder="${esc(placeholder||'Nome')}" style="flex:1;min-width:140px">`+
+   `<span class="eq-times" style="display:flex;gap:6px;align-items:center${showTimes?'':';display:none'}"><input type="time" class="eq-ent" value="${esc(o.entrada)}" aria-label="Entrada" title="Horário de entrada" style="width:100px"><input type="time" class="eq-sai" value="${esc(o.saida)}" aria-label="Saída" title="Horário de saída" style="width:100px"></span>`+
+   `<button type="button" class="btn s g d" aria-label="Remover" style="flex:0 0 auto">${ic('trash')}</button>`;
+  row.querySelectorAll('input').forEach(i=>i.addEventListener('input',sync));
   row.querySelector('button').onclick=()=>{row.remove();sync()};
   rows.appendChild(row)};
- (rec[key].length?rec[key]:['']).forEach(addRow);
+ (rec[key].length?rec[key]:[{nome:'',entrada:'',saida:''}]).forEach(addRow);
  sync();
- if(addBtn)addBtn.onclick=()=>{addRow('');sync();rows.lastElementChild.querySelector('input').focus()};
+ if(addBtn)addBtn.onclick=()=>{addRow();sync();rows.lastElementChild.querySelector('.eq-nome').focus()};
+}
+function toggleEquipeTimes(wrapId,show){
+ const wrap=document.getElementById(wrapId);if(!wrap)return;
+ wrap.querySelectorAll('.eq-times').forEach(s=>s.style.display=show?'flex':'none');
 }
 
 /* ====================== ESTADO E REGRAS ====================== */
@@ -1295,12 +1307,14 @@ function abrirPt(id,pre){
   {k:'tipo',l:'Tipo de atividade',t:'select',o:['Espaço confinado (NR-33)','Trabalho em altura (NR-35)','Serviços em eletricidade (NR-10)','Outra atividade crítica'],w:3,c:'ptTipo'},
   {k:'local',l:'Local / setor',w:4},
   {k:'inicio',l:'Início previsto',w:2,h:'Ex.: 08:00'},{k:'fim',l:'Término previsto',w:2,h:'Ex.: 17:00'},
-  {t:'html',w:4,html:'<label>Executante(s) / equipe envolvida</label><div id="ptEquipeList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar nome</button></div><small>Um nome por linha — além do responsável pela execução, se houver mais de uma pessoa na atividade</small>'},
+  {t:'html',w:5,html:'<label>Executante(s) / equipe envolvida</label><div id="ptEquipeList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar nome</button></div><small>Um nome por linha, além do responsável pela execução. O horário de entrada/saída de cada um só aparece quando o tipo é "Espaço confinado (NR-33)".</small>'},
   {k:'medidas',l:'Medidas de controle verificadas',t:'checks',w:6,hideUnless:ehConf?'tipo':null,o:Object.entries(MEDIDAS_POR_TIPO[rec.tipo]||MEDIDAS_OUTRA),h:'Marque as medidas já verificadas para esta atividade'},
   {k:'responsavelTecnico',l:'Responsável técnico que autorizou',w:3},
+  {t:'html',w:3,html:'<label>Assinatura do responsável técnico (opcional)</label><div class="sigpad"><canvas id="ptSupCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="ptSupClear">Limpar assinatura</button><span class="sm muted" id="ptSupStatus"></span></div><small>Assine na tela (dedo/mouse) ou deixe em branco para assinar no papel ao imprimir.</small>'},
   {k:'situacao',l:'Situação',t:'select',o:['Emitida','Encerrada','Cancelada'],w:3},
   {sec:'Permissão de Entrada e Trabalho (PET) — específico para espaço confinado, NR-33 Anexo II'},
   {k:'petVigia',l:'Vigia (nome)',w:3,hideUnless:ehConf?null:'tipo'},
+  {t:'html',w:3,html:'<div id="ptVigiaSigWrap" style="'+(ehConf?'':'display:none')+'"><label>Assinatura do vigia (opcional)</label><div class="sigpad"><canvas id="ptVigiaCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="ptVigiaClear">Limpar assinatura</button><span class="sm muted" id="ptVigiaStatus"></span></div></div>'},
   {k:'petResgate',l:'Equipe/contato de resgate',w:3,hideUnless:ehConf?null:'tipo',h:'Nome e telefone a acionar em emergência'},
   {k:'petValidade',l:'Validade da PET',w:3,hideUnless:ehConf?null:'tipo',h:'Ex.: mesmo turno de trabalho, até 24h — NR-33'},
   {k:'petO2',l:'O₂ medido (%)',w:2,hideUnless:ehConf?null:'tipo',h:'Faixa aceitável: 20,9% a 23%'},
@@ -1309,10 +1323,17 @@ function abrirPt(id,pre){
   {k:'petHorarioTestes',l:'Horário dos testes atmosféricos',w:3,hideUnless:ehConf?null:'tipo'},
   {k:'petMedidas',l:'Medidas de controle verificadas',t:'checks',w:6,hideUnless:ehConf?null:'tipo',o:Object.entries(PET_MEDIDAS)},
   {k:'petEquip',l:'Equipamentos de emergência disponíveis',t:'checks',w:6,hideUnless:ehConf?null:'tipo',o:Object.entries(PET_EQUIP)},
+  {sec:'Encerramento da PT/PET'},
+  {k:'encerramentoHorario',l:'Horário do encerramento',t:'time',w:3},
+  {k:'encerramentoMotivo',l:'Motivo do encerramento',w:5,h:'Ex.: atividade concluída, interrupção por mudança nas condições, etc.'},
   {k:'obs',l:'Observações',t:'textarea',rows:2}],
  save:v=>{
   Object.assign(rec,v);const r=save('pts',rec);toast('Permissão de Trabalho salva.');return r}})
- setTimeout(()=>initListField('ptEquipeList',rec,'equipe','Nome do executante'),30)
+ setTimeout(()=>{
+  initEquipeList('ptEquipeList',rec,'equipe','Nome do executante',ehConf);
+  initSigPad('ptSupCv',rec,'ptSupStatus','ptSupClear',null,'respTecAssinaturaImg','respTecAssinaturaData');
+  initSigPad('ptVigiaCv',rec,'ptVigiaStatus','ptVigiaClear',null,'vigiaAssinaturaImg','vigiaAssinaturaData');
+ },30)
 }
 /* ASO (clínica) */
 function abrirAso(id){
@@ -1658,9 +1679,17 @@ function dHead(t,sub){
 }
 const kv=(rows)=>`<table>${rows.map(r=>`<tr><td class="k">${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
 /* Equipe/executantes: aceita array (novo) ou string antiga separada por vírgula/;/quebra de linha */
-const equipeArr=a=>Array.isArray(a.equipe)?a.equipe.filter(Boolean):(a.equipe?String(a.equipe).split(/[,;\n]/).map(s=>s.trim()).filter(Boolean):[]);
-const listHtml=arr=>arr.length?`<ul style="margin:4pt 0 0 16pt;padding:0">${arr.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:'<span class="blank l"></span>';
-const sigRows=names=>names.length?names.map((n,i)=>`<div>Executante ${names.length>1?i+1:''}<span>${esc(n)}</span></div>`).join(''):`<div>Executante(s)<span>Nome e assinatura</span></div>`;
+/* Executantes: aceita array de {nome,entrada,saida} (novo), array de strings ou string antiga separada por vírgula/;/quebra de linha */
+const equipeArr=a=>{
+ const raw=Array.isArray(a.equipe)?a.equipe:(a.equipe?String(a.equipe).split(/[,;\n]/).map(s=>s.trim()).filter(Boolean):[]);
+ return raw.map(x=>x&&typeof x==='object'?{nome:x.nome||'',entrada:x.entrada||'',saida:x.saida||''}:{nome:String(x||''),entrada:'',saida:''}).filter(p=>p.nome);
+};
+/* Responsável + executantes, sem duplicar nomes (usado na lista "Equipe" e nas linhas de assinatura) */
+const pessoasPt=(a,c)=>{const l=[{nome:c.nome||'',entrada:'',saida:''},...equipeArr(a)].filter(p=>p.nome);const seen=new Set();return l.filter(p=>seen.has(p.nome)?false:(seen.add(p.nome),true))};
+const listHtml=(pessoas,withTimes)=>pessoas.length?`<ul style="margin:4pt 0 0 16pt;padding:0">${pessoas.map(p=>`<li>${esc(p.nome)}${withTimes&&(p.entrada||p.saida)?` — Entrada: ${esc(p.entrada||'—')} · Saída: ${esc(p.saida||'—')}`:''}</li>`).join('')}</ul>`:'<span class="blank l"></span>';
+const sigRows=pessoas=>{const names=pessoas.map(p=>p.nome);return names.length?names.map((n,i)=>`<div>Executante ${names.length>1?i+1:''}<span>${esc(n)}</span></div>`).join(''):`<div>Executante(s)<span>Nome e assinatura</span></div>`};
+/* Assinatura digital (imagem) ou linha em branco para o responsável técnico / vigia */
+const sigCell=(label,name,a,imgKey,dataKey)=>(imgKey&&a[imgKey])?`<div>${esc(label)}<br><img src="${a[imgKey]}" alt="Assinatura" style="max-width:190px;max-height:58px;margin:3pt 0 1pt"><span>${esc(name||'')} — digital em ${fd(a[dataKey])}</span></div>`:`<div>${esc(label)}<span>${esc(name||'Nome e assinatura')}</span></div>`;
 /* Medidas de controle verificadas na PT: lista de marcar conforme o tipo de atividade (array) — com fallback para registros antigos em texto livre */
 function medidasHtml(a){
  if(Array.isArray(a.medidas)){
@@ -1893,36 +1922,36 @@ function docEpi(a){
 /* ---------- PT — Permissão de Trabalho (atividades críticas em geral: altura NR-35, eletricidade NR-10, outras) ---------- */
 function docPt(a){
  const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
- const names=[...new Set([c.nome,...equipeArr(a)].filter(Boolean))];
+ const pessoas=pessoasPt(a,c);
  let h=dHead('Permissão de Trabalho (PT)',fd(a.data));
  h+=`<h1 style="font-size:18pt">Permissão de Trabalho — PT</h1><p class="small">Autorização para execução de atividade crítica${a.tipo?' — '+esc(a.tipo):''}</p>`;
  h+=`<h2>1. Identificação</h2>${kv([['Empresa',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Tipo de atividade',esc(a.tipo||'—')],['Local / setor',esc(a.local||'—')],['Data',fd(a.data)],['Horário previsto',esc((a.inicio||'—')+' às '+(a.fim||'—'))]])}`;
- h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s):</b></p>${listHtml(names)}<p style="margin-top:8pt"><b>Responsável técnico que autorizou:</b> ${esc(a.responsavelTecnico||'—')}</p>`;
+ h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s):</b></p>${listHtml(pessoas,false)}<p style="margin-top:8pt"><b>Responsável técnico que autorizou:</b> ${esc(a.responsavelTecnico||'—')}</p>`;
  h+=`<h2>3. Medidas de controle verificadas</h2>${medidasHtml(a)}`;
  h+=`<h2>4. Observações</h2><p>${a.obs?nl(a.obs):'<span class="blank l"></span>'}</p>`;
  h+=`<div class="note">Esta PT autoriza a execução da atividade identificada acima, no local, data e horário indicados, desde que mantidas as condições e medidas de controle verificadas. Qualquer alteração nas condições de risco encerra automaticamente esta autorização, exigindo nova avaliação antes de prosseguir.</div>`;
- h+=`<div class="sig"><div>Responsável técnico que autorizou<span>${esc(a.responsavelTecnico||'Nome e assinatura')}</span></div></div>`;
- h+=`<div class="sig">${sigRows(names)}</div>`;
- h+=`<div class="sig"><div>Situação<span>${esc(a.situacao||'Emitida')}</span></div><div>Encerramento da PT<span>Horário: ____:____ — Motivo: ___________________</span></div></div>`;
+ h+=`<div class="sig">${sigCell('Responsável técnico que autorizou',a.responsavelTecnico,a,'respTecAssinaturaImg','respTecAssinaturaData')}</div>`;
+ h+=`<div class="sig">${sigRows(pessoas)}</div>`;
+ h+=`<div class="sig"><div>Situação<span>${esc(a.situacao||'Emitida')}</span></div><div>Encerramento da PT<span>${a.encerramentoHorario||a.encerramentoMotivo?`Horário: ${esc(a.encerramentoHorario||'____:____')} — Motivo: ${esc(a.encerramentoMotivo||'—')}`:'Horário: ____:____ — Motivo: ___________________'}</span></div></div>`;
  return h;
 }
 
 /* ---------- PET — Permissão de Entrada e Trabalho em espaço confinado (NR-33, Anexo II) ---------- */
 function docPet(a){
  const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
- const names=[...new Set([c.nome,...equipeArr(a)].filter(Boolean))];
+ const pessoas=pessoasPt(a,c);
  let h=dHead('Permissão de Entrada e Trabalho (PET)',fd(a.data));
  h+=`<h1 style="font-size:18pt">Permissão de Entrada e Trabalho — PET</h1><p class="small">NR-33 — Segurança e Saúde nos Trabalhos em Espaços Confinados (conforme modelo do Anexo II)</p>`;
  h+=`<h2>1. Identificação</h2>${kv([['Empresa',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Local / espaço confinado',esc(a.local||'—')],['Data',fd(a.data)],['Horário previsto',esc((a.inicio||'—')+' às '+(a.fim||'—'))],['Validade da PET',a.petValidade?esc(a.petValidade):'<span class="blank l"></span>']])}`;
- h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s) que vão entrar no espaço confinado:</b></p>${listHtml(names)}<p style="margin-top:8pt"><b>Vigia:</b> ${a.petVigia?esc(a.petVigia):'—'} &nbsp;·&nbsp; <b>Responsável técnico / supervisor de entrada:</b> ${esc(a.responsavelTecnico||'—')} &nbsp;·&nbsp; <b>Equipe/contato de resgate:</b> ${a.petResgate?esc(a.petResgate):'—'}</p>`;
+ h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s) que vão entrar no espaço confinado (com horário de entrada/saída):</b></p>${listHtml(pessoas,true)}<p style="margin-top:8pt"><b>Vigia:</b> ${a.petVigia?esc(a.petVigia):'—'} &nbsp;·&nbsp; <b>Responsável técnico / supervisor de entrada:</b> ${esc(a.responsavelTecnico||'—')} &nbsp;·&nbsp; <b>Equipe/contato de resgate:</b> ${a.petResgate?esc(a.petResgate):'—'}</p>`;
  h+=`<h2>3. Testes atmosféricos</h2><table><tr><th>Oxigênio (O₂)</th><th>Inflamáveis (% LIE)</th><th>Gases tóxicos (CO/H₂S)</th><th>Horário</th></tr><tr><td>${a.petO2?esc(a.petO2)+'%':'<span class="blank"></span>'}</td><td>${a.petLel?esc(a.petLel)+'%':'<span class="blank"></span>'}</td><td>${a.petToxicos?esc(a.petToxicos):'<span class="blank"></span>'}</td><td>${a.petHorarioTestes?esc(a.petHorarioTestes):'<span class="blank"></span>'}</td></tr></table><p class="small">Faixas de referência: O₂ entre 20,9% e 23%; inflamáveis abaixo de 10% do LIE; gases tóxicos conforme limites de tolerância da NR-15. Repetir a medição sempre que houver interrupção e nova entrada.</p>`;
  h+=`<h2>4. Medidas de controle verificadas</h2><table><tr><th style="width:8%"></th><th>Medida</th></tr>${Object.entries(PET_MEDIDAS).map(([k,l])=>`<tr><td class="box">${chk((a.petMedidas||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
  h+=`<h2>5. Equipamentos de emergência disponíveis</h2><table><tr><th style="width:8%"></th><th>Equipamento</th></tr>${Object.entries(PET_EQUIP).map(([k,l])=>`<tr><td class="box">${chk((a.petEquip||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
  h+=`<h2>6. Observações</h2><p>${a.obs?nl(a.obs):(typeof a.medidas==='string'&&a.medidas?nl(a.medidas):'<span class="blank l"></span>')}</p>`;
  h+=`<div class="note">Esta PET autoriza a entrada e a permanência no espaço confinado identificado acima, pelo prazo de validade indicado, desde que mantidas as condições verificadas. Qualquer alteração nas condições (atmosfera, energias perigosas, clima, emergência) encerra automaticamente esta autorização, exigindo nova avaliação antes de qualquer reentrada.</div>`;
- h+=`<div class="sig"><div>Supervisor de entrada / responsável técnico<span>${esc(a.responsavelTecnico||'Nome e assinatura')}</span></div><div>Vigia<span>${esc(a.petVigia||'Nome e assinatura')}</span></div></div>`;
- h+=`<div class="sig">${sigRows(names)}</div>`;
- h+=`<div class="sig"><div>Encerramento da PET<span>Horário: ____:____ — Motivo: ___________________</span></div></div>`;
+ h+=`<div class="sig">${sigCell('Supervisor de entrada / responsável técnico',a.responsavelTecnico,a,'respTecAssinaturaImg','respTecAssinaturaData')}${sigCell('Vigia',a.petVigia,a,'vigiaAssinaturaImg','vigiaAssinaturaData')}</div>`;
+ h+=`<div class="sig">${sigRows(pessoas)}</div>`;
+ h+=`<div class="sig"><div>Encerramento da PET<span>${a.encerramentoHorario||a.encerramentoMotivo?`Horário: ${esc(a.encerramentoHorario||'____:____')} — Motivo: ${esc(a.encerramentoMotivo||'—')}`:'Horário: ____:____ — Motivo: ___________________'}</span></div></div>`;
  return h;
 }
 
@@ -2275,7 +2304,9 @@ novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
 ptTipo(t){const show=t.value==='Espaço confinado (NR-33)';['petVigia','petResgate','petValidade','petO2','petLel','petToxicos','petHorarioTestes','petMedidas','petEquip'].forEach(k=>{const w=document.getElementById('w_'+k);if(w)w.style.display=show?'':'none'});
  const wm=document.getElementById('w_medidas');
- if(wm){wm.style.display=show?'none':'';const cat=MEDIDAS_POR_TIPO[t.value]||MEDIDAS_OUTRA,box=document.getElementById('f_medidas');if(box){const sel=[...box.querySelectorAll('input:checked')].map(x=>x.value);box.innerHTML=Object.entries(cat).map(([k,l])=>`<label class="chk"><input type="checkbox" name="medidas" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}}},
+ if(wm){wm.style.display=show?'none':'';const cat=MEDIDAS_POR_TIPO[t.value]||MEDIDAS_OUTRA,box=document.getElementById('f_medidas');if(box){const sel=[...box.querySelectorAll('input:checked')].map(x=>x.value);box.innerHTML=Object.entries(cat).map(([k,l])=>`<label class="chk"><input type="checkbox" name="medidas" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}}
+ const vs=document.getElementById('ptVigiaSigWrap');if(vs)vs.style.display=show?'':'none';
+ toggleEquipeTimes('ptEquipeList',show);},
 async cep(t){
  const digits=t.value.replace(/\D/g,'');if(digits.length!==8)return;
  const key=t.id.replace(/^f_/,'');const prefix=key.slice(0,-3);
