@@ -1358,7 +1358,8 @@ function abrirPt(id,pre){
   {k:'petValidade',l:'Validade da PET',w:3,hideUnless:ehConf?null:'tipo',h:'Ex.: mesmo turno de trabalho, até 24h — NR-33'},
   {k:'petO2',l:'O₂ medido (%)',w:2,hideUnless:ehConf?null:'tipo',h:'Faixa aceitável: 20,9% a 23%'},
   {k:'petLel',l:'Inflamáveis (% LIE)',w:2,hideUnless:ehConf?null:'tipo',h:'Aceitável: abaixo de 10%'},
-  {k:'petToxicos',l:'Gases tóxicos (CO/H₂S)',w:2,hideUnless:ehConf?null:'tipo',h:'Conforme limites da NR-15'},
+  {k:'petCO2',l:'CO₂ medido (ppm)',w:2,hideUnless:ehConf?null:'tipo',h:'Conforme limites da NR-15'},
+  {k:'petH2S',l:'H₂S medido (ppm)',w:2,hideUnless:ehConf?null:'tipo',h:'Conforme limites da NR-15'},
   {k:'petHorarioTestes',l:'Horário dos testes atmosféricos',w:3,hideUnless:ehConf?null:'tipo'},
   {k:'petMedidas',l:'Medidas de controle verificadas',t:'checks',w:6,hideUnless:ehConf?null:'tipo',o:Object.entries(PET_MEDIDAS)},
   {k:'petEquip',l:'Equipamentos de emergência disponíveis',t:'checks',w:6,hideUnless:ehConf?null:'tipo',o:Object.entries(PET_EQUIP)},
@@ -1984,7 +1985,7 @@ function docPet(a){
  h+=`<h1 style="font-size:18pt">Permissão de Entrada e Trabalho — PET</h1><p class="small">NR-33 — Segurança e Saúde nos Trabalhos em Espaços Confinados (conforme modelo do Anexo II)</p>`;
  h+=`<h2>1. Identificação</h2>${kv([['Empresa',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Local / espaço confinado',esc(a.local||'—')],['Data',fd(a.data)],['Horário previsto',esc((a.inicio||'—')+' às '+(a.fim||'—'))],['Validade da PET',a.petValidade?esc(a.petValidade):'<span class="blank l"></span>']])}`;
  h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s) que vão entrar no espaço confinado (com horário de entrada/saída):</b></p>${listHtml(pessoas,true)}<p style="margin-top:8pt"><b>Vigia:</b> ${a.petVigia?esc(a.petVigia):'—'} &nbsp;·&nbsp; <b>Responsável técnico / supervisor de entrada:</b> ${esc(a.responsavelTecnico||'—')} &nbsp;·&nbsp; <b>Equipe/contato de resgate:</b> ${a.petResgate?esc(a.petResgate):'—'}</p>`;
- h+=`<h2>3. Testes atmosféricos</h2><table><tr><th>Oxigênio (O₂)</th><th>Inflamáveis (% LIE)</th><th>Gases tóxicos (CO/H₂S)</th><th>Horário</th></tr><tr><td>${a.petO2?esc(a.petO2)+'%':'<span class="blank"></span>'}</td><td>${a.petLel?esc(a.petLel)+'%':'<span class="blank"></span>'}</td><td>${a.petToxicos?esc(a.petToxicos):'<span class="blank"></span>'}</td><td>${a.petHorarioTestes?esc(a.petHorarioTestes):'<span class="blank"></span>'}</td></tr></table><p class="small">Faixas de referência: O₂ entre 20,9% e 23%; inflamáveis abaixo de 10% do LIE; gases tóxicos conforme limites de tolerância da NR-15. Repetir a medição sempre que houver interrupção e nova entrada.</p>`;
+ h+=`<h2>3. Testes atmosféricos</h2><table><tr><th>Oxigênio (O₂)</th><th>Inflamáveis (% LIE)</th><th>CO₂ (ppm)</th><th>H₂S (ppm)</th><th>Horário</th></tr><tr><td>${a.petO2?esc(a.petO2)+'%':'<span class="blank"></span>'}</td><td>${a.petLel?esc(a.petLel)+'%':'<span class="blank"></span>'}</td><td>${a.petCO2?esc(a.petCO2):(a.petToxicos?esc(a.petToxicos):'<span class="blank"></span>')}</td><td>${a.petH2S?esc(a.petH2S):'<span class="blank"></span>'}</td><td>${a.petHorarioTestes?esc(a.petHorarioTestes):'<span class="blank"></span>'}</td></tr></table><p class="small">Faixas de referência: O₂ entre 20,9% e 23%; inflamáveis abaixo de 10% do LIE; CO₂ e H₂S conforme limites de tolerância da NR-15. Repetir a medição sempre que houver interrupção e nova entrada.</p>`;
  h+=`<h2>4. Medidas de controle verificadas</h2><table><tr><th style="width:8%"></th><th>Medida</th></tr>${Object.entries(PET_MEDIDAS).map(([k,l])=>`<tr><td class="box">${chk((a.petMedidas||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
  h+=`<h2>5. Equipamentos de emergência disponíveis</h2><table><tr><th style="width:8%"></th><th>Equipamento</th></tr>${Object.entries(PET_EQUIP).map(([k,l])=>`<tr><td class="box">${chk((a.petEquip||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
  h+=`<h2>6. Observações</h2><p>${a.obs?nl(a.obs):(typeof a.medidas==='string'&&a.medidas?nl(a.medidas):'<span class="blank l"></span>')}</p>`;
@@ -2341,7 +2342,7 @@ ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.va
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
-ptTipo(t){const show=t.value==='Espaço confinado (NR-33)';['petVigia','petResgate','petValidade','petO2','petLel','petToxicos','petHorarioTestes','petMedidas','petEquip'].forEach(k=>{const w=document.getElementById('w_'+k);if(w)w.style.display=show?'':'none'});
+ptTipo(t){const show=t.value==='Espaço confinado (NR-33)';['petVigia','petResgate','petValidade','petO2','petLel','petCO2','petH2S','petHorarioTestes','petMedidas','petEquip'].forEach(k=>{const w=document.getElementById('w_'+k);if(w)w.style.display=show?'':'none'});
  const wm=document.getElementById('w_medidas');
  if(wm){wm.style.display=show?'none':'';const cat=MEDIDAS_POR_TIPO[t.value]||MEDIDAS_OUTRA,box=document.getElementById('f_medidas');if(box){const sel=[...box.querySelectorAll('input:checked')].map(x=>x.value);box.innerHTML=Object.entries(cat).map(([k,l])=>`<label class="chk"><input type="checkbox" name="medidas" value="${k}" ${sel.includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}}
  const vs=document.getElementById('ptVigiaSigWrap');if(vs)vs.style.display=show?'':'none';
