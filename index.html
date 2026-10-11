@@ -569,6 +569,22 @@ function initSigPad(canvasId,rec,statusId,clearId,selId){
  const btn=document.getElementById(clearId);
  if(btn)btn.onclick=()=>{cx.clearRect(0,0,cv.width,cv.height);delete rec.assinaturaImg;delete rec.assinaturaData;upd()};
 }
+/* Campo de lista de nomes (adicionar/remover linhas): grava um array direto no registro (rec[key]) */
+function initListField(wrapId,rec,key,placeholder){
+ const wrap=document.getElementById(wrapId);if(!wrap)return;
+ if(!Array.isArray(rec[key]))rec[key]=(rec[key]?String(rec[key]).split(/[,;\n]/).map(s=>s.trim()).filter(Boolean):[]);
+ const rows=wrap.querySelector('.listrows'),addBtn=wrap.querySelector('.listadd');
+ const sync=()=>{rec[key]=Array.from(rows.querySelectorAll('input')).map(i=>i.value.trim()).filter(Boolean)};
+ const addRow=val=>{
+  const row=document.createElement('div');row.className='row';row.style.cssText='gap:6px;margin-bottom:6px';
+  row.innerHTML=`<input type="text" value="${esc(val||'')}" placeholder="${esc(placeholder||'Nome')}" style="flex:1"><button type="button" class="btn s g d" aria-label="Remover" style="flex:0 0 auto">${ic('trash')}</button>`;
+  row.querySelector('input').addEventListener('input',sync);
+  row.querySelector('button').onclick=()=>{row.remove();sync()};
+  rows.appendChild(row)};
+ (rec[key].length?rec[key]:['']).forEach(addRow);
+ sync();
+ if(addBtn)addBtn.onclick=()=>{addRow('');sync();rows.lastElementChild.querySelector('input').focus()};
+}
 
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
@@ -1274,7 +1290,7 @@ function abrirPt(id,pre){
   {k:'tipo',l:'Tipo de atividade',t:'select',o:['Espaço confinado (NR-33)','Trabalho em altura (NR-35)','Serviços em eletricidade (NR-10)','Outra atividade crítica'],w:3,c:'ptTipo'},
   {k:'local',l:'Local / setor',w:4},
   {k:'inicio',l:'Início previsto',w:2,h:'Ex.: 08:00'},{k:'fim',l:'Término previsto',w:2,h:'Ex.: 17:00'},
-  {k:'equipe',l:'Equipe envolvida',w:4,h:'Nomes, se houver mais de um colaborador na atividade'},
+  {t:'html',w:4,html:'<label>Executante(s) / equipe envolvida</label><div id="ptEquipeList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar nome</button></div><small>Um nome por linha — além do responsável pela execução, se houver mais de uma pessoa na atividade</small>'},
   {k:'medidas',l:'Medidas de controle verificadas',t:'textarea',rows:2,h:'Ex.: isolamento da área, teste de atmosfera, ponto de ancoragem, EPI específico, vigia'},
   {k:'responsavelTecnico',l:'Responsável técnico que autorizou',w:3},
   {k:'situacao',l:'Situação',t:'select',o:['Emitida','Encerrada','Cancelada'],w:3},
@@ -1291,6 +1307,7 @@ function abrirPt(id,pre){
   {k:'obs',l:'Observações',t:'textarea',rows:2}],
  save:v=>{
   Object.assign(rec,v);const r=save('pts',rec);toast('Permissão de Trabalho salva.');return r}})
+ setTimeout(()=>initListField('ptEquipeList',rec,'equipe','Nome do executante'),30)
 }
 /* ASO (clínica) */
 function abrirAso(id){
@@ -1483,7 +1500,7 @@ VIEWS.pts=()=>{
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button></div>
  <p class="sm muted" style="margin:0 0 14px">Permissão de Trabalho para atividades críticas (espaço confinado, altura, eletricidade): registra quem autorizou, as medidas de controle verificadas e a situação, para ter o histórico à mão numa fiscalização.</p>`+
- (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`${a.tipo==='Espaço confinado (NR-33)'?`<button class="btn s g" data-a="docPet" data-id="${a.id}" aria-label="Imprimir PET">${ic('print')}</button>`:''}<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma PT registrada','Antes de uma atividade crítica (espaço confinado, altura, eletricidade), registre aqui a autorização.',`<button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button>`,'lock'));
 };
 VIEWS.solicitacoes=()=>{
@@ -1578,7 +1595,7 @@ function renderFicha(){
  <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`${a.tipo==='Espaço confinado (NR-33)'?`<button class="btn s g" data-a="docPet" data-id="${a.id}" aria-label="Imprimir PET">${ic('print')}</button>`:''}<button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
+ ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -1635,6 +1652,10 @@ function dHead(t,sub){
  return `<div class="ph"><div class="ph-l">${c.logo?`<img class="logo" src="${c.logo}" alt="">`:''}<div><b>${esc(c.nome||'')}</b><br>${esc(c.cnpj||'')}</div></div><div class="ph-r"><b>${t}</b><br>${esc(sub||'')}</div></div>`;
 }
 const kv=(rows)=>`<table>${rows.map(r=>`<tr><td class="k">${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
+/* Equipe/executantes: aceita array (novo) ou string antiga separada por vírgula/;/quebra de linha */
+const equipeArr=a=>Array.isArray(a.equipe)?a.equipe.filter(Boolean):(a.equipe?String(a.equipe).split(/[,;\n]/).map(s=>s.trim()).filter(Boolean):[]);
+const listHtml=arr=>arr.length?`<ul style="margin:4pt 0 0 16pt;padding:0">${arr.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:'<span class="blank l"></span>';
+const sigRows=names=>names.length?names.map((n,i)=>`<div>Executante ${names.length>1?i+1:''}<span>${esc(n)}</span></div>`).join(''):`<div>Executante(s)<span>Nome e assinatura</span></div>`;
 const lvl=(s,p)=>{const n=nivel(s,p);return `<span class="tag m-${n.k}">${n.n} (${n.v})</span>`};
 const endEmp=e=>[e.endereco,e.cidade&&(e.cidade+(e.uf?'/'+e.uf.toUpperCase():''))].filter(Boolean).join(' — ');
 function assin(e,extra){
@@ -1856,20 +1877,39 @@ function docEpi(a){
  return h;
 }
 
+/* ---------- PT — Permissão de Trabalho (atividades críticas em geral: altura NR-35, eletricidade NR-10, outras) ---------- */
+function docPt(a){
+ const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
+ const names=[...new Set([c.nome,...equipeArr(a)].filter(Boolean))];
+ let h=dHead('Permissão de Trabalho (PT)',fd(a.data));
+ h+=`<h1 style="font-size:18pt">Permissão de Trabalho — PT</h1><p class="small">Autorização para execução de atividade crítica${a.tipo?' — '+esc(a.tipo):''}</p>`;
+ h+=`<h2>1. Identificação</h2>${kv([['Empresa',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Tipo de atividade',esc(a.tipo||'—')],['Local / setor',esc(a.local||'—')],['Data',fd(a.data)],['Horário previsto',esc((a.inicio||'—')+' às '+(a.fim||'—'))]])}`;
+ h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s):</b></p>${listHtml(names)}<p style="margin-top:8pt"><b>Responsável técnico que autorizou:</b> ${esc(a.responsavelTecnico||'—')}</p>`;
+ h+=`<h2>3. Medidas de controle verificadas</h2><p>${a.medidas?nl(a.medidas):'<span class="blank l"></span><br><br><span class="blank l"></span>'}</p>`;
+ h+=`<h2>4. Observações</h2><p>${a.obs?nl(a.obs):'<span class="blank l"></span>'}</p>`;
+ h+=`<div class="note">Esta PT autoriza a execução da atividade identificada acima, no local, data e horário indicados, desde que mantidas as condições e medidas de controle verificadas. Qualquer alteração nas condições de risco encerra automaticamente esta autorização, exigindo nova avaliação antes de prosseguir.</div>`;
+ h+=`<div class="sig"><div>Responsável técnico que autorizou<span>${esc(a.responsavelTecnico||'Nome e assinatura')}</span></div></div>`;
+ h+=`<div class="sig">${sigRows(names)}</div>`;
+ h+=`<div class="sig"><div>Situação<span>${esc(a.situacao||'Emitida')}</span></div><div>Encerramento da PT<span>Horário: ____:____ — Motivo: ___________________</span></div></div>`;
+ return h;
+}
+
 /* ---------- PET — Permissão de Entrada e Trabalho em espaço confinado (NR-33, Anexo II) ---------- */
 function docPet(a){
  const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
+ const names=[...new Set([c.nome,...equipeArr(a)].filter(Boolean))];
  let h=dHead('Permissão de Entrada e Trabalho (PET)',fd(a.data));
  h+=`<h1 style="font-size:18pt">Permissão de Entrada e Trabalho — PET</h1><p class="small">NR-33 — Segurança e Saúde nos Trabalhos em Espaços Confinados (conforme modelo do Anexo II)</p>`;
  h+=`<h2>1. Identificação</h2>${kv([['Empresa',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Local / espaço confinado',esc(a.local||'—')],['Data',fd(a.data)],['Horário previsto',esc((a.inicio||'—')+' às '+(a.fim||'—'))],['Validade da PET',a.petValidade?esc(a.petValidade):'<span class="blank l"></span>']])}`;
- h+=`<h2>2. Equipe</h2>${kv([['Responsável pela execução',esc(c.nome||'—')],['Equipe envolvida',esc(a.equipe||'—')],['Vigia',a.petVigia?esc(a.petVigia):'<span class="blank l"></span>'],['Responsável técnico / supervisor de entrada',esc(a.responsavelTecnico||'—')],['Equipe/contato de resgate',a.petResgate?esc(a.petResgate):'<span class="blank l"></span>']])}`;
+ h+=`<h2>2. Equipe</h2><p><b>Responsável pela execução:</b> ${esc(c.nome||'—')}</p><p><b>Executante(s) que vão entrar no espaço confinado:</b></p>${listHtml(names)}<p style="margin-top:8pt"><b>Vigia:</b> ${a.petVigia?esc(a.petVigia):'—'} &nbsp;·&nbsp; <b>Responsável técnico / supervisor de entrada:</b> ${esc(a.responsavelTecnico||'—')} &nbsp;·&nbsp; <b>Equipe/contato de resgate:</b> ${a.petResgate?esc(a.petResgate):'—'}</p>`;
  h+=`<h2>3. Testes atmosféricos</h2><table><tr><th>Oxigênio (O₂)</th><th>Inflamáveis (% LIE)</th><th>Gases tóxicos (CO/H₂S)</th><th>Horário</th></tr><tr><td>${a.petO2?esc(a.petO2)+'%':'<span class="blank"></span>'}</td><td>${a.petLel?esc(a.petLel)+'%':'<span class="blank"></span>'}</td><td>${a.petToxicos?esc(a.petToxicos):'<span class="blank"></span>'}</td><td>${a.petHorarioTestes?esc(a.petHorarioTestes):'<span class="blank"></span>'}</td></tr></table><p class="small">Faixas de referência: O₂ entre 20,9% e 23%; inflamáveis abaixo de 10% do LIE; gases tóxicos conforme limites de tolerância da NR-15. Repetir a medição sempre que houver interrupção e nova entrada.</p>`;
  h+=`<h2>4. Medidas de controle verificadas</h2><table><tr><th style="width:8%"></th><th>Medida</th></tr>${Object.entries(PET_MEDIDAS).map(([k,l])=>`<tr><td class="box">${chk((a.petMedidas||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
  h+=`<h2>5. Equipamentos de emergência disponíveis</h2><table><tr><th style="width:8%"></th><th>Equipamento</th></tr>${Object.entries(PET_EQUIP).map(([k,l])=>`<tr><td class="box">${chk((a.petEquip||[]).includes(k))}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;
  h+=`<h2>6. Outras medidas de controle / observações</h2><p>${a.medidas?nl(a.medidas):'<span class="blank l"></span>'}</p>${a.obs?`<p><b>Observações:</b> ${nl(a.obs)}</p>`:''}`;
  h+=`<div class="note">Esta PET autoriza a entrada e a permanência no espaço confinado identificado acima, pelo prazo de validade indicado, desde que mantidas as condições verificadas. Qualquer alteração nas condições (atmosfera, energias perigosas, clima, emergência) encerra automaticamente esta autorização, exigindo nova avaliação antes de qualquer reentrada.</div>`;
  h+=`<div class="sig"><div>Supervisor de entrada / responsável técnico<span>${esc(a.responsavelTecnico||'Nome e assinatura')}</span></div><div>Vigia<span>${esc(a.petVigia||'Nome e assinatura')}</span></div></div>`;
- h+=`<div class="sig"><div>Executante(s)<span>${esc(c.nome||a.equipe||'Nome e assinatura')}</span></div><div>Encerramento da PET<span>Horário: ____:____ — Motivo: ___________________</span></div></div>`;
+ h+=`<div class="sig">${sigRows(names)}</div>`;
+ h+=`<div class="sig"><div>Encerramento da PET<span>Horário: ____:____ — Motivo: ___________________</span></div></div>`;
  return h;
 }
 
@@ -2092,6 +2132,7 @@ det(d){S.det=d.id;renderDetalhe()},
 docPacote(d){docDe(G('solicitacoes',d.id),'pacote')},docGuia(d){docDe(G('solicitacoes',d.id),'guia')},
 docAso(d){docDe(G('solicitacoes',d.id),'aso')},docPsico(d){docDe(G('solicitacoes',d.id),'psico')},
 docEpi(d){const a=G('epis',d.id);if(!a)return;openDoc({title:'Recibo de EPI — '+nCol(a.colabId),html:docEpi(a),filename:'recibo-epi-'+slug(nCol(a.colabId))+'.html',assunto:'Recibo de entrega de EPI — '+nCol(a.colabId),corpo:'Segue o recibo de entrega de EPI de '+nCol(a.colabId)+'.'})},
+docPt(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PT — '+nCol(a.colabId),html:docPt(a),filename:'pt-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Trabalho (PT) — '+nCol(a.colabId),corpo:'Segue a PT de '+nCol(a.colabId)+'.'})},
 docPet(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PET — '+nCol(a.colabId),html:docPet(a),filename:'pet-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Entrada e Trabalho (PET) — '+nCol(a.colabId),corpo:'Segue a PET de '+nCol(a.colabId)+'.'})},
 psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
 pickAso(){const i=$('#aso-f');if(i)i.click()},
