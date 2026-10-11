@@ -109,6 +109,8 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .tbl th{text-align:left;font-size:12.5px;color:var(--ink2);font-weight:600;padding:10px 12px;background:var(--sf2);border-bottom:1px solid var(--line)}
 .tbl td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 .tbl tr:last-child td{border-bottom:0}
+.tlist{margin:0;padding:0 0 0 16px;font-size:13px}
+.tlist li{margin:1px 0}
 .tbl tr.click{cursor:pointer}.tbl tr.click:hover td{background:var(--sf2)}
 @media (max-width:760px){
 .tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}
@@ -1566,7 +1568,7 @@ VIEWS.pts=()=>{
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button></div>
  <p class="sm muted" style="margin:0 0 14px">Permissão de Trabalho para atividades críticas (espaço confinado, altura, eletricidade): registra quem autorizou, as medidas de controle verificadas e a situação, para ter o histórico à mão numa fiscalização.</p>`+
- (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma PT registrada','Antes de uma atividade crítica (espaço confinado, altura, eletricidade), registre aqui a autorização.',`<button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button>`,'lock'));
 };
 VIEWS.solicitacoes=()=>{
@@ -1661,7 +1663,7 @@ function renderFicha(){
  <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
+ ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -1726,6 +1728,8 @@ const equipeArr=a=>{
 };
 /* Responsável + executantes, sem duplicar nomes (usado na lista "Equipe" e nas linhas de assinatura) */
 const pessoasPt=(a,c)=>{const l=[{nome:c.nome||'',entrada:'',saida:''},...equipeArr(a)].filter(p=>p.nome);const seen=new Set();return l.filter(p=>seen.has(p.nome)?false:(seen.add(p.nome),true))};
+/* Lista de executantes (só a equipe, sem o responsável) pronta pra mostrar numa tabela/tela, como lista com marcadores */
+const equipeListaHtml=a=>{const l=equipeArr(a);return l.length?`<ul class="tlist">${l.map(p=>`<li>${esc(p.nome)}</li>`).join('')}</ul>`:'<span class="muted sm">—</span>'};
 const listHtml=(pessoas,withTimes)=>pessoas.length?`<ul style="margin:4pt 0 0 16pt;padding:0">${pessoas.map(p=>`<li>${esc(p.nome)}${withTimes&&(p.entrada||p.saida)?` — Entrada: ${esc(p.entrada||'—')} · Saída: ${esc(p.saida||'—')}`:''}</li>`).join('')}</ul>`:'<span class="blank l"></span>';
 const sigRows=pessoas=>{const names=pessoas.map(p=>p.nome);return names.length?names.map((n,i)=>`<div>Executante ${names.length>1?i+1:''}<span>${esc(n)}</span></div>`).join(''):`<div>Executante(s)<span>Nome e assinatura</span></div>`};
 /* Assinatura digital (imagem) ou linha em branco para o responsável técnico / vigia */
