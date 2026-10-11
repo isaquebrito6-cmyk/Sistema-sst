@@ -160,6 +160,11 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
 .sigpad canvas{width:100%;max-width:420px;height:140px;background:#fff;border:1px dashed var(--line);border-radius:8px;touch-action:none;cursor:crosshair;display:block}
 .chk{display:flex;gap:8px;align-items:flex-start;font-weight:400!important;font-size:14px!important;background:var(--sf2);border:1px solid var(--line);padding:7px 9px;border-radius:8px;margin:0!important}
+.epirow{display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.epirow .chk{flex:1 1 220px;margin:0!important}
+.epirow input.epica{flex:0 0 150px;min-width:0}
+.epirow input.epinome{flex:1 1 200px;min-width:0}
+.epirow.off input.epica{opacity:.55}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#11262B;color:#fff;padding:11px 16px;border-radius:10px;z-index:200;max-width:92vw;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start}
 .step:last-child{border-bottom:0}
@@ -295,7 +300,8 @@ const APTOS_F=[['Trabalho em altura (NR-35)','aptoAltura','altura'],['Espaço co
 /* Catálogo fixo de EPIs comuns, para marcar com checkbox na entrega (além do campo "Outros", para o que não estiver na lista) */
 const EPI_ITENS={luva_raspa:'Luva de raspa',luva_latex:'Luva de látex / nitrílica',luva_termica:'Luva de proteção térmica',oculos:'Óculos de proteção',protetor_plug:'Protetor auricular (plug)',protetor_concha:'Protetor auricular (concha)',capacete:'Capacete de segurança',botina:'Botina de segurança',mascara_pff2:'Máscara/respirador PFF2',mascara_filtro:'Máscara semifacial com filtro',cinto_paraquedista:'Cinto de segurança tipo paraquedista',avental_raspa:'Avental de raspa',perneira:'Perneira',manga_raspa:'Manga de raspa',protetor_facial:'Protetor facial (viseira)',capa_chuva:'Capa de chuva',uniforme:'Uniforme / vestimenta de proteção'};
 /* Texto de exibição da entrega de EPI: aceita tanto o formato novo (array de chaves + epiOutros) quanto registros antigos (texto livre em a.epi) */
-function epiTxt(a){if(Array.isArray(a.epi))return[...a.epi.map(k=>EPI_ITENS[k]||k),a.epiOutros].filter(Boolean).join(', ');return a.epi||''}
+function epiLinhas(a){if(!Array.isArray(a.epi)&&!a.epiExtras)return a.epi?[{nome:a.epi,ca:a.ca||''}]:[];const ca=a.epiCa||{};const l=(a.epi||[]).map(k=>({nome:EPI_ITENS[k]||k,ca:ca[k]||''}));(a.epiExtras||[]).forEach(x=>{if(x&&x.nome)l.push({nome:x.nome,ca:x.ca||''})});if(a.epiOutros)l.push({nome:a.epiOutros,ca:''});return l}
+function epiTxt(a){return epiLinhas(a).map(x=>x.nome+(x.ca?' (CA '+x.ca+')':'')).join(', ')}
 const TIPOS=['Admissional','Periódico','Retorno ao trabalho','Mudança de risco ocupacional','Demissional'];
 const STATUS=['Solicitado','Agendado','Realizado','Cancelado'];
 const HAZ=[
@@ -584,6 +590,37 @@ function initListField(wrapId,rec,key,placeholder){
  (rec[key].length?rec[key]:['']).forEach(addRow);
  sync();
  if(addBtn)addBtn.onclick=()=>{addRow('');sync();rows.lastElementChild.querySelector('input').focus()};
+}
+
+/* Lista de EPIs da ficha: cada item marcado tem seu campo de nº do CA editável; "outros" são linhas livres (nome + CA). Grava em rec.epi (chaves), rec.epiCa (chave->CA) e rec.epiExtras ([{nome,ca}]) */
+function epiListaHTML(){
+ return `<label>EPI(s) entregue(s) e nº do CA (Certificado de Aprovação)</label><div id="epiLista"><div class="epirows">${Object.entries(EPI_ITENS).map(([k,l])=>`<div class="epirow off" data-k="${k}"><label class="chk"><input type="checkbox" value="${k}"><span>${esc(l)}</span></label><input class="epica" type="text" inputmode="numeric" maxlength="12" placeholder="Nº do CA" aria-label="Nº do CA — ${esc(l)}"></div>`).join('')}</div><div class="sec" style="margin:12px 0 6px">Outros EPIs (não listados acima)</div><div class="epiex"></div><button type="button" class="btn s g epiadd" style="margin-top:4px">${ic('plus')}Adicionar outro EPI</button></div><small>Marque os itens entregues e digite o nº do CA de cada um (consta na etiqueta do equipamento). O CA é editável a qualquer momento.</small>`
+}
+function initEpiLista(rec){
+ const wrap=document.getElementById('epiLista');if(!wrap)return;
+ const sel=Array.isArray(rec.epi)?rec.epi:[],ca=rec.epiCa||{};
+ wrap.querySelectorAll('.epirows .epirow').forEach(row=>{
+  const k=row.dataset.k,cb=row.querySelector('input[type=checkbox]'),inp=row.querySelector('.epica');
+  cb.checked=sel.includes(k);inp.value=ca[k]||'';row.classList.toggle('off',!cb.checked);
+  cb.addEventListener('change',()=>{row.classList.toggle('off',!cb.checked);if(cb.checked&&!inp.value)inp.focus();sync()});
+  inp.addEventListener('input',()=>{if(inp.value.trim()&&!cb.checked){cb.checked=true;row.classList.remove('off')}sync()});
+ });
+ const ex=wrap.querySelector('.epiex');
+ const addEx=(nome,c)=>{
+  const row=document.createElement('div');row.className='epirow';
+  row.innerHTML=`<input class="epinome" type="text" placeholder="Nome do EPI" aria-label="Nome do EPI" value="${esc(nome||'')}"><input class="epica" type="text" inputmode="numeric" maxlength="12" placeholder="Nº do CA" aria-label="Nº do CA" value="${esc(c||'')}"><button type="button" class="btn s g d" aria-label="Remover" style="flex:0 0 auto">${ic('trash')}</button>`;
+  row.querySelectorAll('input').forEach(i=>i.addEventListener('input',sync));
+  row.querySelector('button').onclick=()=>{row.remove();sync()};
+  ex.appendChild(row)};
+ (rec.epiExtras||[]).forEach(x=>addEx(x.nome,x.ca));
+ wrap.querySelector('.epiadd').onclick=()=>{addEx('','');ex.lastElementChild.querySelector('input').focus()};
+ function sync(){
+  const keys=[],map={};
+  wrap.querySelectorAll('.epirows .epirow').forEach(row=>{const cb=row.querySelector('input[type=checkbox]');if(cb.checked){keys.push(cb.value);const v=row.querySelector('.epica').value.trim();if(v)map[cb.value]=v}});
+  rec.epi=keys;rec.epiCa=map;
+  rec.epiExtras=Array.from(ex.querySelectorAll('.epirow')).map(r=>({nome:r.querySelector('.epinome').value.trim(),ca:r.querySelector('.epica').value.trim()})).filter(x=>x.nome);
+ }
+ sync();
 }
 
 /* ====================== ESTADO E REGRAS ====================== */
@@ -1256,6 +1293,8 @@ function abrirCat(id,pre){
 function abrirEpi(id,pre){
  const rec=id?clone(G('epis',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today()},pre||{});
  if(rec.epi&&!Array.isArray(rec.epi)){rec.epiOutros=[rec.epi,rec.epiOutros].filter(Boolean).join(', ');rec.epi=[]}
+ if(rec.epiOutros){rec.epiExtras=[...(rec.epiExtras||[]),...String(rec.epiOutros).split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).map(nome=>({nome,ca:''}))];delete rec.epiOutros}
+ if(rec.ca&&Array.isArray(rec.epi)&&rec.epi.length===1&&!(rec.epiCa&&rec.epiCa[rec.epi[0]]))rec.epiCa=Object.assign({},rec.epiCa,{[rec.epi[0]]:rec.ca});
  const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
  window._colOptsEpi=colOpts;
  openForm({title:id?'Editar entrega de EPI':'Nova entrega de EPI',btn:'Salvar',val:rec,
@@ -1263,15 +1302,14 @@ function abrirEpi(id,pre){
   {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'epiEmp',ph:'Selecione'},
   {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
   {k:'data',l:'Data da entrega/troca',t:'date',r:1,w:3},
-  {k:'epi',l:'EPI(s) entregue(s)',t:'checks',o:Object.entries(EPI_ITENS),w:6,h:'Marque os itens entregues. Use "Outros EPIs" abaixo para o que não estiver na lista.'},
-  {k:'epiOutros',l:'Outros EPIs (não listados acima)',w:6,h:'Ex.: protetor solar, creme de proteção — separe por vírgula se for mais de um'},
-  {k:'ca',l:'CA (Certificado de Aprovação)',w:3,h:'Opcional, por item'},
+  {t:'html',w:6,html:epiListaHTML()},
   {k:'validade',l:'Validade / próxima troca',t:'date',w:3},
   {k:'assinado',l:'Colaborador assinou o recibo?',t:'select',o:['Não','Sim'],w:3},
   {sec:'Assinatura'},
   {t:'html',w:6,html:'<label>Assinatura digital do colaborador (opcional)</label><div class="sigpad"><canvas id="epiSigCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="epiSigClear">Limpar assinatura</button><span class="sm muted" id="epiSigStatus"></span></div><small>Peça para o colaborador assinar acima com o dedo (celular/tablet) ou o mouse. Prefere colher no papel? Deixe em branco e use "Imprimir recibo" depois de salvar — o documento sai com uma linha para assinatura física.</small>'}],
  save:v=>{
-  Object.assign(rec,v);const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
+  Object.assign(rec,v);delete rec.ca;const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
+ setTimeout(()=>initEpiLista(rec),0)
  setTimeout(()=>initSigPad('epiSigCv',rec,'epiSigStatus','epiSigClear','f_assinado'),30)
 }
 /* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
@@ -1883,7 +1921,7 @@ function docEpi(a){
  h+=`<h1 style="font-size:18pt">Recibo de Entrega de Equipamento de Proteção Individual (EPI)</h1><p class="small">NR-6 — Equipamento de Proteção Individual</p>`;
  h+=`<h2>Empresa</h2>${kv([['Razão social',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')]])}`;
  h+=`<h2>Colaborador</h2>${kv([['Nome',esc(c.nome||'—')],['CPF',esc(c.cpf||'—')],['Função / setor',esc((c.funcao||'—')+(c.setor?' · '+c.setor:''))]])}`;
- h+=`<h2>Equipamento(s) entregue(s)</h2><p>${esc(epiTxt(a))||'<span class="blank l"></span>'}</p><table><tr><th>CA (Certificado de Aprovação)</th><th>Validade / próxima troca</th></tr><tr><td>${a.ca?esc(a.ca):'<span class="blank"></span>'}</td><td>${a.validade?fd(a.validade):'<span class="blank"></span>'}</td></tr></table>`;
+ h+=`<h2>Equipamento(s) entregue(s)</h2>${(()=>{const l=epiLinhas(a);return `<table><tr><th>EPI</th><th>CA (Certificado de Aprovação)</th></tr>${l.length?l.map(x=>`<tr><td>${esc(x.nome)}</td><td>${x.ca?esc(x.ca):'<span class="blank"></span>'}</td></tr>`).join(''):'<tr><td><span class="blank l"></span></td><td><span class="blank"></span></td></tr>'}</table>`})()}<p><b>Validade / próxima troca:</b> ${a.validade?fd(a.validade):'<span class="blank"></span>'}</p>`;
  h+=`<div class="note">Declaro ter recebido o(s) equipamento(s) de proteção individual acima, em perfeito estado, e ter sido orientado sobre o uso correto, a guarda e a conservação, conforme a NR-6. Comprometo-me a usá-lo(s) e comunicar qualquer dano, extravio ou necessidade de troca.</div>`;
  if(a.assinaturaImg)h+=`<h2>Assinatura digital</h2><img src="${a.assinaturaImg}" alt="Assinatura do colaborador" style="max-width:320px;max-height:110px;border-bottom:1px solid #999"><p class="small">${esc(c.nome||'')} — assinado digitalmente em ${a.assinaturaData?fd(a.assinaturaData):'—'}</p>`;
  else h+=`<div class="sig"><div>Assinatura do colaborador<span>${esc(c.nome||'Nome')}</span></div><div>Data<span>____/____/______</span></div></div>`;
