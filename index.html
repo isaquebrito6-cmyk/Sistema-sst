@@ -263,7 +263,8 @@ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
 trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
 check:'<path d="M5 12l5 5 9-10"/>',
 alert:'<path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17v.5"/>',
-lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'
+lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+cert:'<circle cx="12" cy="8.5" r="5.5"/><path d="M9 13.2L7 21l5-3 5 3-2-7.8"/>'
 };
 const ic=(n,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]||''}</svg>`;
 function toast(m,ms=3200){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms)}
@@ -298,6 +299,23 @@ const APTOS_F=[['Trabalho em altura (NR-35)','aptoAltura','altura'],['Espaço co
 const EPI_ITENS={luva_raspa:'Luva de raspa',luva_latex:'Luva de látex / nitrílica',luva_termica:'Luva de proteção térmica',oculos:'Óculos de proteção',protetor_plug:'Protetor auricular (plug)',protetor_concha:'Protetor auricular (concha)',capacete:'Capacete de segurança',botina:'Botina de segurança',mascara_pff2:'Máscara/respirador PFF2',mascara_filtro:'Máscara semifacial com filtro',cinto_paraquedista:'Cinto de segurança tipo paraquedista',avental_raspa:'Avental de raspa',perneira:'Perneira',manga_raspa:'Manga de raspa',protetor_facial:'Protetor facial (viseira)',capa_chuva:'Capa de chuva',uniforme:'Uniforme / vestimenta de proteção'};
 /* Texto de exibição da entrega de EPI: aceita tanto o formato novo (array de chaves + epiOutros) quanto registros antigos (texto livre em a.epi) */
 function epiTxt(a){if(Array.isArray(a.epi))return[...a.epi.map(k=>EPI_ITENS[k]||k),a.epiOutros].filter(Boolean).join(', ');return a.epi||''}
+/* Catálogo de treinamentos de NR para emissão de certificado. cargaH/validadeMeses são sugestões (editáveis no formulário) só para as NRs em que a
+   própria norma fixa um mínimo/prazo (ex.: NR-10 Anexo III = 40h/24 meses, NR-33 = 16h/12 meses, NR-35 = 8h/24 meses); nas demais — inclusive a NR-6,
+   que não tem carga horária definida em norma, ficando a critério da empresa — e nas que variam muito por atividade/equipamento (NR-11, NR-12, NR-20,
+   NR-34) os campos ficam em branco de propósito, para não sugerir um número que pode não ser exigido. Confirme sempre a carga horária e o conteúdo
+   programático conforme o treinamento efetivamente realizado antes de emitir o certificado. */
+const TREIN_NRS={
+ nr6:{l:'NR-6 — Uso de EPI',cargaH:null,validadeMeses:null,conteudo:'Seleção, uso correto, guarda e conservação dos EPIs; responsabilidades do empregador e do trabalhador; CA (Certificado de Aprovação); higienização e troca.'},
+ nr10b:{l:'NR-10 — Básico (Segurança em instalações e serviços em eletricidade)',cargaH:40,validadeMeses:24,conteudo:'Riscos elétricos, choque, arco elétrico e incêndio; medidas de controle; NR-10 e normas técnicas; equipamentos de proteção coletiva e individual; procedimentos de trabalho, rotinas de trabalho e emergência; primeiros socorros.'},
+ nr10sep:{l:'NR-10 — Complementar SEP (Sistema Elétrico de Potência)',cargaH:40,validadeMeses:24,conteudo:'Aprofundamento em sistema elétrico de potência: geração, transmissão e distribuição de energia; medidas de proteção coletiva e individual aplicáveis ao SEP; riscos adicionais e trabalho em proximidade de rede energizada.'},
+ nr11:{l:'NR-11 — Transporte, movimentação, armazenagem e manuseio de materiais (operador de equipamento)',cargaH:null,validadeMeses:null,conteudo:'Operação segura do equipamento (empilhadeira, ponte rolante, guincho etc.), inspeção pré-operacional, capacidade de carga, sinalização, direção defensiva e normas de segurança da NR-11.'},
+ nr12:{l:'NR-12 — Segurança no trabalho em máquinas e equipamentos',cargaH:null,validadeMeses:null,conteudo:'Riscos mecânicos, dispositivos de segurança (proteções, intertravamento, parada de emergência), procedimentos de trabalho seguro, bloqueio e etiquetagem (LOTO) na máquina/equipamento utilizado.'},
+ nr18:{l:'NR-18 — Segurança e saúde no trabalho na indústria da construção',cargaH:null,validadeMeses:24,conteudo:'Condições e meio ambiente de trabalho na construção; riscos da atividade/função; uso de EPI/EPC; ordem e organização do canteiro; prevenção de quedas e outras ocorrências conforme a frente de trabalho.'},
+ nr20:{l:'NR-20 — Segurança e saúde no trabalho com inflamáveis e combustíveis',cargaH:null,validadeMeses:null,conteudo:'Classificação de áreas, riscos de incêndio e explosão, medidas de controle e resposta a emergência, conforme o nível de treinamento (básico, intermediário ou avançado) aplicável à função.'},
+ nr33:{l:'NR-33 — Trabalhador autorizado e vigia em espaço confinado',cargaH:16,validadeMeses:12,conteudo:'Reconhecimento e controle de riscos em espaços confinados; permissão de entrada e trabalho (PET); testes atmosféricos; equipamentos de proteção e resgate; funções do vigia e do trabalhador autorizado.'},
+ nr34:{l:'NR-34 — Condições e meio ambiente de trabalho na indústria da construção e reparação naval',cargaH:null,validadeMeses:null,conteudo:'Riscos da atividade naval/offshore ou de construção e reparo conforme a função exercida; uso de EPI/EPC; trabalho a quente, em altura e em espaço confinado quando aplicável.'},
+ nr35:{l:'NR-35 — Trabalho em altura',cargaH:8,validadeMeses:24,conteudo:'Riscos do trabalho em altura e medidas de prevenção; sistemas, equipamentos e procedimentos de proteção individual e coletiva; condições impeditivas; procedimentos de emergência e resgate.'}
+};
 /* Itens entregues com o CA de cada um (lista editável no formulário) — com retrocompatibilidade para o campo "ca" único de registros antigos */
 function epiItensCa(a){
  const ca=(a.epiCa&&typeof a.epiCa==='object')?a.epiCa:{};
@@ -357,10 +375,10 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
-const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts'];
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos'];
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
@@ -428,7 +446,7 @@ async function initData(){
    if(S.role==='consultoria')await garantirPsicoMigrado(col,ref,CFG_ID());
    if(S.role==='empresa'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
-    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis','pts'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
+    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis','pts','treinamentos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
     /* respostas do checklist psicossocial: a empresa não recebe */
    }else if(S.role==='clinica'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('clinicas',ref('clinicas',rid),1);
@@ -639,9 +657,9 @@ function initEpiList(wrapId,rec){
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
-empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['documentos','Documentos','file']],
+empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
 const isC=()=>S.role==='consultoria';
 /* super admin da plataforma: dono fixo do sistema, ou o próprio modo sem login real (demo local) */
@@ -1340,6 +1358,43 @@ function abrirEpi(id,pre){
   initSigPad('epiSigCv',rec,'epiSigStatus','epiSigClear','f_assinado');
  },30)
 }
+/* Treinamentos de NR com emissão de certificado (NR-6, 10, 10-SEP, 11, 12, 18, 20, 33, 34, 35) */
+function abrirTreinamento(id,pre){
+ const rec=id?clone(G('treinamentos',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),situacao:'Emitido'},pre||{});
+ const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
+ window._colOptsTrein=colOpts;
+ openForm({title:id?'Editar treinamento':'Novo treinamento',btn:'Salvar',val:rec,
+ fields:[
+  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'treinEmp',ph:'Selecione'},
+  {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
+  {k:'tipo',l:'Treinamento (NR)',t:'select',r:1,o:Object.entries(TREIN_NRS).map(([k,v])=>[k,v.l]),w:6,c:'treinTipo',ph:'Selecione'},
+  {k:'data',l:'Data de realização',t:'date',r:1,w:3},
+  {k:'cargaHoraria',l:'Carga horária (h)',t:'number',w:2,inp:'numeric'},
+  {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
+  {k:'local',l:'Local do treinamento',w:4},
+  {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
+  {sec:'Responsáveis'},
+  {k:'instrutor',l:'Instrutor',r:1,w:3},
+  {k:'instrutorForm',l:'Formação/registro do instrutor',w:3,h:'Ex.: Técnico em Segurança do Trabalho — MTE 12345'},
+  {k:'respTecnico',l:'Responsável técnico do treinamento',w:3,h:'Ex.: engenheiro(a) de segurança do trabalho'},
+  {k:'respTecnicoForm',l:'Formação/registro do responsável técnico',w:3},
+  {k:'respEmpresa',l:'Responsável pela empresa',w:3,h:'Quem autoriza/acompanha pela empresa contratante'},
+  {k:'situacao',l:'Situação',t:'select',o:['Emitido','Cancelado'],w:3},
+  {k:'obs',l:'Observações',t:'textarea',rows:2},
+  {sec:'Assinaturas'},
+  {t:'html',w:6,html:'<label>Assinatura digital do colaborador (opcional)</label><div class="sigpad"><canvas id="treinColCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinColClear">Limpar assinatura</button><span class="sm muted" id="treinColStatus"></span></div>'},
+  {t:'html',w:6,html:'<label>Assinatura digital do responsável pela empresa (opcional)</label><div class="sigpad"><canvas id="treinEmpCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinEmpClear">Limpar assinatura</button><span class="sm muted" id="treinEmpStatus"></span></div>'},
+  {t:'html',w:6,html:'<label>Assinatura digital do responsável técnico (opcional)</label><div class="sigpad"><canvas id="treinRtCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinRtClear">Limpar assinatura</button><span class="sm muted" id="treinRtStatus"></span></div>'},
+  {t:'html',w:6,html:'<label>Assinatura digital do instrutor (opcional)</label><div class="sigpad"><canvas id="treinInstCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinInstClear">Limpar assinatura</button><span class="sm muted" id="treinInstStatus"></span></div><small>Quem não assinar na tela pode assinar no papel: o certificado impresso traz uma linha em branco para cada assinatura que não foi colhida digitalmente.</small>'}],
+ save:v=>{
+  Object.assign(rec,v);const r=save('treinamentos',rec);toast('Treinamento salvo.');return r}})
+ setTimeout(()=>{
+  initSigPad('treinColCv',rec,'treinColStatus','treinColClear',null,'colabAssinaturaImg','colabAssinaturaData');
+  initSigPad('treinEmpCv',rec,'treinEmpStatus','treinEmpClear',null,'respEmpAssinaturaImg','respEmpAssinaturaData');
+  initSigPad('treinRtCv',rec,'treinRtStatus','treinRtClear',null,'respTecAssinaturaImg','respTecAssinaturaData');
+  initSigPad('treinInstCv',rec,'treinInstStatus','treinInstClear',null,'instrutorAssinaturaImg','instrutorAssinaturaData');
+ },30)
+}
 /* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
 const PET_MEDIDAS={bloqueio:'Bloqueio e etiquetagem (LOTO) das energias perigosas',ventilacao:'Ventilação forçada contínua',isolamento:'Isolamento e sinalização da área',resgate_testado:'Procedimento de resgate testado/revisado',comunicacao:'Sistema de comunicação contínuo com o vigia'};
 const PET_EQUIP={detector:'Detector de gases portátil (calibrado)',tripe:'Tripé e cabo de segurança / sistema de içamento',resp:'Equipamento de respiração autônomo ou suprido',ilum:'Iluminação adequada (antiexplosão, se necessário)',kit:'Kit de primeiros socorros no local'};
@@ -1522,7 +1577,7 @@ VIEWS.painel=()=>{
  const riscosOrfaos=L('riscos').filter(riscoSemSetor);
  const atr=L('acoes').filter(a=>a.status!=='Concluída'&&a.prazo&&a.prazo<today()).sort((a,b)=>a.prazo.localeCompare(b.prazo));
  const rev=emp.map(e=>{const ds=L('documentos').filter(d=>d.empresaId===e.id&&d.tipo==='PGR').sort((a,b)=>b.emissao.localeCompare(a.emissao));return{e,u:ds[0]}}).filter(o=>!o.u||dias(addM(o.u.emissao,24))<=90);
- const atalhos=[['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['documentos','PGR, PCMSO e modelos','file'],['clinicas','Clínicas','clinic'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock']];
+ const atalhos=[['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['documentos','PGR, PCMSO e modelos','file'],['clinicas','Clínicas','clinic'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert']];
  return btnResumo+`<div class="kpis"><button type="button" class="kpi click" data-a="go" data-v="empresas"><b>${emp.length}</b><span>Empresas</span></button><button type="button" class="kpi click" data-a="go" data-v="colaboradores"><b>${col.length}</b><span>Colaboradores ativos</span></button><button type="button" class="kpi click" data-a="go" data-v="solicitacoes"><b>${ab}</b><span>Exames em andamento</span></button><button type="button" class="kpi click" data-a="go" data-v="solicitacoes"><b>${feitos}</b><span>ASOs neste mês</span></button><button type="button" class="kpi click" data-a="go" data-v="colaboradores" style="${semR.length?'border-color:var(--high)':''}"><b style="${semR.length?'color:var(--high)':''}">${semR.length}</b><span>Sem risco vinculado</span></button></div>
  <div class="card" style="margin-bottom:16px"><h3 style="margin-top:0">Atalhos rápidos</h3><div class="shortcuts">${atalhos.map(([v,l,ico])=>`<button type="button" class="btn s g" data-a="go" data-v="${v}">${ic(ico)}${l}</button>`).join('')}</div></div>
  <div class="two"><div class="card"><h3>Exames vencidos ou a vencer (60 dias)</h3>${venc.length?venc.slice(0,10).map(o=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.c.nome)}<br><span class="muted sm">${esc(nEmp(o.c.empresaId))}</span></span><span class="chip ${o.d<0?'crit':'med'}">${o.d<0?'vencido há '+(-o.d)+' d':'em '+o.d+' d'} · ${fd(o.p)}</span></div>`).join(''):'<p class="muted">Nenhum exame vencendo. Os prazos aparecem quando o ASO é registrado.</p>'}${sem.length?`<p class="sm muted" style="margin-bottom:0">${sem.length} colaborador(es) ainda sem ASO registrado no sistema.</p>`:''}</div>
@@ -1590,6 +1645,14 @@ VIEWS.pts=()=>{
  <p class="sm muted" style="margin:0 0 14px">Permissão de Trabalho para atividades críticas (espaço confinado, altura, eletricidade): registra quem autorizou, as medidas de controle verificadas e a situação, para ter o histórico à mão numa fiscalização.</p>`+
  (l.length?tbl([{h:'Responsável',f:a=>esc(nCol(a.colabId))},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')+(a.numeroPet?` <span class="chip gray">PET nº ${esc(String(a.numeroPet).padStart(3,'0'))}</span>`:'')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Emitida'?'med':a.situacao==='Encerrada'?'low':'gray'}">${esc(a.situacao||'—')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPt" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma PT registrada','Antes de uma atividade crítica (espaço confinado, altura, eletricidade), registre aqui a autorização.',`<button class="btn p" data-a="newPt">${ic('plus')}Nova PT</button>`,'lock'));
+};
+VIEWS.treinamentos=()=>{
+ let l=L('treinamentos');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
+ l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newTrein">${ic('plus')}Novo treinamento</button></div>
+ <p class="sm muted" style="margin:0 0 14px">Treinamentos de NR por colaborador, com emissão do certificado pronto para impressão (assinaturas do colaborador, do responsável da empresa, do responsável técnico e do instrutor).</p>`+
+ (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')},{h:'Data',f:a=>fd(a.data)},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>{if(!a.validadeAte)return '—';const v=dias(a.validadeAte);return `<span class="chip ${v<0?'crit':v<=60?'med':'low'}">${fd(a.validadeAte)}</span>`}},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Cancelado'?'gray':'low'}">${esc(a.situacao||'Emitido')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado">${ic('print')}</button><button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delTrein" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhum treinamento registrado','Registre aqui os treinamentos de NR realizados para emitir o certificado.',`<button class="btn p" data-a="newTrein">${ic('plus')}Novo treinamento</button>`,'cert'));
 };
 VIEWS.solicitacoes=()=>{
  const q=norm(S.q);let l=solScope();
@@ -1663,6 +1726,7 @@ function renderFicha(){
  const cats=L('cats').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const epis=L('epis').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const pts=L('pts').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ const treinamentos=L('treinamentos').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const canReq=S.role!=='clinica';
  const pend=ks.filter(k=>statusExame(c,k,m).k!=='low').length;
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header><h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
@@ -1683,7 +1747,9 @@ function renderFicha(){
  <h3 style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}`:''}
+ ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}
+ <h3 style="font-size:15px;margin:18px 0 8px">7. Treinamentos de NR <button class="btn s g" style="margin-left:6px" data-a="fichaTrein" data-id="${c.id}">${ic('plus')}Novo</button></h3>
+ ${treinamentos.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>a.validadeAte?fd(a.validadeAte):'—'},{h:'Situação',f:a=>esc(a.situacao||'Emitido')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado">${ic('print')}</button><button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],treinamentos):'<p class="muted sm">Nenhum treinamento registrado.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -1984,6 +2050,21 @@ function docEpi(a){
  return h;
 }
 
+/* ---------- Certificado de treinamento de NR ---------- */
+function docCertificado(a){
+ const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
+ const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'—'};
+ let h=dHead('Certificado de Treinamento',fd(a.data),e.logo);
+ h+=`<h1 style="font-size:18pt;text-align:center;margin-top:10pt">Certificado de Treinamento</h1><p class="small" style="text-align:center">${esc(tn.l)}</p>`;
+ h+=`<p style="margin-top:16pt;text-align:justify;font-size:11.5pt">Certificamos que <b>${esc(c.nome||'—')}</b>${c.cpf?`, portador(a) do CPF ${esc(c.cpf)}`:''}${c.funcao?`, ocupando a função de ${esc(c.funcao)}`:''}, da empresa <b>${esc(e.razao||'—')}</b>${e.cnpj?` (CNPJ ${esc(e.cnpj)})`:''}, concluiu com aproveitamento o treinamento de <b>${esc(tn.l)}</b>${a.local?`, realizado em ${esc(a.local)}`:''}, no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>`:''}.</p>`;
+ h+=`<h2>Conteúdo programático</h2><p style="text-align:justify">${a.conteudo?nl(a.conteudo):'<span class="blank l"></span>'}</p>`;
+ h+=`<h2>Dados do treinamento</h2>${kv([['Validade / próxima reciclagem',a.validadeAte?fd(a.validadeAte):'—'],['Instrutor',esc(a.instrutor||'—')+(a.instrutorForm?' — '+esc(a.instrutorForm):'')],['Responsável técnico',esc(a.respTecnico||'—')+(a.respTecnicoForm?' — '+esc(a.respTecnicoForm):'')],['Responsável pela empresa',esc(a.respEmpresa||'—')]])}`;
+ if(a.obs)h+=`<h2>Observações</h2><p>${nl(a.obs)}</p>`;
+ h+=`<div class="sig">${sigCell('Colaborador',c.nome,a,'colabAssinaturaImg','colabAssinaturaData')}${sigCell('Responsável pela empresa',a.respEmpresa,a,'respEmpAssinaturaImg','respEmpAssinaturaData')}</div>`;
+ h+=`<div class="sig">${sigCell('Responsável técnico',a.respTecnico,a,'respTecAssinaturaImg','respTecAssinaturaData')}${sigCell('Instrutor',a.instrutor,a,'instrutorAssinaturaImg','instrutorAssinaturaData')}</div>`;
+ return h;
+}
+
 /* ---------- PT — Permissão de Trabalho (atividades críticas em geral: altura NR-35, eletricidade NR-10, outras) ---------- */
 function docPt(a){
  const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
@@ -2206,6 +2287,7 @@ docPPPA(d){docPPP(G('colaboradores',d.id))},
 fichaCat(d){const c=G('colaboradores',d.id);abrirCat(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaEpi(d){const c=G('colaboradores',d.id);abrirEpi(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaPt(d){const c=G('colaboradores',d.id);abrirPt(null,{empresaId:c.empresaId,colabId:c.id})},
+fichaTrein(d){const c=G('colaboradores',d.id);abrirTreinamento(null,{empresaId:c.empresaId,colabId:c.id})},
 expCol(d){exportColaboradores(d.id)},expRiscos(d){exportRiscos(d.id)},expAcoes(d){exportAcoes(d.id)},
 resumoSemana(){openDoc({title:'Resumo da semana',html:docResumoSemana(),filename:'resumo-semana-'+today()+'.html',assunto:'Resumo semanal de pendências',corpo:'Segue o resumo semanal de exames e ações pendentes.'})},
 irClinicas(){closeForm();S.view='clinicas';render();setTimeout(()=>abrirEnt('clinica'),30)},
@@ -2220,8 +2302,8 @@ dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';sa
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
 delAcao(d){ask('Excluir esta ação?','Excluir',()=>del('acoes',d.id))},
 delEmp(d){ask('Excluir a empresa e TODOS os colaboradores, riscos, ações, solicitações, documentos, CATs, EPIs e PTs dela?','Excluir tudo',()=>{
- delMany('colaboradores',x=>x.empresaId===d.id);delMany('riscos',x=>x.empresaId===d.id);delMany('acoes',x=>x.empresaId===d.id);delMany('solicitacoes',x=>x.empresaId===d.id);delMany('documentos',x=>x.empresaId===d.id);delMany('cats',x=>x.empresaId===d.id);delMany('epis',x=>x.empresaId===d.id);delMany('pts',x=>x.empresaId===d.id);del('empresas',d.id);toast('Empresa excluída.')})},
-delCol(d){ask('Excluir este colaborador e as solicitações de exame, CATs, EPIs e PTs dele?','Excluir',()=>{delMany('solicitacoes',x=>x.colabId===d.id);delMany('cats',x=>x.colabId===d.id);delMany('epis',x=>x.colabId===d.id);delMany('pts',x=>x.colabId===d.id);del('colaboradores',d.id)})},
+ delMany('colaboradores',x=>x.empresaId===d.id);delMany('riscos',x=>x.empresaId===d.id);delMany('acoes',x=>x.empresaId===d.id);delMany('solicitacoes',x=>x.empresaId===d.id);delMany('documentos',x=>x.empresaId===d.id);delMany('cats',x=>x.empresaId===d.id);delMany('epis',x=>x.empresaId===d.id);delMany('pts',x=>x.empresaId===d.id);delMany('treinamentos',x=>x.empresaId===d.id);del('empresas',d.id);toast('Empresa excluída.')})},
+delCol(d){ask('Excluir este colaborador e as solicitações de exame, CATs, EPIs, PTs e treinamentos dele?','Excluir',()=>{delMany('solicitacoes',x=>x.colabId===d.id);delMany('cats',x=>x.colabId===d.id);delMany('epis',x=>x.colabId===d.id);delMany('pts',x=>x.colabId===d.id);delMany('treinamentos',x=>x.colabId===d.id);del('colaboradores',d.id)})},
 delCli(d){if(L('solicitacoes').some(s=>s.clinicaId===d.id)){toast('Esta clínica tem solicitações vinculadas e não pode ser excluída.');return}ask('Excluir esta clínica?','Excluir',()=>del('clinicas',d.id))},
 impAcoes(){
  const e=empAtual();if(!e)return;let n=0;
@@ -2232,6 +2314,7 @@ newSol(){abrirSol()},editSol(d){abrirSol(d.id)},
 newCat(){abrirCat()},editCat(d){abrirCat(d.id)},delCat(d){ask('Excluir este registro de CAT?','Excluir',()=>del('cats',d.id))},
 newEpi(){abrirEpi()},editEpi(d){abrirEpi(d.id)},delEpi(d){ask('Excluir este registro de entrega de EPI?','Excluir',()=>del('epis',d.id))},
 newPt(){abrirPt()},editPt(d){abrirPt(d.id)},delPt(d){ask('Excluir esta Permissão de Trabalho?','Excluir',()=>del('pts',d.id))},
+newTrein(){abrirTreinamento()},editTrein(d){abrirTreinamento(d.id)},delTrein(d){ask('Excluir este registro de treinamento?','Excluir',()=>del('treinamentos',d.id))},
 solPara(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:'Periódico',exames:chavesOrd(examesDe(riscosDoColab(c)))})},
 delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const s=G('solicitacoes',d.id);delFile(s&&s.arquivo);S.det=null;$('#modal-root').innerHTML='';del('solicitacoes',d.id);revogarClinica(s)})},
 stf(d){S.sst=d.v;render()},
@@ -2241,6 +2324,7 @@ docAso(d){docDe(G('solicitacoes',d.id),'aso')},docPsico(d){docDe(G('solicitacoes
 docEpi(d){const a=G('epis',d.id);if(!a)return;openDoc({title:'Recibo de EPI — '+nCol(a.colabId),html:docEpi(a),filename:'recibo-epi-'+slug(nCol(a.colabId))+'.html',assunto:'Recibo de entrega de EPI — '+nCol(a.colabId),corpo:'Segue o recibo de entrega de EPI de '+nCol(a.colabId)+'.'})},
 docPt(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PT — '+nCol(a.colabId),html:docPt(a),filename:'pt-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Trabalho (PT) — '+nCol(a.colabId),corpo:'Segue a PT de '+nCol(a.colabId)+'.'})},
 docPet(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PET — '+nCol(a.colabId),html:docPet(a),filename:'pet-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Entrada e Trabalho (PET) — '+nCol(a.colabId),corpo:'Segue a PET de '+nCol(a.colabId)+'.'})},
+docCert(d){const a=G('treinamentos',d.id);if(!a)return;const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'Treinamento'};openDoc({title:'Certificado — '+nCol(a.colabId),html:docCertificado(a),filename:'certificado-'+slug(nCol(a.colabId))+'.html',assunto:'Certificado de '+tn.l+' — '+nCol(a.colabId),corpo:'Segue o certificado de '+tn.l+' de '+nCol(a.colabId)+'.'})},
 psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
 pickAso(){const i=$('#aso-f');if(i)i.click()},
 async getAso(d){const s=G('solicitacoes',d.id);audit('baixar','solicitacoes',d.id,s,'arquivo do ASO');try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},
@@ -2364,6 +2448,11 @@ solTipo(){preencherExames()},
 catEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsCat(t.value),'','Selecione')},
 epiEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsEpi(t.value),'','Selecione')},
 ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.value),'','Selecione')},
+treinEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsTrein(t.value),'','Selecione')},
+treinTipo(t){const tn=TREIN_NRS[t.value];if(!tn)return;
+ const ch=$('#f_cargaHoraria');if(ch&&tn.cargaH!=null&&!ch.value)ch.value=tn.cargaH;
+ const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;
+ const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&!vl.value&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
