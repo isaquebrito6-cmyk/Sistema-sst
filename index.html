@@ -299,11 +299,16 @@ const APTOS_F=[['Trabalho em altura (NR-35)','aptoAltura','altura'],['Espaço co
 const EPI_ITENS={luva_raspa:'Luva de raspa',luva_latex:'Luva de látex / nitrílica',luva_termica:'Luva de proteção térmica',oculos:'Óculos de proteção',protetor_plug:'Protetor auricular (plug)',protetor_concha:'Protetor auricular (concha)',capacete:'Capacete de segurança',botina:'Botina de segurança',mascara_pff2:'Máscara/respirador PFF2',mascara_filtro:'Máscara semifacial com filtro',cinto_paraquedista:'Cinto de segurança tipo paraquedista',avental_raspa:'Avental de raspa',perneira:'Perneira',manga_raspa:'Manga de raspa',protetor_facial:'Protetor facial (viseira)',capa_chuva:'Capa de chuva',uniforme:'Uniforme / vestimenta de proteção'};
 /* Texto de exibição da entrega de EPI: aceita tanto o formato novo (array de chaves + epiOutros) quanto registros antigos (texto livre em a.epi) */
 function epiTxt(a){if(Array.isArray(a.epi))return[...a.epi.map(k=>EPI_ITENS[k]||k),a.epiOutros].filter(Boolean).join(', ');return a.epi||''}
-/* Catálogo de treinamentos de NR para emissão de certificado. cargaH/validadeMeses são sugestões (editáveis no formulário) só para as NRs em que a
-   própria norma fixa um mínimo/prazo (ex.: NR-10 Anexo III = 40h/24 meses, NR-33 = 16h/12 meses, NR-35 = 8h/24 meses); nas demais — inclusive a NR-6,
-   que não tem carga horária definida em norma, ficando a critério da empresa — e nas que variam muito por atividade/equipamento (NR-11, NR-12, NR-20,
-   NR-34) os campos ficam em branco de propósito, para não sugerir um número que pode não ser exigido. Confirme sempre a carga horária e o conteúdo
-   programático conforme o treinamento efetivamente realizado antes de emitir o certificado. */
+/* Catálogo de treinamentos de NR para emissão de certificado. cargaH (ou cargaFormacao/cargaReciclagem, quando a formação inicial e a reciclagem têm
+   cargas diferentes) e validadeMeses são sugestões (editáveis no formulário) só para as NRs em que a própria norma fixa um mínimo/prazo:
+   - NR-10 básico e SEP: 40h, Anexo III da NR-10, revalidação a cada 24 meses (prática do mercado; a norma não fixa um nº menor para a reciclagem).
+   - NR-33 trabalhador autorizado/vigia: formação 16h (item 33.3.5.4), reciclagem a cada 12 meses (item 33.3.5.3); a norma não fixa separadamente a
+     carga da reciclagem, mas 8h é a prática consolidada do mercado para a repetição anual.
+   - NR-33 supervisor de entrada: formação 40h (item 33.3.5.6); reciclagem também seguindo a prática de mercado de 8h a cada 12 meses.
+   - NR-35: 8h, revalidação a cada 24 meses.
+   Nas demais — inclusive a NR-6, que não tem carga horária definida em norma, ficando a critério da empresa — e nas que variam muito por atividade/
+   equipamento (NR-11, NR-12, NR-20, NR-34) os campos ficam em branco de propósito, para não sugerir um número que pode não ser exigido. Confirme
+   sempre a carga horária e o conteúdo programático conforme o treinamento efetivamente realizado antes de emitir o certificado. */
 const TREIN_NRS={
  nr6:{l:'NR-6 — Uso de EPI',cargaH:null,validadeMeses:null,conteudo:'Seleção, uso correto, guarda e conservação dos EPIs; responsabilidades do empregador e do trabalhador; CA (Certificado de Aprovação); higienização e troca.'},
  nr10b:{l:'NR-10 — Básico (Segurança em instalações e serviços em eletricidade)',cargaH:40,validadeMeses:24,conteudo:'Riscos elétricos, choque, arco elétrico e incêndio; medidas de controle; NR-10 e normas técnicas; equipamentos de proteção coletiva e individual; procedimentos de trabalho, rotinas de trabalho e emergência; primeiros socorros.'},
@@ -312,10 +317,17 @@ const TREIN_NRS={
  nr12:{l:'NR-12 — Segurança no trabalho em máquinas e equipamentos',cargaH:null,validadeMeses:null,conteudo:'Riscos mecânicos, dispositivos de segurança (proteções, intertravamento, parada de emergência), procedimentos de trabalho seguro, bloqueio e etiquetagem (LOTO) na máquina/equipamento utilizado.'},
  nr18:{l:'NR-18 — Segurança e saúde no trabalho na indústria da construção',cargaH:null,validadeMeses:24,conteudo:'Condições e meio ambiente de trabalho na construção; riscos da atividade/função; uso de EPI/EPC; ordem e organização do canteiro; prevenção de quedas e outras ocorrências conforme a frente de trabalho.'},
  nr20:{l:'NR-20 — Segurança e saúde no trabalho com inflamáveis e combustíveis',cargaH:null,validadeMeses:null,conteudo:'Classificação de áreas, riscos de incêndio e explosão, medidas de controle e resposta a emergência, conforme o nível de treinamento (básico, intermediário ou avançado) aplicável à função.'},
- nr33:{l:'NR-33 — Trabalhador autorizado e vigia em espaço confinado',cargaH:16,validadeMeses:12,conteudo:'Reconhecimento e controle de riscos em espaços confinados; permissão de entrada e trabalho (PET); testes atmosféricos; equipamentos de proteção e resgate; funções do vigia e do trabalhador autorizado.'},
+ nr33_trab:{l:'NR-33 — Trabalhador autorizado / vigia em espaço confinado',cargaFormacao:16,cargaReciclagem:8,validadeMeses:12,conteudo:'Reconhecimento e controle de riscos em espaços confinados; permissão de entrada e trabalho (PET); testes atmosféricos; equipamentos de proteção e resgate; funções do vigia e do trabalhador autorizado.'},
+ nr33_sup:{l:'NR-33 — Supervisor de entrada em espaço confinado',cargaFormacao:40,cargaReciclagem:8,validadeMeses:12,conteudo:'Conteúdo do trabalhador autorizado/vigia, acrescido de: legislação aplicável à autorização de entrada, emissão e gestão da Permissão de Entrada e Trabalho (PET), avaliação das condições para liberar a entrada e gestão do plano de emergência e resgate.'},
  nr34:{l:'NR-34 — Condições e meio ambiente de trabalho na indústria da construção e reparação naval',cargaH:null,validadeMeses:null,conteudo:'Riscos da atividade naval/offshore ou de construção e reparo conforme a função exercida; uso de EPI/EPC; trabalho a quente, em altura e em espaço confinado quando aplicável.'},
  nr35:{l:'NR-35 — Trabalho em altura',cargaH:8,validadeMeses:24,conteudo:'Riscos do trabalho em altura e medidas de prevenção; sistemas, equipamentos e procedimentos de proteção individual e coletiva; condições impeditivas; procedimentos de emergência e resgate.'}
 };
+/* Carga horária sugerida para um treinamento, considerando a modalidade (Formação inicial x Reciclagem) quando o catálogo distingue as duas */
+function trienCargaSugerida(tn,modalidade){
+ if(!tn)return null;
+ if(tn.cargaFormacao!=null||tn.cargaReciclagem!=null)return modalidade==='Reciclagem'?tn.cargaReciclagem:tn.cargaFormacao;
+ return tn.cargaH;
+}
 /* Itens entregues com o CA de cada um (lista editável no formulário) — com retrocompatibilidade para o campo "ca" único de registros antigos */
 function epiItensCa(a){
  const ca=(a.epiCa&&typeof a.epiCa==='object')?a.epiCa:{};
@@ -1360,14 +1372,15 @@ function abrirEpi(id,pre){
 }
 /* Treinamentos de NR com emissão de certificado (NR-6, 10, 10-SEP, 11, 12, 18, 20, 33, 34, 35) */
 function abrirTreinamento(id,pre){
- const rec=id?clone(G('treinamentos',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),situacao:'Emitido'},pre||{});
+ const rec=id?clone(G('treinamentos',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),modalidade:'Formação inicial',situacao:'Emitido'},pre||{});
  const colOpts=eid=>L('colaboradores').filter(c=>c.empresaId===eid||c.id===rec.colabId).sort(byN).map(c=>[c.id,c.nome+' — '+(c.funcao||'')]);
  window._colOptsTrein=colOpts;
  openForm({title:id?'Editar treinamento':'Novo treinamento',btn:'Salvar',val:rec,
  fields:[
   {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,c:'treinEmp',ph:'Selecione'},
   {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>colOpts(rec.empresaId),w:3,ph:'Selecione'},
-  {k:'tipo',l:'Treinamento (NR)',t:'select',r:1,o:Object.entries(TREIN_NRS).map(([k,v])=>[k,v.l]),w:6,c:'treinTipo',ph:'Selecione'},
+  {k:'tipo',l:'Treinamento (NR)',t:'select',r:1,o:Object.entries(TREIN_NRS).map(([k,v])=>[k,v.l]),w:5,c:'treinTipo',ph:'Selecione'},
+  {k:'modalidade',l:'Modalidade',t:'select',o:['Formação inicial','Reciclagem'],w:4,c:'treinTipo',h:'Muda a carga horária sugerida nas NRs em que a norma distingue formação e reciclagem (ex.: NR-33)'},
   {k:'data',l:'Data de realização',t:'date',r:1,w:3},
   {k:'cargaHoraria',l:'Carga horária (h)',t:'number',w:2,inp:'numeric'},
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
@@ -1394,6 +1407,44 @@ function abrirTreinamento(id,pre){
   initSigPad('treinRtCv',rec,'treinRtStatus','treinRtClear',null,'respTecAssinaturaImg','respTecAssinaturaData');
   initSigPad('treinInstCv',rec,'treinInstStatus','treinInstClear',null,'instrutorAssinaturaImg','instrutorAssinaturaData');
  },30)
+}
+/* Lista de checkboxes de colaboradores para o cadastro em lote de treinamentos (turma) */
+function treinLoteChecksHtml(eid){
+ const cs=eid?L('colaboradores').filter(c=>c.empresaId===eid).sort(byN):[];
+ if(!cs.length)return '<span class="sm muted">Selecione a empresa para listar os colaboradores.</span>';
+ return cs.map(c=>`<label class="chk"><input type="checkbox" name="colabIds" value="${c.id}"><span>${esc(c.nome)}${c.funcao?' — '+esc(c.funcao):''}</span></label>`).join('');
+}
+/* Cadastro de uma turma inteira de uma vez: os dados comuns do treinamento são preenchidos uma única vez e um registro de
+   certificado é criado por colaborador marcado, todos com o mesmo turmaId (para reimprimir/consultar a turma depois). As
+   assinaturas continuam sendo colhidas individualmente, abrindo cada certificado gerado. */
+function abrirTreinamentoLote(){
+ const base={empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today(),modalidade:'Formação inicial'};
+ openForm({title:'Novo treinamento em lote (turma)',btn:'Gerar certificados',val:base,
+ fields:[
+  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:4,c:'loteEmp',ph:'Selecione'},
+  {k:'tipo',l:'Treinamento (NR)',t:'select',r:1,o:Object.entries(TREIN_NRS).map(([k,v])=>[k,v.l]),w:5,c:'loteTipo',ph:'Selecione'},
+  {k:'modalidade',l:'Modalidade',t:'select',o:['Formação inicial','Reciclagem'],w:3,c:'loteTipo'},
+  {k:'data',l:'Data de realização',t:'date',r:1,w:3},
+  {k:'cargaHoraria',l:'Carga horária (h)',t:'number',w:2,inp:'numeric'},
+  {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
+  {k:'local',l:'Local do treinamento',w:4},
+  {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
+  {sec:'Responsáveis'},
+  {k:'instrutor',l:'Instrutor',r:1,w:3},
+  {k:'instrutorForm',l:'Formação/registro do instrutor',w:3},
+  {k:'respTecnico',l:'Responsável técnico do treinamento',w:3},
+  {k:'respTecnicoForm',l:'Formação/registro do responsável técnico',w:3},
+  {k:'respEmpresa',l:'Responsável pela empresa',w:4},
+  {sec:'Colaboradores desta turma'},
+  {t:'html',w:6,html:`<label>Selecione quem participou (um certificado será criado para cada um) *</label><div class="checks" id="f_colabIds">${treinLoteChecksHtml(base.empresaId)}</div>`}],
+ save:v=>{
+  const sel=[...document.querySelectorAll('#fm input[name="colabIds"]:checked')].map(x=>x.value);
+  if(!sel.length){toast('Selecione ao menos um colaborador da turma.');return false}
+  const turmaId='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const comuns={empresaId:v.empresaId,tipo:v.tipo,modalidade:v.modalidade,data:v.data,cargaHoraria:v.cargaHoraria,validadeAte:v.validadeAte,local:v.local,conteudo:v.conteudo,instrutor:v.instrutor,instrutorForm:v.instrutorForm,respTecnico:v.respTecnico,respTecnicoForm:v.respTecnicoForm,respEmpresa:v.respEmpresa,situacao:'Emitido',turmaId};
+  sel.forEach(cid=>save('treinamentos',Object.assign({colabId:cid},clone(comuns))));
+  toast(sel.length+' certificado(s) criado(s). Abra cada um para colher a assinatura do colaborador, ou use o botão de imprimir a turma inteira.',6000);
+ }})
 }
 /* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
 const PET_MEDIDAS={bloqueio:'Bloqueio e etiquetagem (LOTO) das energias perigosas',ventilacao:'Ventilação forçada contínua',isolamento:'Isolamento e sinalização da área',resgate_testado:'Procedimento de resgate testado/revisado',comunicacao:'Sistema de comunicação contínuo com o vigia'};
@@ -1649,9 +1700,9 @@ VIEWS.pts=()=>{
 VIEWS.treinamentos=()=>{
  let l=L('treinamentos');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
- return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newTrein">${ic('plus')}Novo treinamento</button></div>
- <p class="sm muted" style="margin:0 0 14px">Treinamentos de NR por colaborador, com emissão do certificado pronto para impressão (assinaturas do colaborador, do responsável da empresa, do responsável técnico e do instrutor).</p>`+
- (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')},{h:'Data',f:a=>fd(a.data)},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>{if(!a.validadeAte)return '—';const v=dias(a.validadeAte);return `<span class="chip ${v<0?'crit':v<=60?'med':'low'}">${fd(a.validadeAte)}</span>`}},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Cancelado'?'gray':'low'}">${esc(a.situacao||'Emitido')}</span>`},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado">${ic('print')}</button><button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delTrein" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn s" data-a="newTreinLote">${ic('plus')}Turma (vários de uma vez)</button><button class="btn p" data-a="newTrein">${ic('plus')}Novo treinamento</button></div>
+ <p class="sm muted" style="margin:0 0 14px">Treinamentos de NR por colaborador, com emissão do certificado pronto para impressão (assinaturas do colaborador, do responsável da empresa, do responsável técnico e do instrutor). Para uma turma inteira, use "Turma (vários de uma vez)": os dados comuns (treinamento, data, instrutor etc.) são preenchidos uma vez e um certificado é gerado para cada colaborador selecionado.</p>`+
+ (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')+(a.modalidade?` <span class="chip gray">${esc(a.modalidade)}</span>`:'')},{h:'Data',f:a=>fd(a.data)},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>{if(!a.validadeAte)return '—';const v=dias(a.validadeAte);return `<span class="chip ${v<0?'crit':v<=60?'med':'low'}">${fd(a.validadeAte)}</span>`}},{h:'Situação',f:a=>`<span class="chip ${a.situacao==='Cancelado'?'gray':'low'}">${esc(a.situacao||'Emitido')}</span>`},{h:'',a:1,f:a=>`${a.turmaId?`<button class="btn s g" data-a="docCertTurma" data-id="${esc(a.turmaId)}" aria-label="Imprimir certificados da turma inteira" title="Imprimir certificados da turma inteira">${ic('cert')}</button>`:''}<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado">${ic('print')}</button><button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delTrein" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhum treinamento registrado','Registre aqui os treinamentos de NR realizados para emitir o certificado.',`<button class="btn p" data-a="newTrein">${ic('plus')}Novo treinamento</button>`,'cert'));
 };
 VIEWS.solicitacoes=()=>{
@@ -1749,7 +1800,7 @@ function renderFicha(){
  <h3 style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}
  <h3 style="font-size:15px;margin:18px 0 8px">7. Treinamentos de NR <button class="btn s g" style="margin-left:6px" data-a="fichaTrein" data-id="${c.id}">${ic('plus')}Novo</button></h3>
- ${treinamentos.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>a.validadeAte?fd(a.validadeAte):'—'},{h:'Situação',f:a=>esc(a.situacao||'Emitido')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado">${ic('print')}</button><button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],treinamentos):'<p class="muted sm">Nenhum treinamento registrado.</p>'}`:''}
+ ${treinamentos.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')+(a.modalidade?' · '+esc(a.modalidade):'')},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>a.validadeAte?fd(a.validadeAte):'—'},{h:'Situação',f:a=>esc(a.situacao||'Emitido')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado">${ic('print')}</button><button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],treinamentos):'<p class="muted sm">Nenhum treinamento registrado.</p>'}`:''}
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -2100,6 +2151,7 @@ const CERT_ICONS={
  nr35:'<circle cx="0" cy="-5.500" r="2" fill="#0B3B42"/><path d="M0-3.500v6M-3.500-1.500L0-.5l3.500-1M-2.500 7L0 2.500 2.500 7" fill="none" stroke="#0B3B42" stroke-width="1.300" stroke-linecap="round" stroke-linejoin="round"/><path d="M-6-7.500h12" stroke="#B07F12" stroke-width="1.300"/><path d="M0-7.500v2" stroke="#B07F12" stroke-width=".9"/>'
 };
 CERT_ICONS.nr10sep=CERT_ICONS.nr10b;
+CERT_ICONS.nr33_trab=CERT_ICONS.nr33;CERT_ICONS.nr33_sup=CERT_ICONS.nr33;
 const certLaurel=m=>{let g='';for(let i=0;i<9;i++){const t=i/8,y=-i*3.2,x=Math.sin(t*1.6)*-3.2;g+=`<ellipse cx="${(x-4.2).toFixed(2)}" cy="${y.toFixed(2)}" rx="3.100" ry="1.300" transform="rotate(${(-38+i*4).toFixed(0)} ${(x-4.2).toFixed(2)} ${y.toFixed(2)})" fill="${i%2?'#B07F12':'#0B3B42'}" fill-opacity=".85"/>`}return `<g transform="${m}"><path d="M0 2Q-7-10-3-26" fill="none" stroke="#B07F12" stroke-width=".7"/>${g}</g>`};
 function certFrame(nrTag,seal,tipo){
  const burst=(cx,cy,ro,ri,n)=>{let p='';for(let i=0;i<n*2;i++){const r=i%2?ri:ro,a=Math.PI*i/n-Math.PI/2;p+=(cx+r*Math.cos(a)).toFixed(2)+','+(cy+r*Math.sin(a)).toFixed(2)+' '}return p};
@@ -2133,7 +2185,7 @@ function docCertificado(a){
   ${logos}
   <div class="cert-kicker">${esc(e.razao||cf.nome||'')}</div>
   <h1 class="cert-title">Certificado</h1>
-  <div class="cert-sub">de conclusão de treinamento</div>
+  <div class="cert-sub">de conclusão de treinamento${a.modalidade?' — '+esc(a.modalidade):''}</div>
   <p class="cert-txt">Certificamos que <b>${esc(c.nome||'—')}</b>${c.cpf?`, portador(a) do CPF ${esc(c.cpf)}`:''}${c.funcao?`, função de ${esc(c.funcao)}`:''}, da empresa <b>${esc(e.razao||'—')}</b>${e.cnpj?` (CNPJ ${esc(e.cnpj)})`:''}, concluiu com aproveitamento o treinamento</p>
   <p class="cert-nr">${esc(tn.l)}</p>
   <p class="cert-txt" style="margin-top:2mm">${a.local?`realizado em ${esc(a.local)}, `:''}no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>`:''}.</p>
@@ -2141,7 +2193,7 @@ function docCertificado(a){
  </div></section>`;
  const back=`<section class="cert-sheet back">${certFrame(nrTag,false)}<div class="cert-in" style="inset:22mm 28mm 20mm">
   <h2 class="cert-back-h">Verso — Informações do treinamento</h2>
-  <div class="cert-kicker">${esc(tn.l)}</div>
+  <div class="cert-kicker">${esc(tn.l)}${a.modalidade?' — '+esc(a.modalidade):''}</div>
   <table class="cert-back-t" style="margin-top:3mm">
    <tr><td class="k">Colaborador</td><td>${esc(c.nome||'—')}${c.cpf?' — CPF '+esc(c.cpf):''}</td><td class="k">Empresa</td><td>${esc(e.razao||'—')}${e.cnpj?' — '+esc(e.cnpj):''}</td></tr>
    <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}</td></tr>
@@ -2406,6 +2458,7 @@ newCat(){abrirCat()},editCat(d){abrirCat(d.id)},delCat(d){ask('Excluir este regi
 newEpi(){abrirEpi()},editEpi(d){abrirEpi(d.id)},delEpi(d){ask('Excluir este registro de entrega de EPI?','Excluir',()=>del('epis',d.id))},
 newPt(){abrirPt()},editPt(d){abrirPt(d.id)},delPt(d){ask('Excluir esta Permissão de Trabalho?','Excluir',()=>del('pts',d.id))},
 newTrein(){abrirTreinamento()},editTrein(d){abrirTreinamento(d.id)},delTrein(d){ask('Excluir este registro de treinamento?','Excluir',()=>del('treinamentos',d.id))},
+newTreinLote(){abrirTreinamentoLote()},
 solPara(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:'Periódico',exames:chavesOrd(examesDe(riscosDoColab(c)))})},
 delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const s=G('solicitacoes',d.id);delFile(s&&s.arquivo);S.det=null;$('#modal-root').innerHTML='';del('solicitacoes',d.id);revogarClinica(s)})},
 stf(d){S.sst=d.v;render()},
@@ -2416,6 +2469,7 @@ docEpi(d){const a=G('epis',d.id);if(!a)return;openDoc({title:'Recibo de EPI — 
 docPt(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PT — '+nCol(a.colabId),html:docPt(a),filename:'pt-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Trabalho (PT) — '+nCol(a.colabId),corpo:'Segue a PT de '+nCol(a.colabId)+'.'})},
 docPet(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PET — '+nCol(a.colabId),html:docPet(a),filename:'pet-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Entrada e Trabalho (PET) — '+nCol(a.colabId),corpo:'Segue a PET de '+nCol(a.colabId)+'.'})},
 docCert(d){const a=G('treinamentos',d.id);if(!a)return;const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'Treinamento'};openDoc({title:'Certificado — '+nCol(a.colabId),html:docCertificado(a),filename:'certificado-'+slug(nCol(a.colabId))+'.html',assunto:'Certificado de '+tn.l+' — '+nCol(a.colabId),corpo:'Segue o certificado de '+tn.l+' de '+nCol(a.colabId)+'.'})},
+docCertTurma(d){const turma=L('treinamentos').filter(a=>a.turmaId===d.id).sort((a,b)=>nCol(a.colabId).localeCompare(nCol(b.colabId)));if(!turma.length)return;const tn=TREIN_NRS[turma[0].tipo]||{l:turma[0].tipo||'Treinamento'};openDoc({title:'Certificados da turma — '+tn.l,html:turma.map(docCertificado).join('<div class="pb"></div>'),filename:'certificados-turma-'+slug(tn.l)+'.html',assunto:'Certificados de '+tn.l+' — turma de '+turma.length+' colaborador(es)',corpo:'Seguem os certificados de '+tn.l+' da turma ('+turma.length+' colaborador(es)).'})},
 psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
 pickAso(){const i=$('#aso-f');if(i)i.click()},
 async getAso(d){const s=G('solicitacoes',d.id);audit('baixar','solicitacoes',d.id,s,'arquivo do ASO');try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},
@@ -2540,10 +2594,19 @@ catEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsCat(t.
 epiEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsEpi(t.value),'','Selecione')},
 ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.value),'','Selecione')},
 treinEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsTrein(t.value),'','Selecione')},
-treinTipo(t){const tn=TREIN_NRS[t.value];if(!tn)return;
- const ch=$('#f_cargaHoraria');if(ch&&tn.cargaH!=null&&!ch.value)ch.value=tn.cargaH;
+treinTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl.value];if(!tn)return;
+ const modEl=$('#f_modalidade'),modalidade=modEl?modEl.value:'Formação inicial';
+ const sugestao=trienCargaSugerida(tn,modalidade);
+ const ch=$('#f_cargaHoraria');if(ch&&sugestao!=null)ch.value=sugestao;
  const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;
- const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&!vl.value&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
+ const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
+loteEmp(t){const el=$('#f_colabIds');if(el)el.innerHTML=treinLoteChecksHtml(t.value)},
+loteTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl.value];if(!tn)return;
+ const modEl=$('#f_modalidade'),modalidade=modEl?modEl.value:'Formação inicial';
+ const sugestao=trienCargaSugerida(tn,modalidade);
+ const ch=$('#f_cargaHoraria');if(ch&&sugestao!=null)ch.value=sugestao;
+ const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;
+ const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},
 colNovo(t){const key=t.id.replace(/^f_/,'');const w=document.getElementById('w_'+key+'Novo');if(w)w.style.display=t.value==='__novo__'?'':'none'},
