@@ -1793,6 +1793,42 @@ const DOC_CSS=`
 .small{font:8.5pt/1.4 Arial,sans-serif;color:#444}
 .q td{padding:3pt 5pt}
 .q td.c{text-align:center;width:40pt}
+@page cert{size:A4 landscape;margin:0}
+.paper:has(.cert-sheet){max-width:297mm;padding:0;background:none;box-shadow:none}
+.cert-sheet{page:cert;position:relative;width:297mm;height:209.5mm;overflow:hidden;background:#FFFEF8;color:#1b1b1b;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 30px rgba(0,0,0,.4);margin:0 auto 18px;break-inside:avoid}
+.cert-sheet.front{break-after:page;page-break-after:always}
+.cert-sheet svg.cf{position:absolute;inset:0;width:100%;height:100%}
+.cert-in{position:absolute;inset:24mm 30mm 22mm;display:flex;flex-direction:column;align-items:center;text-align:center}
+.cert-logo{height:17mm;display:flex;align-items:center;justify-content:center;gap:8mm;margin-bottom:2mm}
+.cert-logo img{max-height:17mm;max-width:60mm;object-fit:contain}
+.cert-kicker{font:600 10.5pt Arial,sans-serif;letter-spacing:.32em;text-transform:uppercase;color:#8A6A1F}
+.paper h1.cert-title{font:700 46pt Georgia,'Times New Roman',serif;letter-spacing:.14em;margin:1mm 0 0;line-height:1.1;color:#0B3B42}
+.cert-title{font:700 48pt Georgia,serif;letter-spacing:.14em;color:#0B3B42;margin:1mm 0 0;line-height:1.1;text-transform:uppercase}
+.cert-sub{font:italic 21pt Georgia,serif;color:#B07F12;margin:0 0 7mm}
+.paper p.cert-txt,.paper p.cert-nr{text-align:center;margin:0}
+.paper p.cert-nr{margin:5mm 0 0}
+.paper p.cert-prog{text-align:justify}
+.cert-txt{font:15pt/1.8 Georgia,serif;margin:0;max-width:210mm;text-align:center}
+.cert-txt b{color:#0B3B42}
+.cert-nr{font:700 24pt Georgia,serif;color:#0B3B42;margin:5mm 0 0}
+.cert-sigs{margin-top:auto;width:100%;display:flex;justify-content:space-between;gap:50mm;padding:0 6mm}
+.cert-sigs.back{justify-content:space-around}
+.cs{flex:1;text-align:center;font:9pt/1.35 Arial,sans-serif;min-width:0}
+.cs .ln{height:16mm;display:flex;align-items:flex-end;justify-content:center;border-bottom:.8pt solid #0B3B42}
+.cs .ln img{max-height:15mm;max-width:70mm}
+.cs b{display:block;margin-top:1.5mm;font-size:10pt;color:#0B3B42}
+.cs span{display:block;color:#555}
+.cert-back-h{font:700 13pt Georgia,serif;color:#0B3B42;letter-spacing:.12em;text-transform:uppercase;margin:0 0 1mm}
+.cert-back-t{width:100%;border-collapse:collapse;font:9pt/1.35 Arial,sans-serif;margin:3mm 0;text-align:left}
+.cert-back-t td{padding:2.2pt 5pt;border:.6pt solid #C9B27A;vertical-align:top}
+.cert-back-t td.k{background:#F6EFD9;font-weight:700;width:30%;color:#0B3B42}
+.cert-prog{font:9.5pt/1.5 Arial,sans-serif;text-align:justify;width:100%;margin:0}
+.cert-foot{font:7.5pt Arial,sans-serif;color:#777;margin-top:2mm}
+@media screen and (max-width:1250px){.cert-sheet{zoom:.78}}
+@media screen and (max-width:980px){.cert-sheet{zoom:.55}}
+@media screen and (max-width:820px){.cert-sheet{zoom:.42}}
+@media screen and (max-width:520px){.cert-sheet{zoom:.3}}
+@media print{.cert-sheet{zoom:1!important;box-shadow:none;margin:0}}
 @media screen and (max-width:820px){.paper{padding:16px;font-size:10pt}.paper h1{font-size:22pt}.paper table{display:block;overflow-x:auto;white-space:normal}.cover{padding:16px 0;min-height:0}}
 @media print{.paper{box-shadow:none;max-width:none;padding:0;margin:0}}
 `;
@@ -2050,19 +2086,59 @@ function docEpi(a){
  return h;
 }
 
-/* ---------- Certificado de treinamento de NR ---------- */
+/* ---------- Certificado de treinamento de NR (paisagem A4, frente e verso, para imprimir e emoldurar) ---------- */
+function certFrame(nrTag,seal){
+ const burst=(cx,cy,ro,ri,n)=>{let p='';for(let i=0;i<n*2;i++){const r=i%2?ri:ro,a=Math.PI*i/n-Math.PI/2;p+=(cx+r*Math.cos(a)).toFixed(2)+','+(cy+r*Math.sin(a)).toFixed(2)+' '}return p};
+ const corner=`<path d="M0 24A24 24 0 0 0 24 0" fill="none" stroke="#B07F12" stroke-width=".55"/><path d="M0 19A19 19 0 0 0 19 0" fill="none" stroke="#0B3B42" stroke-width=".4"/><path d="M0 14A14 14 0 0 0 14 0" fill="none" stroke="#B07F12" stroke-width=".55"/><path d="M0 9A9 9 0 0 0 9 0" fill="none" stroke="#0B3B42" stroke-width=".35"/><path d="M5 1.2L8.8 5 5 8.8 1.2 5Z" fill="#B07F12"/><circle cx="14" cy="14" r="1.1" fill="#0B3B42"/>`;
+ const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#B07F12" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#B07F12" stroke-width=".45"/><path d="M0-3.4L3.4 0 0 3.4-3.4 0Z" fill="#B07F12"/><circle cx="-7" cy="0" r=".9" fill="#0B3B42"/><circle cx="7" cy="0" r=".9" fill="#0B3B42"/></g>`;
+ return `<svg class="cf" viewBox="0 0 297 210" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<rect width="297" height="210" fill="#FFFEF8"/>
+<circle cx="148.5" cy="105" r="74" fill="none" stroke="#B07F12" stroke-opacity=".1" stroke-width="1.2"/><circle cx="148.5" cy="105" r="68" fill="none" stroke="#0B3B42" stroke-opacity=".07" stroke-width=".6"/>
+<text x="148.5" y="122" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?46:62}" fill="#0B3B42" fill-opacity=".055">${esc(nrTag)}</text>
+<rect x="6" y="6" width="285" height="198" fill="none" stroke="#0B3B42" stroke-width="2.4"/>
+<rect x="9" y="9" width="279" height="192" fill="none" stroke="#B07F12" stroke-width=".7"/>
+<rect x="11.5" y="11.5" width="274" height="187" fill="none" stroke="#0B3B42" stroke-width=".3"/>
+<g transform="translate(12 12)">${corner}</g><g transform="translate(285 12) scale(-1 1)">${corner}</g><g transform="translate(12 198) scale(1 -1)">${corner}</g><g transform="translate(285 198) scale(-1 -1)">${corner}</g>
+${flourish(17,false)}${flourish(193,true)}
+${seal?`<g transform="translate(148.5 176)"><polygon points="${burst(0,0,15,12.8,24)}" fill="#B07F12"/><circle r="11" fill="#FFFEF8" stroke="#0B3B42" stroke-width=".8"/><circle r="9" fill="none" stroke="#B07F12" stroke-width=".5" stroke-dasharray=".9 .9"/><text y="2.2" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?4.2:6}" fill="#0B3B42">${esc(nrTag)}</text><text y="6.6" text-anchor="middle" font-family="Arial,sans-serif" font-size="1.5" letter-spacing=".2" fill="#8A6A1F">TREINAMENTO</text></g>`:''}
+</svg>`;
+}
+function certSig(label,name,sub,a,imgKey,dataKey){
+ const img=imgKey&&a[imgKey];
+ return `<div class="cs"><div class="ln">${img?`<img src="${img}" alt="Assinatura">`:''}</div><b>${esc(name||label)}</b><span>${esc(label)}${sub?' — '+esc(sub):''}</span>${img&&a[dataKey]?`<span style="font-size:7.5pt">assinado digitalmente em ${fd(a[dataKey])}</span>`:''}</div>`;
+}
 function docCertificado(a){
  const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
  const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'—'};
- let h=dHead('Certificado de Treinamento',fd(a.data),e.logo);
- h+=`<h1 style="font-size:18pt;text-align:center;margin-top:10pt">Certificado de Treinamento</h1><p class="small" style="text-align:center">${esc(tn.l)}</p>`;
- h+=`<p style="margin-top:16pt;text-align:justify;font-size:11.5pt">Certificamos que <b>${esc(c.nome||'—')}</b>${c.cpf?`, portador(a) do CPF ${esc(c.cpf)}`:''}${c.funcao?`, ocupando a função de ${esc(c.funcao)}`:''}, da empresa <b>${esc(e.razao||'—')}</b>${e.cnpj?` (CNPJ ${esc(e.cnpj)})`:''}, concluiu com aproveitamento o treinamento de <b>${esc(tn.l)}</b>${a.local?`, realizado em ${esc(a.local)}`:''}, no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>`:''}.</p>`;
- h+=`<h2>Conteúdo programático</h2><p style="text-align:justify">${a.conteudo?nl(a.conteudo):'<span class="blank l"></span>'}</p>`;
- h+=`<h2>Dados do treinamento</h2>${kv([['Validade / próxima reciclagem',a.validadeAte?fd(a.validadeAte):'—'],['Instrutor',esc(a.instrutor||'—')+(a.instrutorForm?' — '+esc(a.instrutorForm):'')],['Responsável técnico',esc(a.respTecnico||'—')+(a.respTecnicoForm?' — '+esc(a.respTecnicoForm):'')],['Responsável pela empresa',esc(a.respEmpresa||'—')]])}`;
- if(a.obs)h+=`<h2>Observações</h2><p>${nl(a.obs)}</p>`;
- h+=`<div class="sig">${sigCell('Colaborador',c.nome,a,'colabAssinaturaImg','colabAssinaturaData')}${sigCell('Responsável pela empresa',a.respEmpresa,a,'respEmpAssinaturaImg','respEmpAssinaturaData')}</div>`;
- h+=`<div class="sig">${sigCell('Responsável técnico',a.respTecnico,a,'respTecAssinaturaImg','respTecAssinaturaData')}${sigCell('Instrutor',a.instrutor,a,'instrutorAssinaturaImg','instrutorAssinaturaData')}</div>`;
- return h;
+ const cf=CFG();const logoEmp=e.logo||cf.logo;
+ const nrTag=String(tn.l||'NR').split(/\s+[—-]\s+/)[0].trim();
+ const nomeTrein=String(tn.l||'').replace(/^\s*NR[-\s]?[\w-]+\s+[—-]\s+/,'')||tn.l;
+ const logos=`<div class="cert-logo">${logoEmp?`<img src="${logoEmp}" alt="">`:''}</div>`;
+ const front=`<section class="cert-sheet front">${certFrame(nrTag,true)}<div class="cert-in">
+  ${logos}
+  <div class="cert-kicker">${esc(e.razao||cf.nome||'')}</div>
+  <h1 class="cert-title">Certificado</h1>
+  <div class="cert-sub">de conclusão de treinamento</div>
+  <p class="cert-txt">Certificamos que <b>${esc(c.nome||'—')}</b>${c.cpf?`, portador(a) do CPF ${esc(c.cpf)}`:''}${c.funcao?`, função de ${esc(c.funcao)}`:''}, da empresa <b>${esc(e.razao||'—')}</b>${e.cnpj?` (CNPJ ${esc(e.cnpj)})`:''}, concluiu com aproveitamento o treinamento</p>
+  <p class="cert-nr">${esc(tn.l)}</p>
+  <p class="cert-txt" style="margin-top:2mm">${a.local?`realizado em ${esc(a.local)}, `:''}no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>`:''}.</p>
+  <div class="cert-sigs">${certSig('Aluno / Colaborador',c.nome,'',a,'colabAssinaturaImg','colabAssinaturaData')}<div style="width:30mm;flex:none"></div>${certSig('Instrutor',a.instrutor,a.instrutorForm,a,'instrutorAssinaturaImg','instrutorAssinaturaData')}</div>
+ </div></section>`;
+ const back=`<section class="cert-sheet back">${certFrame(nrTag,false)}<div class="cert-in" style="inset:22mm 28mm 20mm">
+  <h2 class="cert-back-h">Verso — Informações do treinamento</h2>
+  <div class="cert-kicker">${esc(tn.l)}</div>
+  <table class="cert-back-t" style="margin-top:3mm">
+   <tr><td class="k">Colaborador</td><td>${esc(c.nome||'—')}${c.cpf?' — CPF '+esc(c.cpf):''}</td><td class="k">Empresa</td><td>${esc(e.razao||'—')}${e.cnpj?' — '+esc(e.cnpj):''}</td></tr>
+   <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}</td></tr>
+   <tr><td class="k">Válido até (reciclagem)</td><td>${a.validadeAte?fd(a.validadeAte):'—'}</td><td class="k">Instrutor</td><td>${esc(a.instrutor||'—')}${a.instrutorForm?' — '+esc(a.instrutorForm):''}</td></tr>
+  </table>
+  <h3 style="font:700 10pt Arial,sans-serif;color:#0B3B42;align-self:flex-start;margin:1mm 0 1mm">Conteúdo programático</h3>
+  <p class="cert-prog">${a.conteudo?nl(a.conteudo):'<span class="blank l"></span>'}</p>
+  ${a.obs?`<p class="cert-prog" style="margin-top:2mm"><b>Observações:</b> ${nl(a.obs)}</p>`:''}
+  <div class="cert-sigs back">${certSig('Responsável técnico',a.respTecnico,a.respTecnicoForm,a,'respTecAssinaturaImg','respTecAssinaturaData')}${certSig('Responsável pela empresa',a.respEmpresa,'',a,'respEmpAssinaturaImg','respEmpAssinaturaData')}</div>
+  <div class="cert-foot">Emitido em ${fd(new Date().toISOString().slice(0,10))}${cf.nome?' por '+esc(cf.nome):''}. Documento a ser arquivado pela empresa junto ao prontuário de treinamentos do colaborador.</div>
+ </div></section>`;
+ return front+back;
 }
 
 /* ---------- PT — Permissão de Trabalho (atividades críticas em geral: altura NR-35, eletricidade NR-10, outras) ---------- */
