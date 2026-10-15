@@ -2152,11 +2152,9 @@ const CERT_ICONS={
 };
 CERT_ICONS.nr10sep=CERT_ICONS.nr10b;
 CERT_ICONS.nr33_trab=CERT_ICONS.nr33;CERT_ICONS.nr33_sup=CERT_ICONS.nr33;
-const certLaurel=m=>{let g='';for(let i=0;i<9;i++){const t=i/8,y=-i*3.2,x=Math.sin(t*1.6)*-3.2;g+=`<ellipse cx="${(x-4.2).toFixed(2)}" cy="${y.toFixed(2)}" rx="3.100" ry="1.300" transform="rotate(${(-38+i*4).toFixed(0)} ${(x-4.2).toFixed(2)} ${y.toFixed(2)})" fill="${i%2?'#B07F12':'#0B3B42'}" fill-opacity=".85"/>`}return `<g transform="${m}"><path d="M0 2Q-7-10-3-26" fill="none" stroke="#B07F12" stroke-width=".7"/>${g}</g>`};
 function certFrame(nrTag,seal,tipo){
  const burst=(cx,cy,ro,ri,n)=>{let p='';for(let i=0;i<n*2;i++){const r=i%2?ri:ro,a=Math.PI*i/n-Math.PI/2;p+=(cx+r*Math.cos(a)).toFixed(2)+','+(cy+r*Math.sin(a)).toFixed(2)+' '}return p};
- const corner=`<path d="M0 24A24 24 0 0 0 24 0" fill="none" stroke="#B07F12" stroke-width=".55"/><path d="M0 19A19 19 0 0 0 19 0" fill="none" stroke="#0B3B42" stroke-width=".4"/><path d="M0 14A14 14 0 0 0 14 0" fill="none" stroke="#B07F12" stroke-width=".55"/><path d="M0 9A9 9 0 0 0 9 0" fill="none" stroke="#0B3B42" stroke-width=".35"/><path d="M5 1.2L8.8 5 5 8.8 1.2 5Z" fill="#B07F12"/><circle cx="14" cy="14" r="1.1" fill="#0B3B42"/>`;
- const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#B07F12" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#B07F12" stroke-width=".45"/><path d="M0-3.4L3.4 0 0 3.4-3.4 0Z" fill="#B07F12"/><circle cx="-7" cy="0" r=".9" fill="#0B3B42"/><circle cx="7" cy="0" r=".9" fill="#0B3B42"/></g>`;
+ const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#B07F12" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#B07F12" stroke-width=".45"/><circle cx="0" cy="0" r="1.6" fill="#B07F12"/><circle cx="-7" cy="0" r=".9" fill="#0B3B42"/><circle cx="7" cy="0" r=".9" fill="#0B3B42"/></g>`;
  return `<svg class="cf" viewBox="0 0 297 210" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <rect width="297" height="210" fill="#FFFEF8"/>
 <circle cx="148.5" cy="105" r="74" fill="none" stroke="#B07F12" stroke-opacity=".1" stroke-width="1.2"/><circle cx="148.5" cy="105" r="68" fill="none" stroke="#0B3B42" stroke-opacity=".07" stroke-width=".6"/>
@@ -2164,10 +2162,8 @@ function certFrame(nrTag,seal,tipo){
 <rect x="6" y="6" width="285" height="198" fill="none" stroke="#0B3B42" stroke-width="2.4"/>
 <rect x="9" y="9" width="279" height="192" fill="none" stroke="#B07F12" stroke-width=".7"/>
 <rect x="11.5" y="11.5" width="274" height="187" fill="none" stroke="#0B3B42" stroke-width=".3"/>
-<g transform="translate(12 12)">${corner}</g><g transform="translate(285 12) scale(-1 1)">${corner}</g><g transform="translate(12 198) scale(1 -1)">${corner}</g><g transform="translate(285 198) scale(-1 -1)">${corner}</g>
 ${flourish(17,false)}${flourish(193,true)}
-${seal?`${certLaurel('translate(128 183) rotate(-8) scale(1.15)')}${certLaurel('translate(169 183) scale(-1 1) rotate(-8) scale(1.15)')}<g transform="translate(148.5 172) scale(1.22)"><polygon points="${burst(0,0,15,12.8,24)}" fill="#B07F12"/><circle r="11" fill="#FFFEF8" stroke="#0B3B42" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#B07F12" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B3B42">${esc(nrTag)}</text></g><path d="M138 187l-4 5.500 5-1.500 1 4 3-6zM159 187l4 5.500-5-1.500-1 4-3-6z" fill="#0B3B42"/>`:''}
-<g opacity=".9"><g transform="translate(26 105)"><path d="M0-38V38" stroke="#B07F12" stroke-width=".4"/>${[-30,-20,-10,0,10,20,30].map(y=>`<path d="M0 ${y}l5 -3.500-0 7z" fill="#0B3B42" fill-opacity=".55"/><circle cx="-3.500" cy="${y}" r=".8" fill="#B07F12"/>`).join('')}</g><g transform="translate(271 105)"><path d="M0-38V38" stroke="#B07F12" stroke-width=".4"/>${[-30,-20,-10,0,10,20,30].map(y=>`<path d="M0 ${y}l-5 -3.500 0 7z" fill="#0B3B42" fill-opacity=".55"/><circle cx="3.500" cy="${y}" r=".8" fill="#B07F12"/>`).join('')}</g></g>
+${seal?`<g transform="translate(148.5 172) scale(1.22)"><polygon points="${burst(0,0,15,12.8,24)}" fill="#B07F12"/><circle r="11" fill="#FFFEF8" stroke="#0B3B42" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#B07F12" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B3B42">${esc(nrTag)}</text></g>`:''}
 </svg>`;
 }
 function certSig(label,name,sub,a,imgKey,dataKey){
