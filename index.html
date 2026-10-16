@@ -308,7 +308,13 @@ function epiTxt(a){if(Array.isArray(a.epi))return[...a.epi.map(k=>EPI_ITENS[k]||
    - NR-35: 8h, revalidação a cada 24 meses.
    Nas demais — inclusive a NR-6, que não tem carga horária definida em norma, ficando a critério da empresa — e nas que variam muito por atividade/
    equipamento (NR-11, NR-12, NR-20, NR-34) os campos ficam em branco de propósito, para não sugerir um número que pode não ser exigido. Confirme
-   sempre a carga horária e o conteúdo programático conforme o treinamento efetivamente realizado antes de emitir o certificado. */
+   sempre a carga horária e o conteúdo programático conforme o treinamento efetivamente realizado antes de emitir o certificado.
+
+   teorica/pratica (e, nas entradas com cargaFormacao/cargaReciclagem, teoricaFormacao/praticaFormacao/teoricaReciclagem/praticaReciclagem): divisão
+   sugerida de horas teóricas e práticas dentro da carga horária acima, só preenchida quando a própria norma fixa essa divisão. A maioria das NRs
+   (inclusive NR-35, item 35.3.2, e NR-33, item 33.3.5 e subitens) exige treinamento "teórico e prático" sem fixar quantas horas de cada parte — nesses
+   casos os campos ficam null de propósito (mesma convenção da carga horária em branco) e o usuário preenche conforme o plano de curso efetivamente
+   aplicado; os campos de teórica/prática aparecem no formulário e no certificado mesmo quando o catálogo não sugere nada. */
 const TREIN_NRS={
  nr6:{l:'NR-6 — Uso de EPI',cargaH:null,validadeMeses:null,conteudo:'Seleção, uso correto, guarda e conservação dos EPIs; responsabilidades do empregador e do trabalhador; CA (Certificado de Aprovação); higienização e troca.'},
  nr10b:{l:'NR-10 — Básico (Segurança em instalações e serviços em eletricidade)',cargaH:40,validadeMeses:24,conteudo:'Riscos elétricos, choque, arco elétrico e incêndio; medidas de controle; NR-10 e normas técnicas; equipamentos de proteção coletiva e individual; procedimentos de trabalho, rotinas de trabalho e emergência; primeiros socorros.'},
@@ -330,6 +336,14 @@ function trienCargaSugerida(tn,modalidade){
  if(!tn)return null;
  if(tn.cargaFormacao!=null||tn.cargaReciclagem!=null)return modalidade==='Reciclagem'?tn.cargaReciclagem:tn.cargaFormacao;
  return tn.cargaH;
+}
+/* Horas teóricas/práticas sugeridas para um treinamento (mesma lógica de modalidade acima); retorna null quando a norma não fixa a divisão —
+   o que acontece na maioria das NRs do catálogo (ver comentário de TREIN_NRS) — e o usuário preenche os campos manualmente. */
+function trienTeoricaPraticaSugerida(tn,modalidade){
+ if(!tn)return{teorica:null,pratica:null};
+ if(modalidade==='Reciclagem'&&(tn.teoricaReciclagem!=null||tn.praticaReciclagem!=null))return{teorica:tn.teoricaReciclagem,pratica:tn.praticaReciclagem};
+ if(modalidade!=='Reciclagem'&&(tn.teoricaFormacao!=null||tn.praticaFormacao!=null))return{teorica:tn.teoricaFormacao,pratica:tn.praticaFormacao};
+ return{teorica:tn.teorica!=null?tn.teorica:null,pratica:tn.pratica!=null?tn.pratica:null};
 }
 /* Itens entregues com o CA de cada um (lista editável no formulário) — com retrocompatibilidade para o campo "ca" único de registros antigos */
 function epiItensCa(a){
@@ -1385,7 +1399,9 @@ function abrirTreinamento(id,pre){
   {k:'tipo',l:'Treinamento (NR)',t:'select',r:1,o:Object.entries(TREIN_NRS).map(([k,v])=>[k,v.l]),w:5,c:'treinTipo',ph:'Selecione'},
   {k:'modalidade',l:'Modalidade',t:'select',o:['Formação inicial','Reciclagem'],w:4,c:'treinTipo',h:'Muda a carga horária sugerida nas NRs em que a norma distingue formação e reciclagem (ex.: NR-33)'},
   {k:'data',l:'Data de realização',t:'date',r:1,w:3},
-  {k:'cargaHoraria',l:'Carga horária (h)',t:'number',w:2,inp:'numeric'},
+  {k:'cargaTeorica',l:'Carga horária teórica (h)',t:'number',w:2,inp:'numeric',c:'treinCarga'},
+  {k:'cargaPratica',l:'Carga horária prática (h)',t:'number',w:2,inp:'numeric',c:'treinCarga'},
+  {k:'cargaHoraria',l:'Carga horária total (h)',t:'number',w:2,inp:'numeric',h:'Soma automaticamente a teórica + a prática; pode ser ajustada à mão'},
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
@@ -1428,7 +1444,9 @@ function abrirTreinamentoLote(){
   {k:'tipo',l:'Treinamento (NR)',t:'select',r:1,o:Object.entries(TREIN_NRS).map(([k,v])=>[k,v.l]),w:5,c:'loteTipo',ph:'Selecione'},
   {k:'modalidade',l:'Modalidade',t:'select',o:['Formação inicial','Reciclagem'],w:3,c:'loteTipo'},
   {k:'data',l:'Data de realização',t:'date',r:1,w:3},
-  {k:'cargaHoraria',l:'Carga horária (h)',t:'number',w:2,inp:'numeric'},
+  {k:'cargaTeorica',l:'Carga horária teórica (h)',t:'number',w:2,inp:'numeric',c:'loteCarga'},
+  {k:'cargaPratica',l:'Carga horária prática (h)',t:'number',w:2,inp:'numeric',c:'loteCarga'},
+  {k:'cargaHoraria',l:'Carga horária total (h)',t:'number',w:2,inp:'numeric',h:'Soma automaticamente a teórica + a prática; pode ser ajustada à mão'},
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
@@ -1444,7 +1462,7 @@ function abrirTreinamentoLote(){
   const sel=[...document.querySelectorAll('#fm input[name="colabIds"]:checked')].map(x=>x.value);
   if(!sel.length){toast('Selecione ao menos um colaborador da turma.');return false}
   const turmaId='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const comuns={empresaId:v.empresaId,tipo:v.tipo,modalidade:v.modalidade,data:v.data,cargaHoraria:v.cargaHoraria,validadeAte:v.validadeAte,local:v.local,conteudo:v.conteudo,instrutor:v.instrutor,instrutorForm:v.instrutorForm,respTecnico:v.respTecnico,respTecnicoForm:v.respTecnicoForm,respEmpresa:v.respEmpresa,situacao:'Emitido',turmaId};
+  const comuns={empresaId:v.empresaId,tipo:v.tipo,modalidade:v.modalidade,data:v.data,cargaHoraria:v.cargaHoraria,cargaTeorica:v.cargaTeorica,cargaPratica:v.cargaPratica,validadeAte:v.validadeAte,local:v.local,conteudo:v.conteudo,instrutor:v.instrutor,instrutorForm:v.instrutorForm,respTecnico:v.respTecnico,respTecnicoForm:v.respTecnicoForm,respEmpresa:v.respEmpresa,situacao:'Emitido',turmaId};
   sel.forEach(cid=>save('treinamentos',Object.assign({colabId:cid},clone(comuns))));
   toast(sel.length+' certificado(s) criado(s). Abra cada um para colher a assinatura do colaborador, ou use o botão de imprimir a turma inteira.',6000);
  }})
@@ -2189,7 +2207,7 @@ function docCertificado(a){
   <div class="cert-sub">de conclusão de treinamento${a.modalidade?' — '+esc(a.modalidade):''}</div>
   <p class="cert-txt">Certificamos que <b>${esc(c.nome||'—')}</b>${c.cpf?`, portador(a) do CPF ${esc(c.cpf)}`:''}${c.funcao?`, função de ${esc(c.funcao)}`:''}, da empresa <b>${esc(e.razao||'—')}</b>${e.cnpj?` (CNPJ ${esc(e.cnpj)})`:''}, concluiu com aproveitamento o treinamento</p>
   <p class="cert-nr">${esc(tn.l)}</p>
-  <p class="cert-txt" style="margin-top:2mm">${a.local?`realizado em ${esc(a.local)}, `:''}no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>`:''}.</p>
+  <p class="cert-txt" style="margin-top:2mm">${a.local?`realizado em ${esc(a.local)}, `:''}no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>${(a.cargaTeorica||a.cargaPratica)?` (${[a.cargaTeorica?esc(String(a.cargaTeorica))+'h teóricas':'',a.cargaPratica?esc(String(a.cargaPratica))+'h práticas':''].filter(Boolean).join(' + ')})`:''}`:''}.</p>
   <div class="cert-sigs">${certSig('Aluno / Colaborador',c.nome,'',a,'colabAssinaturaImg','colabAssinaturaData')}<div style="width:30mm;flex:none"></div>${certSig('Instrutor',a.instrutor,a.instrutorForm,a,'instrutorAssinaturaImg','instrutorAssinaturaData')}</div>
  </div></section>`;
  const back=`<section class="cert-sheet back">${certFrame(nrTag,false)}<div class="cert-in" style="inset:22mm 28mm 20mm">
@@ -2197,7 +2215,7 @@ function docCertificado(a){
   <div class="cert-kicker">${esc(tn.l)}${a.modalidade?' — '+esc(a.modalidade):''}</div>
   <table class="cert-back-t" style="margin-top:3mm">
    <tr><td class="k">Colaborador</td><td>${esc(c.nome||'—')}${c.cpf?' — CPF '+esc(c.cpf):''}</td><td class="k">Empresa</td><td>${esc(e.razao||'—')}${e.cnpj?' — '+esc(e.cnpj):''}</td></tr>
-   <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}</td></tr>
+   <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}${(a.cargaTeorica||a.cargaPratica)?` (${[a.cargaTeorica?esc(String(a.cargaTeorica))+'h teóricas':'',a.cargaPratica?esc(String(a.cargaPratica))+'h práticas':''].filter(Boolean).join(' + ')})`:''}</td></tr>
    <tr><td class="k">Válido até (reciclagem)</td><td>${a.validadeAte?fd(a.validadeAte):'—'}</td><td class="k">Instrutor</td><td>${esc(a.instrutor||'—')}${a.instrutorForm?' — '+esc(a.instrutorForm):''}</td></tr>
   </table>
   <h3 style="font:700 10pt Arial,sans-serif;color:#0B3B42;align-self:flex-start;margin:1mm 0 1mm">Conteúdo programático</h3>
@@ -2597,15 +2615,24 @@ ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.va
 treinEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsTrein(t.value),'','Selecione')},
 treinTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl.value];if(!tn)return;
  const modEl=$('#f_modalidade'),modalidade=modEl?modEl.value:'Formação inicial';
- const sugestao=trienCargaSugerida(tn,modalidade);
+ const sugestao=trienCargaSugerida(tn,modalidade),tp=trienTeoricaPraticaSugerida(tn,modalidade);
  const ch=$('#f_cargaHoraria');if(ch&&sugestao!=null)ch.value=sugestao;
+ const ct=$('#f_cargaTeorica');if(ct&&tp.teorica!=null)ct.value=tp.teorica;
+ const cp=$('#f_cargaPratica');if(cp&&tp.pratica!=null)cp.value=tp.pratica;
  const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;
  const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
+/* Soma a carga horária total a partir da teórica + prática, quando ao menos uma das duas estiver preenchida (sem travar edição manual depois) */
+treinCarga(){const ct=$('#f_cargaTeorica'),cp=$('#f_cargaPratica'),ch=$('#f_cargaHoraria');if(!ct||!cp||!ch)return;
+ const t=parseFloat(ct.value),p=parseFloat(cp.value);if(isNaN(t)&&isNaN(p))return;ch.value=(isNaN(t)?0:t)+(isNaN(p)?0:p)},
 loteEmp(t){const el=$('#f_colabIds');if(el)el.innerHTML=treinLoteChecksHtml(t.value)},
+loteCarga(){const ct=$('#f_cargaTeorica'),cp=$('#f_cargaPratica'),ch=$('#f_cargaHoraria');if(!ct||!cp||!ch)return;
+ const t=parseFloat(ct.value),p=parseFloat(cp.value);if(isNaN(t)&&isNaN(p))return;ch.value=(isNaN(t)?0:t)+(isNaN(p)?0:p)},
 loteTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl.value];if(!tn)return;
  const modEl=$('#f_modalidade'),modalidade=modEl?modEl.value:'Formação inicial';
- const sugestao=trienCargaSugerida(tn,modalidade);
+ const sugestao=trienCargaSugerida(tn,modalidade),tp=trienTeoricaPraticaSugerida(tn,modalidade);
  const ch=$('#f_cargaHoraria');if(ch&&sugestao!=null)ch.value=sugestao;
+ const ct=$('#f_cargaTeorica');if(ct&&tp.teorica!=null)ct.value=tp.teorica;
+ const cp=$('#f_cargaPratica');if(cp&&tp.pratica!=null)cp.value=tp.pratica;
  const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;
  const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
 nvl(){nvlUpd()},
