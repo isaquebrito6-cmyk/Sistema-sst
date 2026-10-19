@@ -926,6 +926,176 @@ function abrirEnt(kind,id,pre){
   if(del)del.onclick=()=>{rec.logo='';if(prev)prev.innerHTML=prevImg('')};
  },30);
 }
+/* ====================== IMPORTAÇÃO DE COLABORADORES (planilha) ====================== */
+/* Lê CSV ou XLSX inteiramente no navegador (sem backend): CSV com um parser próprio
+   (aceita vírgula ou ponto e vírgula, e campos entre aspas), XLSX com a biblioteca SheetJS
+   carregada só quando o modal abre, para não pesar a página em quem nunca usa isso. */
+const COLIMP_XLSX_URL='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+function colimpLoadXLSX(){
+ if(window.XLSX)return Promise.resolve();
+ if(window._xlsxLoading)return window._xlsxLoading;
+ window._xlsxLoading=new Promise((res,rej)=>{
+  const s=document.createElement('script');
+  s.src=COLIMP_XLSX_URL;s.onload=()=>res();s.onerror=()=>{window._xlsxLoading=null;rej(new Error('Falha ao carregar o leitor de planilhas Excel. Confira a conexão e tente novamente, ou exporte como CSV.'))};
+  document.head.appendChild(s);
+ });
+ return window._xlsxLoading;
+}
+function colimpParseCSV(text){
+ text=String(text||'').replace(/^﻿/,'');
+ const firstLine=text.split(/\r\n|\n|\r/)[0]||'';
+ let inQ=false,semi=0,comma=0;
+ for(const ch of firstLine){if(ch==='"')inQ=!inQ;else if(!inQ){if(ch===';')semi++;else if(ch===',')comma++}}
+ const delim=semi>=comma&&semi>0?';':(comma>0?',':';');
+ const rows=[];let row=[],field='',i=0,inQuotes=false;
+ while(i<text.length){
+  const c=text[i];
+  if(inQuotes){
+   if(c==='"'){if(text[i+1]==='"'){field+='"';i+=2;continue}inQuotes=false;i++;continue}
+   field+=c;i++;continue;
+  }else{
+   if(c==='"'){inQuotes=true;i++;continue}
+   if(c===delim){row.push(field);field='';i++;continue}
+   if(c==='\r'){i++;continue}
+   if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++;continue}
+   field+=c;i++;continue;
+  }
+ }
+ if(field!==''||row.length){row.push(field);rows.push(row)}
+ return rows.filter(r=>r.some(x=>String(x).trim()!==''));
+}
+/* Campos do colaborador que podem vir de uma coluna da planilha (mesmas chaves do formulário manual, em ENT.colaborador) */
+const COLIMP_FIELDS=[
+ {k:'nome',l:'Nome completo',req:1,al:['nome','nome completo','colaborador','funcionario','funcionário','nome do colaborador','nome do funcionario']},
+ {k:'cpf',l:'CPF',al:['cpf']},
+ {k:'nasc',l:'Data de nascimento',al:['nascimento','data de nascimento','dt nascimento','data nasc','data de nasc']},
+ {k:'sexo',l:'Sexo',al:['sexo','genero','gênero']},
+ {k:'admissao',l:'Data de admissão',al:['admissao','admissão','data de admissao','data de admissão','data admissao','dt admissao']},
+ {k:'funcao',l:'Função / cargo',req:1,al:['funcao','função','cargo','funcao/cargo','função/cargo']},
+ {k:'setor',l:'Setor / GHE',req:1,al:['setor','departamento','ghe','setor/ghe','setor / ghe']},
+ {k:'demissao',l:'Data de desligamento',al:['demissao','demissão','desligamento','data de desligamento','data de demissao']},
+ {k:'matricula',l:'Matrícula',al:['matricula','matrícula','registro']},
+ {k:'pis',l:'PIS/PASEP/NIT',al:['pis','pasep','nit','pis/pasep/nit']},
+ {k:'telefone',l:'Telefone',al:['telefone','celular','fone','tel']},
+ {k:'email',l:'E-mail',al:['email','e-mail','mail']},
+ {k:'status',l:'Situação',al:['situacao','situação','status']}
+];
+const colimpFieldOpts=sel=>'<option value="">Não importar esta coluna</option>'+COLIMP_FIELDS.map(f=>`<option value="${f.k}" ${sel===f.k?'selected':''}>${esc(f.l)}</option>`).join('');
+const colimpAutoMap=headers=>headers.map(h=>{const n=norm(h);const f=COLIMP_FIELDS.find(f=>f.al.some(a=>norm(a)===n));return f?f.k:''});
+/* aceita yyyy-mm-dd (já ISO) ou dd/mm/aaaa (planilha BR); qualquer outra coisa é descartada, já que as datas não são obrigatórias */
+function colimpData(v){
+ v=String(v||'').trim();if(!v)return '';
+ if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);
+ const m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+ if(m)return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+ return '';
+}
+function colimpSexo(v){const n=norm(v);if(n.startsWith('f'))return 'Feminino';if(n.startsWith('m'))return 'Masculino';return ''}
+function colimpStatus(v){const n=norm(v);if(n.startsWith('afast'))return 'Afastado';if(n.startsWith('deslig'))return 'Desligado';if(n.startsWith('ativ'))return 'Ativo';return ''}
+function abrirColaboradorImport(){
+ const state={empresaId:S.role==='empresa'?S.rid:(S.fEmp||S.emp||((empOpts()[0]||[])[0]||'')),fileName:'',headers:[],rows:[],mapping:[],loading:false,error:''};
+ function computeRows(){
+  const jaCadastrados=new Set(L('colaboradores').filter(c=>c.empresaId===state.empresaId).map(c=>String(c.cpf||'').replace(/\D/g,'')).filter(Boolean));
+  const vistosNaPlanilha=new Set();
+  return state.rows.map(raw=>{
+   const mapped={};
+   state.headers.forEach((h,i)=>{const k=state.mapping[i];if(k&&!mapped[k])mapped[k]=String(raw[i]==null?'':raw[i]).trim()});
+   if(mapped.nasc)mapped.nasc=colimpData(mapped.nasc);
+   if(mapped.admissao)mapped.admissao=colimpData(mapped.admissao);
+   if(mapped.demissao)mapped.demissao=colimpData(mapped.demissao);
+   if(mapped.sexo)mapped.sexo=colimpSexo(mapped.sexo);
+   mapped.status=colimpStatus(mapped.status)||'Ativo';
+   const errors=[];
+   if(!mapped.nome)errors.push('nome é obrigatório');
+   if(!mapped.funcao)errors.push('função é obrigatória');
+   if(!mapped.setor)errors.push('setor é obrigatório');
+   if(mapped.cpf&&!validaCPF(mapped.cpf))errors.push('CPF inválido');
+   const warnings=[];
+   const cpfDigits=mapped.cpf?mapped.cpf.replace(/\D/g,''):'';
+   if(cpfDigits&&jaCadastrados.has(cpfDigits))warnings.push('CPF já cadastrado nesta empresa');
+   if(cpfDigits&&vistosNaPlanilha.has(cpfDigits))warnings.push('CPF repetido na planilha');
+   if(cpfDigits)vistosNaPlanilha.add(cpfDigits);
+   return{raw,mapped,errors,warnings};
+  });
+ }
+ function wire(){
+  const fEmp=$('#imp_emp');if(fEmp)fEmp.onchange=()=>{state.empresaId=fEmp.value;renderModal()};
+  const fFile=$('#imp_file');if(fFile)fFile.onchange=()=>handleFile(fFile.files[0]);
+  const bModelo=$('#imp_modelo');if(bModelo)bModelo.onclick=baixarModelo;
+  document.querySelectorAll('[data-mapcol]').forEach(sel=>{sel.onchange=()=>{state.mapping[+sel.dataset.mapcol]=sel.value;renderModal()}});
+  const bConf=$('#imp_confirmar');if(bConf)bConf.onclick=confirmar;
+ }
+ async function handleFile(file){
+  if(!file)return;
+  state.error='';state.loading=true;state.fileName=file.name;state.headers=[];state.rows=[];renderModal();
+  try{
+   let rows;
+   if(/\.xlsx?$/i.test(file.name)){
+    await colimpLoadXLSX();
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}).map(r=>r.map(x=>String(x==null?'':x)));
+   }else{
+    rows=colimpParseCSV(await file.text());
+   }
+   rows=rows.filter(r=>r.some(x=>String(x).trim()!==''));
+   if(!rows.length)throw new Error('Não encontrei linhas com dados nessa planilha.');
+   state.headers=rows[0].map(h=>String(h||'').trim());
+   state.rows=rows.slice(1);
+   state.mapping=colimpAutoMap(state.headers);
+  }catch(e){
+   console.error(e);
+   state.error=e&&e.message?e.message:'Não foi possível ler o arquivo.';
+   state.headers=[];state.rows=[];
+  }
+  state.loading=false;renderModal();
+ }
+ function baixarModelo(){
+  const headers=COLIMP_FIELDS.map(f=>f.l);
+  const exemplo=['João da Silva','123.456.789-00','15/03/1990','Masculino','01/06/2024','Operador de produção','Produção','','1234','12345678901','(11) 98888-7777','joao@empresa.com.br','Ativo'];
+  saveAs('modelo-importacao-colaboradores.csv',toCSV(headers,[exemplo]));
+ }
+ function confirmar(){
+  if(!state.empresaId){toast('Selecione a empresa.');return}
+  const rowsData=computeRows();
+  const validas=rowsData.filter(r=>!r.errors.length);
+  if(!validas.length){toast('Nenhuma linha válida para importar. Confira o mapeamento das colunas.',4500);return}
+  validas.forEach(r=>{
+   const m=r.mapped;
+   save('colaboradores',{empresaId:S.role==='empresa'?S.rid:state.empresaId,status:m.status||'Ativo',nome:m.nome,cpf:m.cpf?mask.cpf(m.cpf):'',nasc:m.nasc||'',sexo:m.sexo||'',admissao:m.admissao||'',funcao:m.funcao,setor:m.setor,demissao:m.demissao||'',matricula:m.matricula||'',pis:m.pis||'',telefone:m.telefone?mask.tel(m.telefone):'',email:m.email||''},true);
+  });
+  const skipped=rowsData.length-validas.length;
+  closeForm();render();
+  toast(validas.length+' colaborador(es) importado(s)'+(skipped?', '+skipped+' linha(s) ignorada(s) por campo obrigatório faltando ou CPF inválido.':'.'),6500);
+ }
+ function renderModal(){
+  const empPicker=S.role==='empresa'?'':`<div class="fld w4"><label for="imp_emp">Empresa</label><select id="imp_emp">${opts(empOpts(),state.empresaId,'Selecione')}</select></div>`;
+  let body=`<p class="muted sm" style="margin-top:0">Envie uma planilha (CSV ou Excel) com os colaboradores em vez de cadastrar um a um. O sistema tenta reconhecer as colunas sozinho — confira o mapeamento e a pré-visualização antes de confirmar.</p>
+  <div class="fg">${empPicker}<div class="fld w4"><label for="imp_file">Arquivo (.csv, .xlsx)</label><input type="file" id="imp_file" accept=".csv,.xlsx,.xls,text/csv"></div><div class="fld w2" style="align-self:flex-end"><button type="button" class="btn s g" id="imp_modelo">${ic('down')}Baixar modelo</button></div></div>`;
+  if(state.error)body+=`<p class="sm" style="color:#b42318">${esc(state.error)}</p>`;
+  if(state.loading)body+=`<p class="muted sm">Lendo arquivo…</p>`;
+  let validCount=0;
+  if(state.headers.length){
+   const rowsData=computeRows();
+   validCount=rowsData.filter(r=>!r.errors.length).length;
+   body+=`<div class="sec">Mapeamento das colunas — ${esc(state.fileName)}</div>
+   <div class="fg">${state.headers.map((h,i)=>`<div class="fld w3"><label>${esc(h||'(sem título)')}</label><select data-mapcol="${i}">${colimpFieldOpts(state.mapping[i])}</select></div>`).join('')}</div>
+   <div class="sec">Pré-visualização — ${state.rows.length} linha(s), ${validCount} pronta(s) para importar</div>
+   <div style="overflow:auto;max-height:320px">${tbl([
+     {h:'Situação',f:r=>r.errors.length?`<span class="chip crit">${esc(r.errors.join('; '))}</span>`:(r.warnings.length?`<span class="chip med">${esc(r.warnings.join('; '))}</span>`:'<span class="chip low">Pronto</span>')},
+     {h:'Nome',f:r=>esc(r.mapped.nome||'—')},
+     {h:'CPF',f:r=>esc(r.mapped.cpf||'—')},
+     {h:'Função',f:r=>esc(r.mapped.funcao||'—')},
+     {h:'Setor',f:r=>esc(r.mapped.setor||'—')},
+     {h:'Admissão',f:r=>esc(r.mapped.admissao?fd(r.mapped.admissao):'—')}
+    ],rowsData)}</div>`;
+  }
+  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:920px" role="dialog" aria-modal="true" aria-label="Importar colaboradores"><header><h2>Importar colaboradores</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">${body}</div><footer><button type="button" class="btn" data-a="closeForm">Cancelar</button>${state.headers.length?`<button type="button" class="btn p" id="imp_confirmar">${ic('plus')}Importar ${validCount} colaborador(es)</button>`:''}</footer></div></div>`;
+  wire();
+ }
+ renderModal();
+}
 function abrirRiscoLote(empId){
  const setoresExistentes=distVals(empId,'setor');
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:720px" role="dialog" aria-modal="true"><header><h2>Adicionar vários riscos de uma vez</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
@@ -1669,9 +1839,9 @@ VIEWS.colaboradores=()=>{
  const q=norm(S.q);let l=L('colaboradores');if(S.role==='empresa')l=l.filter(c=>c.empresaId===S.rid);
  if(isC()&&S.fEmp)l=l.filter(c=>c.empresaId===S.fEmp);
  l=l.filter(c=>!q||norm(c.nome+' '+c.cpf+' '+c.funcao+' '+c.setor).includes(q)).sort(byN);
- return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por nome, CPF, função ou setor" value="${esc(S.q)}" data-c="q">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}${(S.fEmp||!isC())?`<button class="btn g" data-a="expCol" data-id="${S.fEmp||S.rid}">${ic('down')}CSV</button>`:''}<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button></div>`+
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por nome, CPF, função ou setor" value="${esc(S.q)}" data-c="q">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}${(S.fEmp||!isC())?`<button class="btn g" data-a="expCol" data-id="${S.fEmp||S.rid}">${ic('down')}CSV</button>`:''}<button class="btn s" data-a="newColabImport">${ic('plus')}Importar colaboradores</button><button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button></div>`+
  (l.length?tbl([{h:'Nome',f:c=>`<a href="#" data-a="ficha" data-id="${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a><br><span class="muted sm">${esc(c.cpf||'')}</span>`},{h:'Empresa',f:c=>esc(nEmp(c.empresaId))},{h:'Função / setor',f:c=>esc((c.funcao||'')+(c.setor?' · '+c.setor:''))},{h:'Riscos (PGR)',f:c=>{const rs=riscosDoColab(c);return rs.length?`<span class="chip low">${rs.length} vinculado(s)</span>`:'<span class="chip high">sem risco</span>'}},{h:'Próximo exame',f:c=>{const p=proximo(c);return p?`<span class="chip ${dias(p)<0?'crit':dias(p)<=60?'med':'low'}">${fd(p)}</span>`:'<span class="chip gray">sem ASO</span>'}},{h:'Situação',f:c=>c.status==='Ativo'?'Ativo':`<span class="chip gray">${esc(c.status)}</span>`},{h:'',a:1,f:c=>`<button class="btn s p" data-a="ficha" data-id="${c.id}">Ficha e exames</button> <button class="btn s g" data-a="edit" data-e="colaborador" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delCol" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
- :emptyBox('Nenhum colaborador','Cadastre os colaboradores com função e setor: é isso que liga cada pessoa aos exames do PCMSO.',`<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button>`,'users'));
+ :emptyBox('Nenhum colaborador','Cadastre os colaboradores com função e setor: é isso que liga cada pessoa aos exames do PCMSO.',`<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button> <button class="btn s" data-a="newColabImport">${ic('plus')}Importar colaboradores</button>`,'users'));
 };
 VIEWS.clinicas=()=>{
  const l=L('clinicas').sort(byN);
@@ -2451,6 +2621,7 @@ fichaEpi(d){const c=G('colaboradores',d.id);abrirEpi(null,{empresaId:c.empresaId
 fichaPt(d){const c=G('colaboradores',d.id);abrirPt(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaTrein(d){const c=G('colaboradores',d.id);abrirTreinamento(null,{empresaId:c.empresaId,colabId:c.id})},
 expCol(d){exportColaboradores(d.id)},expRiscos(d){exportRiscos(d.id)},expAcoes(d){exportAcoes(d.id)},
+newColabImport(){abrirColaboradorImport()},
 resumoSemana(){openDoc({title:'Resumo da semana',html:docResumoSemana(),filename:'resumo-semana-'+today()+'.html',assunto:'Resumo semanal de pendências',corpo:'Segue o resumo semanal de exames e ações pendentes.'})},
 irClinicas(){closeForm();S.view='clinicas';render();setTimeout(()=>abrirEnt('clinica'),30)},
 solTodos(){mostrarTodosExames()},
