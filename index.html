@@ -2043,27 +2043,27 @@ const DOC_CSS=`
 .cert-in{position:absolute;inset:24mm 30mm 22mm;display:flex;flex-direction:column;align-items:center;text-align:center}
 .cert-logo{height:17mm;display:flex;align-items:center;justify-content:center;gap:8mm;margin-bottom:2mm}
 .cert-logo img{max-height:17mm;max-width:60mm;object-fit:contain}
-.cert-kicker{font:600 10.5pt Arial,sans-serif;letter-spacing:.32em;text-transform:uppercase;color:#8A6A1F}
-.paper h1.cert-title{font:700 46pt Georgia,'Times New Roman',serif;letter-spacing:.14em;margin:1mm 0 0;line-height:1.1;color:#0B3B42}
-.cert-title{font:700 48pt Georgia,serif;letter-spacing:.14em;color:#0B3B42;margin:1mm 0 0;line-height:1.1;text-transform:uppercase}
-.cert-sub{font:italic 21pt Georgia,serif;color:#B07F12;margin:0 0 7mm}
+.cert-kicker{font:600 10.5pt Arial,sans-serif;letter-spacing:.32em;text-transform:uppercase;color:#8A6300}
+.paper h1.cert-title{font:700 46pt Georgia,'Times New Roman',serif;letter-spacing:.14em;margin:1mm 0 0;line-height:1.1;color:#0B5560;background:linear-gradient(100deg,#0B5560 0%,#1E8E4F 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cert-title{font:700 48pt Georgia,serif;letter-spacing:.14em;color:#0B5560;background:linear-gradient(100deg,#0B5560 0%,#1E8E4F 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:1mm 0 0;line-height:1.1;text-transform:uppercase}
+.cert-sub{font:italic 21pt Georgia,serif;color:#8A6300;margin:0 0 7mm}
 .paper p.cert-txt,.paper p.cert-nr{text-align:center;margin:0}
 .paper p.cert-nr{margin:5mm 0 0}
 .paper p.cert-prog{text-align:justify}
 .cert-txt{font:15pt/1.8 Georgia,serif;margin:0;max-width:210mm;text-align:center}
-.cert-txt b{color:#0B3B42}
-.cert-nr{font:700 24pt Georgia,serif;color:#0B3B42;margin:5mm 0 0}
+.cert-txt b{color:#0B5560}
+.cert-nr{font:700 24pt Georgia,serif;color:#0B5560;margin:5mm 0 0}
 .cert-sigs{margin-top:auto;width:100%;display:flex;justify-content:space-between;gap:50mm;padding:0 6mm}
 .cert-sigs.back{justify-content:space-around}
 .cs{flex:1;text-align:center;font:9pt/1.35 Arial,sans-serif;min-width:0}
-.cs .ln{height:16mm;display:flex;align-items:flex-end;justify-content:center;border-bottom:.8pt solid #0B3B42}
+.cs .ln{height:16mm;display:flex;align-items:flex-end;justify-content:center;border-bottom:.8pt solid #0B5560}
 .cs .ln img{max-height:15mm;max-width:70mm}
-.cs b{display:block;margin-top:1.5mm;font-size:10pt;color:#0B3B42}
+.cs b{display:block;margin-top:1.5mm;font-size:10pt;color:#0B5560}
 .cs span{display:block;color:#555}
-.cert-back-h{font:700 13pt Georgia,serif;color:#0B3B42;letter-spacing:.12em;text-transform:uppercase;margin:0 0 1mm}
+.cert-back-h{font:700 13pt Georgia,serif;color:#0B5560;letter-spacing:.12em;text-transform:uppercase;margin:0 0 2mm;padding-bottom:1.5mm;border-bottom:1.2pt solid;border-image:linear-gradient(90deg,#0B5560,#1E8E4F) 1;display:inline-block;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .cert-back-t{width:100%;border-collapse:collapse;font:9pt/1.35 Arial,sans-serif;margin:3mm 0;text-align:left}
-.cert-back-t td{padding:2.2pt 5pt;border:.6pt solid #C9B27A;vertical-align:top}
-.cert-back-t td.k{background:#F6EFD9;font-weight:700;width:30%;color:#0B3B42}
+.cert-back-t td{padding:2.2pt 5pt;border:.6pt solid #BFDAC6;vertical-align:top}
+.cert-back-t td.k{background:#E9F4EC;font-weight:700;width:30%;color:#0B5560}
 .cert-prog{font:9.5pt/1.5 Arial,sans-serif;text-align:justify;width:100%;margin:0}
 .cert-foot{font:7.5pt Arial,sans-serif;color:#777;margin-top:2mm}
 @media screen and (max-width:1250px){.cert-sheet{zoom:.78}}
@@ -2331,32 +2331,36 @@ function docEpi(a){
 /* ---------- Certificado de treinamento de NR (paisagem A4, frente e verso, para imprimir e emoldurar) ---------- */
 /* Ícones temáticos (desenho próprio) desenhados em 0,0, raio ~8, traço azul/dourado */
 const CERT_ICONS={
- nr6:'<path d="M-6-1a6 6 0 0 1 12 0v2h-12z" fill="#B07F12"/><rect x="-7.5" y="1" width="15" height="2" rx=".8" fill="#0B3B42"/><rect x="-1" y="-6.5" width="2" height="3.5" fill="#0B3B42"/>',
- nr10b:'<path d="M1.6-8L-4 1h3.4L-1.6 8 4-1H.6z" fill="#B07F12" stroke="#0B3B42" stroke-width=".5" stroke-linejoin="round"/>',
- nr11:'<path d="M-7-6v11M-7 5h5" stroke="#0B3B42" stroke-width="1.3" fill="none"/><path d="M-5-3h8M-5 1h8" stroke="#B07F12" stroke-width="1.5"/><circle cx="-3" cy="6.2" r="1.4" fill="#0B3B42"/><circle cx="4" cy="6.2" r="1.4" fill="#0B3B42"/><path d="M-2 5h8" stroke="#0B3B42" stroke-width="1"/>',
- nr12:'<g fill="#B07F12" stroke="#0B3B42" stroke-width=".5"><circle r="4.6"/>'+[0,45,90,135,180,225,270,315].map(a=>`<rect x="-1.3" y="-7.6" width="2.6" height="3.2" transform="rotate(${a})"/>`).join('')+'</g><circle r="1.9" fill="#FFFEF8" stroke="#0B3B42" stroke-width=".5"/>',
- nr18:'<path d="M-7 7V-1L0-7l7 6v8z" fill="#FFFEF8" stroke="#0B3B42" stroke-width="1"/><path d="M-7 7h14M-3.5 7V1h7v6" stroke="#B07F12" stroke-width="1" fill="none"/><path d="M-7-1h14" stroke="#B07F12" stroke-width=".8"/>',
- nr20:'<path d="M0-8C1.5-4 5-2.6 5 2a5 5 0 0 1-10 0c0-2 1-3.200 2-4.200.2 1.700 1 2.300 1.800 2.300C1-2.700-1-5 0-8z" fill="#B07F12" stroke="#0B3B42" stroke-width=".6" stroke-linejoin="round"/><path d="M0 1c1.400 1.200 2 2 2 3a2 2 0 0 1-4 0c0-1 .8-1.800 2-3z" fill="#FFFEF8"/>',
- nr33:'<circle r="7" fill="none" stroke="#0B3B42" stroke-width="1.6"/><circle r="4.200" fill="none" stroke="#B07F12" stroke-width="1.2"/><path d="M-2.500 0h5M0-2.500v5" stroke="#0B3B42" stroke-width="1"/>',
- nr34:'<path d="M-7 2h14l-2.500 4h-9z" fill="#0B3B42"/><path d="M0 2V-6l5 7.500z" fill="#B07F12"/><path d="M-1-6v8" stroke="#0B3B42" stroke-width=".9"/><path d="M-8 7.500q2-1.500 4 0t4 0 4 0 4 0" fill="none" stroke="#B07F12" stroke-width=".8"/>',
- nr35:'<circle cx="0" cy="-5.500" r="2" fill="#0B3B42"/><path d="M0-3.500v6M-3.500-1.500L0-.5l3.500-1M-2.500 7L0 2.500 2.500 7" fill="none" stroke="#0B3B42" stroke-width="1.300" stroke-linecap="round" stroke-linejoin="round"/><path d="M-6-7.500h12" stroke="#B07F12" stroke-width="1.300"/><path d="M0-7.500v2" stroke="#B07F12" stroke-width=".9"/>'
+ nr6:'<path d="M-6-1a6 6 0 0 1 12 0v2h-12z" fill="#A87B00"/><rect x="-7.5" y="1" width="15" height="2" rx=".8" fill="#0B5560"/><rect x="-1" y="-6.5" width="2" height="3.5" fill="#0B5560"/>',
+ nr10b:'<path d="M1.6-8L-4 1h3.4L-1.6 8 4-1H.6z" fill="#A87B00" stroke="#0B5560" stroke-width=".5" stroke-linejoin="round"/>',
+ nr11:'<path d="M-7-6v11M-7 5h5" stroke="#0B5560" stroke-width="1.3" fill="none"/><path d="M-5-3h8M-5 1h8" stroke="#A87B00" stroke-width="1.5"/><circle cx="-3" cy="6.2" r="1.4" fill="#0B5560"/><circle cx="4" cy="6.2" r="1.4" fill="#0B5560"/><path d="M-2 5h8" stroke="#0B5560" stroke-width="1"/>',
+ nr12:'<path d="M-3-2v-2.3a3 3 0 0 1 6 0v2.3" fill="none" stroke="#0B5560" stroke-width="1.3"/><rect x="-4.6" y="-2" width="9.2" height="7.6" rx="1.3" fill="#A87B00" stroke="#0B5560" stroke-width=".5"/><circle cx="0" cy="1.1" r="1.1" fill="#0B5560"/><rect x="-.5" y="1.1" width="1" height="2.3" fill="#0B5560"/>',
+ nr18:'<path d="M-7 7V-1L0-7l7 6v8z" fill="#FFFEF8" stroke="#0B5560" stroke-width="1"/><path d="M-7 7h14M-3.5 7V1h7v6" stroke="#A87B00" stroke-width="1" fill="none"/><path d="M-7-1h14" stroke="#A87B00" stroke-width=".8"/>',
+ nr20:'<path d="M0-8C1.5-4 5-2.6 5 2a5 5 0 0 1-10 0c0-2 1-3.200 2-4.200.2 1.700 1 2.300 1.800 2.300C1-2.700-1-5 0-8z" fill="#A87B00" stroke="#0B5560" stroke-width=".6" stroke-linejoin="round"/><path d="M0 1c1.400 1.200 2 2 2 3a2 2 0 0 1-4 0c0-1 .8-1.800 2-3z" fill="#FFFEF8"/>',
+ nr33:'<circle r="7" fill="none" stroke="#0B5560" stroke-width="1.6"/><circle r="4.200" fill="none" stroke="#A87B00" stroke-width="1.2"/><path d="M-2.500 0h5M0-2.500v5" stroke="#0B5560" stroke-width="1"/>',
+ nr34:'<path d="M-7 2h14l-2.500 4h-9z" fill="#0B5560"/><path d="M0 2V-6l5 7.500z" fill="#A87B00"/><path d="M-1-6v8" stroke="#0B5560" stroke-width=".9"/><path d="M-8 7.500q2-1.500 4 0t4 0 4 0 4 0" fill="none" stroke="#A87B00" stroke-width=".8"/>',
+ nr35:'<circle cx="0" cy="-5.500" r="2" fill="#0B5560"/><path d="M0-3.500v6M-3.500-1.500L0-.5l3.500-1M-2.500 7L0 2.500 2.500 7" fill="none" stroke="#0B5560" stroke-width="1.300" stroke-linecap="round" stroke-linejoin="round"/><path d="M-6-7.500h12" stroke="#A87B00" stroke-width="1.300"/><path d="M0-7.500v2" stroke="#A87B00" stroke-width=".9"/>'
 };
 CERT_ICONS.nr10sep=CERT_ICONS.nr10b;
 CERT_ICONS.nr33_trab=CERT_ICONS.nr33;CERT_ICONS.nr33_sup=CERT_ICONS.nr33;
 CERT_ICONS.nr11_empilhadeira=CERT_ICONS.nr11;CERT_ICONS.nr11_carrinho=CERT_ICONS.nr11;
 CERT_ICONS.nr35_plataforma=CERT_ICONS.nr35;
 function certFrame(nrTag,seal,tipo){
- const burst=(cx,cy,ro,ri,n)=>{let p='';for(let i=0;i<n*2;i++){const r=i%2?ri:ro,a=Math.PI*i/n-Math.PI/2;p+=(cx+r*Math.cos(a)).toFixed(2)+','+(cy+r*Math.sin(a)).toFixed(2)+' '}return p};
- const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#B07F12" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#B07F12" stroke-width=".45"/><circle cx="0" cy="0" r="1.6" fill="#B07F12"/><circle cx="-7" cy="0" r=".9" fill="#0B3B42"/><circle cx="7" cy="0" r=".9" fill="#0B3B42"/></g>`;
+ const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#A87B00" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#A87B00" stroke-width=".45"/><circle cx="0" cy="0" r="1.6" fill="#C05600"/><circle cx="-7" cy="0" r=".9" fill="#0B5560"/><circle cx="7" cy="0" r=".9" fill="#1E8E4F"/></g>`;
  return `<svg class="cf" viewBox="0 0 297 210" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs>
+<linearGradient id="certFrameGrad" x1="0" y1="0" x2="297" y2="210" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0B5560"/><stop offset="1" stop-color="#1E8E4F"/></linearGradient>
+<linearGradient id="certTitleGrad" x1="0" y1="0" x2="297" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0B5560"/><stop offset="1" stop-color="#1E8E4F"/></linearGradient>
+<radialGradient id="certSealGrad" cx="32%" cy="28%" r="78%"><stop offset="0" stop-color="#2AA868"/><stop offset="1" stop-color="#0B5560"/></radialGradient>
+</defs>
 <rect width="297" height="210" fill="#FFFEF8"/>
-<circle cx="148.5" cy="105" r="74" fill="none" stroke="#B07F12" stroke-opacity=".1" stroke-width="1.2"/><circle cx="148.5" cy="105" r="68" fill="none" stroke="#0B3B42" stroke-opacity=".07" stroke-width=".6"/>
-<text x="148.5" y="122" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?46:62}" fill="#0B3B42" fill-opacity=".055">${esc(nrTag)}</text>
-<rect x="6" y="6" width="285" height="198" fill="none" stroke="#0B3B42" stroke-width="2.4"/>
-<rect x="9" y="9" width="279" height="192" fill="none" stroke="#B07F12" stroke-width=".7"/>
-<rect x="11.5" y="11.5" width="274" height="187" fill="none" stroke="#0B3B42" stroke-width=".3"/>
+<circle cx="148.5" cy="105" r="74" fill="none" stroke="#1E8E4F" stroke-opacity=".12" stroke-width="1.2"/><circle cx="148.5" cy="105" r="68" fill="none" stroke="#0B5560" stroke-opacity=".08" stroke-width=".6"/>
+<text x="148.5" y="122" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?46:62}" fill="#0B5560" fill-opacity=".055">${esc(nrTag)}</text>
+<rect x="6" y="6" width="285" height="198" fill="none" stroke="url(#certFrameGrad)" stroke-width="2.6"/>
+<rect x="9.4" y="9.4" width="278.2" height="191.2" fill="none" stroke="#A87B00" stroke-width=".7"/>
+<rect x="11.9" y="11.9" width="273.2" height="186.2" fill="none" stroke="#0B5560" stroke-width=".3" stroke-opacity=".5"/>
 ${flourish(17,false)}${flourish(193,true)}
-${seal?`<g transform="translate(148.5 172) scale(1.22)"><polygon points="${burst(0,0,15,12.8,24)}" fill="#B07F12"/><circle r="11" fill="#FFFEF8" stroke="#0B3B42" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#B07F12" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B3B42">${esc(nrTag)}</text></g>`:''}
+${seal?`<g transform="translate(148.5 172) scale(1.22)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
 </svg>`;
 }
 function certSig(label,name,sub,a,imgKey,dataKey){
@@ -2388,7 +2392,7 @@ function docCertificado(a){
    <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}${(a.cargaTeorica||a.cargaPratica)?` (${[a.cargaTeorica?esc(String(a.cargaTeorica))+'h teóricas':'',a.cargaPratica?esc(String(a.cargaPratica))+'h práticas':''].filter(Boolean).join(' + ')})`:''}</td></tr>
    <tr><td class="k">Válido até (reciclagem)</td><td>${a.validadeAte?fd(a.validadeAte):'—'}</td><td class="k">Instrutor</td><td>${esc(a.instrutor||'—')}${a.instrutorForm?' — '+esc(a.instrutorForm):''}</td></tr>
   </table>
-  <h3 style="font:700 10pt Arial,sans-serif;color:#0B3B42;align-self:flex-start;margin:1mm 0 1mm">Conteúdo programático</h3>
+  <h3 style="font:700 10pt Arial,sans-serif;color:#0B5560;align-self:flex-start;margin:1mm 0 1mm">Conteúdo programático</h3>
   <p class="cert-prog">${a.conteudo?nl(a.conteudo):'<span class="blank l"></span>'}</p>
   ${a.obs?`<p class="cert-prog" style="margin-top:2mm"><b>Observações:</b> ${nl(a.obs)}</p>`:''}
   <div class="cert-sigs back">${certSig('Responsável técnico',a.respTecnico,a.respTecnicoForm,a,'respTecAssinaturaImg','respTecAssinaturaData')}${certSig('Responsável pela empresa',a.respEmpresa,'',a,'respEmpAssinaturaImg','respEmpAssinaturaData')}</div>
