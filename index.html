@@ -834,7 +834,8 @@ colaborador:{col:'colaboradores',t:'colaborador',f:()=>[
  {k:'nasc',l:'Data de nascimento',t:'date',w:2},{k:'sexo',l:'Sexo',t:'select',o:['Feminino','Masculino'],ph:'—',w:2},{k:'admissao',l:'Data de admissão',t:'date',w:2},
  {k:'funcao',l:'Função / cargo',r:1,w:3},{k:'setor',l:'Setor / GHE',w:3},{k:'demissao',l:'Data de desligamento (se houver)',t:'date',w:2,h:'Usada no PPP como fim do período.'},
  {k:'matricula',l:'Matrícula',w:2,h:'Opcional, usada no PPP.'},{k:'pis',l:'PIS/PASEP/NIT',w:2,h:'Opcional, usada no PPP.'},
- {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:3}]},
+ {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:3},
+ {t:'html',w:3,html:`<label>Foto (aparece na carteirinha de operador)</label><div id="colFotoPrev"></div><div class="row" style="gap:8px;margin-top:6px"><button type="button" class="btn s g" id="colFotoBtn">Enviar</button><button type="button" class="btn s g d" id="colFotoDel">Remover</button></div><input type="file" id="colFotoFile" accept="image/*" hidden><small>Opcional. Usada na carteirinha de operador (NR-12, NR-11, NR-35 etc). Sem foto, a carteirinha mostra um espaço reservado.</small>`}]},
 acao:{col:'acoes',t:'ação',f:()=>[
  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'status',l:'Situação',t:'select',o:['Pendente','Em andamento','Concluída'],w:3},
  {k:'acao',l:'Ação / medida de prevenção',r:1,t:'textarea'},
@@ -925,6 +926,29 @@ function abrirEnt(kind,id,pre){
    r.readAsDataURL(f);
   };
   if(del)del.onclick=()=>{rec.logo='';if(prev)prev.innerHTML=prevImg('')};
+ },30);
+ if(kind==='colaborador')setTimeout(()=>{
+  const btn=$('#colFotoBtn'),fi=$('#colFotoFile'),del=$('#colFotoDel'),prev=$('#colFotoPrev');
+  const prevImg=u=>u?`<img src="${u}" style="width:64px;height:84px;object-fit:cover;border:1px solid var(--bd);border-radius:6px">`:'<span class="sm muted">Sem foto</span>';
+  if(prev)prev.innerHTML=prevImg(rec.foto);
+  if(btn&&fi)btn.onclick=()=>fi.click();
+  if(fi)fi.onchange=()=>{
+   const f=fi.files[0];if(!f)return;
+   const r=new FileReader();
+   r.onload=()=>{const im=new Image();im.onload=()=>{
+    // recorta em 3:4 (retrato), centralizado, redimensiona para no máx. 400px de altura — mesmo padrão de compressão usado no logotipo
+    const srcAr=im.width/im.height,dstAr=3/4;
+    let sx=0,sy=0,sw=im.width,sh=im.height;
+    if(srcAr>dstAr){sw=im.height*dstAr;sx=(im.width-sw)/2}else{sh=im.width/dstAr;sy=(im.height-sh)/2}
+    const dh=Math.min(400,sh),dw=dh*dstAr;
+    const cv=document.createElement('canvas');cv.width=dw;cv.height=dh;
+    cv.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,dw,dh);
+    let u=cv.toDataURL('image/jpeg',.85);
+    rec.foto=u;if(prev)prev.innerHTML=prevImg(u);toast('Foto carregada. Salve o formulário para confirmar.');
+   };im.src=r.result};
+   r.readAsDataURL(f);
+  };
+  if(del)del.onclick=()=>{rec.foto='';if(prev)prev.innerHTML=prevImg('')};
  },30);
 }
 /* ====================== IMPORTAÇÃO DE COLABORADORES (planilha) ====================== */
@@ -2094,6 +2118,7 @@ const DOC_CSS=`
 .idcard .ic-row{display:flex;gap:2mm;flex:1;min-height:0}
 .idcard .ic-photo{width:14mm;flex:none;display:flex;flex-direction:column;gap:.8mm}
 .idcard .ic-photo .ph{width:14mm;height:16.5mm;border:.7pt solid #B9C6C8;border-radius:1mm;background:#EEF3F3;display:flex;align-items:center;justify-content:center;font-size:5.6pt;color:#889;text-align:center}
+.idcard .ic-photo .ph.foto{object-fit:cover;display:block}
 .idcard .ic-swatch{display:flex;align-items:flex-start;gap:1mm}
 .idcard .ic-swatch i{width:2.3mm;height:2.3mm;border-radius:.6mm;flex:none;margin-top:.3mm}
 .idcard .ic-swatch div{font-size:3.9pt;line-height:1.25;color:#556}
@@ -2466,21 +2491,21 @@ function docCertificado(a){
    cartão de altura dos de máquinas/equipamentos, o sistema usa um azul próprio — convenção interna deste sistema, não
    uma cor oficial da NR-26. */
 const NR26_CAT={
- nr11_empilhadeira:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#C05600'},
- nr11_carrinho:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#C05600'},
- nr12:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#C05600'},
- nr35_plataforma:{nome:'Azul (cor própria do sistema, fora da paleta oficial da NR-26)',desc:'trabalho em altura',hex:'#1C6FD1'}
+ nr11_empilhadeira:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
+ nr11_carrinho:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
+ nr12:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
+ nr35_plataforma:{nome:'Azul',desc:'ação obrigatória (uso de EPI/sistema de ancoragem)',hex:'#0A5BB5',texto:'#fff'}
 };
 /* Cor usada nos "chips"/pontos de vencimento agregados da carteirinha (frente e verso), por tipo de registro — mesma
    lógica de categoria acima, estendida aos demais treinamentos do catálogo e ao ASO (verde, exame de saúde geral). */
 function chipCor(tipo){
- if(tipo==='aso')return'#1E8E4F';
+ if(tipo==='aso')return'#1E9E4A';
  if(NR26_CAT[tipo])return NR26_CAT[tipo].hex;
- if(tipo==='nr33_trab'||tipo==='nr33_sup')return'#A87B00';
- if(tipo==='nr35')return'#1C6FD1';
- if(tipo==='nr10b'||tipo==='nr10sep')return'#C62828';
- if(tipo==='nr11'||tipo==='nr18'||tipo==='nr20'||tipo==='nr34')return'#C05600';
- return'#1E8E4F';
+ if(tipo==='nr33_trab'||tipo==='nr33_sup')return'#F5B800';
+ if(tipo==='nr35')return'#0A5BB5';
+ if(tipo==='nr10b'||tipo==='nr10sep'||tipo==='nr20')return'#D3211A';
+ if(tipo==='nr11'||tipo==='nr18'||tipo==='nr34')return'#F26B1D';
+ return'#1E9E4A';
 }
 /* Rótulo curto do equipamento/treinamento específico para a linha "Apto a operar" da carteirinha */
 const CARTEIRINHA_EQUIP={nr11_empilhadeira:'Empilhadeira',nr11_carrinho:'Carrinho rebocador',nr12:'Máquinas e equipamentos',nr35_plataforma:'Plataforma elevatória'};
@@ -2517,13 +2542,13 @@ function vencimentosColab(c){
  });
  return itens;
 }
-const VENC_DOT={low:'#1E8E4F',med:'#A87B00',crit:'#C62828',gray:'#99A'};
+const VENC_DOT={low:'#1E9E4A',med:'#F5B800',crit:'#D3211A',gray:'#9AA3AB'};
 function docCarteirinha(a){
  const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
  const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'—'};
  const cf=CFG();const logoEmp=e.logo||cf.logo;
  const nrTag=String(tn.l||'NR').split(/\s+[—-]\s+/)[0].trim()||a.tipo;
- const cat=NR26_CAT[a.tipo]||{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#C05600'};
+ const cat=NR26_CAT[a.tipo]||{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'};
  const equip=aptoOperar(c,a);
  const venc=vencimentosColab(c);
  const asoItem=venc.find(v=>v.tipo==='aso')||{};
@@ -2538,7 +2563,7 @@ function docCarteirinha(a){
   <div class="ic-body">
    <div class="ic-row">
     <div class="ic-photo">
-     <div class="ph">FOTO</div>
+     ${c.foto?`<img class="ph foto" src="${c.foto}" alt="">`:`<div class="ph">FOTO</div>`}
      <div class="ic-swatch"><i style="background:${cat.hex}"></i><div><b>Cor de segurança (NR-26)</b>${esc(cat.nome)} — ${esc(cat.desc)}</div></div>
     </div>
     <div class="ic-fields">
