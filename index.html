@@ -1600,6 +1600,7 @@ function abrirTreinamento(id,pre){
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
+  {t:'html',w:6,html:'<label>Máquina(s)/equipamento(s) que o colaborador está apto a operar</label><div id="treinEquipList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar máquina/equipamento</button></div><small>Opcional. Útil quando o colaborador opera mais de uma máquina (ex.: duas empilhadeiras de modelos diferentes) — cada uma aparece na carteirinha de operador. Deixe em branco para usar só a categoria geral do treinamento.</small>'},
   {sec:'Responsáveis'},
   {k:'instrutor',l:'Instrutor',r:1,w:3},
   {k:'instrutorForm',l:'Formação/registro do instrutor',w:3,h:'Ex.: Técnico em Segurança do Trabalho — MTE 12345'},
@@ -1620,6 +1621,7 @@ function abrirTreinamento(id,pre){
   initSigPad('treinEmpCv',rec,'treinEmpStatus','treinEmpClear',null,'respEmpAssinaturaImg','respEmpAssinaturaData');
   initSigPad('treinRtCv',rec,'treinRtStatus','treinRtClear',null,'respTecAssinaturaImg','respTecAssinaturaData');
   initSigPad('treinInstCv',rec,'treinInstStatus','treinInstClear',null,'instrutorAssinaturaImg','instrutorAssinaturaData');
+  initEquipeList('treinEquipList',rec,'equipamentos','Ex.: Empilhadeira contrabalançada Toyota 2,5t',false);
  },30)
 }
 /* Lista de checkboxes de colaboradores para o cadastro em lote de treinamentos (turma) */
@@ -1645,6 +1647,7 @@ function abrirTreinamentoLote(){
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
+  {t:'html',w:6,html:'<label>Máquina(s)/equipamento(s) que os colaboradores estão aptos a operar</label><div id="loteEquipList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar máquina/equipamento</button></div><small>Opcional, aplicado a todos os colaboradores desta turma. Deixe em branco para usar só a categoria geral do treinamento.</small>'},
   {sec:'Responsáveis'},
   {k:'instrutor',l:'Instrutor',r:1,w:3},
   {k:'instrutorForm',l:'Formação/registro do instrutor',w:3},
@@ -1657,10 +1660,11 @@ function abrirTreinamentoLote(){
   const sel=[...document.querySelectorAll('#fm input[name="colabIds"]:checked')].map(x=>x.value);
   if(!sel.length){toast('Selecione ao menos um colaborador da turma.');return false}
   const turmaId='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const comuns={empresaId:v.empresaId,tipo:v.tipo,modalidade:v.modalidade,data:v.data,cargaHoraria:v.cargaHoraria,cargaTeorica:v.cargaTeorica,cargaPratica:v.cargaPratica,validadeAte:v.validadeAte,local:v.local,conteudo:v.conteudo,instrutor:v.instrutor,instrutorForm:v.instrutorForm,respTecnico:v.respTecnico,respTecnicoForm:v.respTecnicoForm,respEmpresa:v.respEmpresa,situacao:'Emitido',turmaId};
+  const comuns={empresaId:v.empresaId,tipo:v.tipo,modalidade:v.modalidade,data:v.data,cargaHoraria:v.cargaHoraria,cargaTeorica:v.cargaTeorica,cargaPratica:v.cargaPratica,validadeAte:v.validadeAte,local:v.local,conteudo:v.conteudo,equipamentos:base.equipamentos,instrutor:v.instrutor,instrutorForm:v.instrutorForm,respTecnico:v.respTecnico,respTecnicoForm:v.respTecnicoForm,respEmpresa:v.respEmpresa,situacao:'Emitido',turmaId};
   sel.forEach(cid=>save('treinamentos',Object.assign({colabId:cid},clone(comuns))));
   toast(sel.length+' certificado(s) criado(s). Abra cada um para colher a assinatura do colaborador, ou use o botão de imprimir a turma inteira.',6000);
  }})
+ setTimeout(()=>{initEquipeList('loteEquipList',base,'equipamentos','Ex.: Empilhadeira contrabalançada Toyota 2,5t',false)},30)
 }
 /* PT (Permissão de Trabalho para atividades críticas: espaço confinado, altura, eletricidade...) */
 const PET_MEDIDAS={bloqueio:'Bloqueio e etiquetagem (LOTO) das energias perigosas',ventilacao:'Ventilação forçada contínua',isolamento:'Isolamento e sinalização da área',resgate_testado:'Procedimento de resgate testado/revisado',comunicacao:'Sistema de comunicação contínuo com o vigia'};
@@ -2484,12 +2488,10 @@ function docCertificado(a){
    Cartão de identificação no tamanho de cartão de crédito (85,6 × 54 mm), impresso em folha A5 paisagem com frente e verso
    lado a lado (bordas tracejadas para recorte). Só é oferecida para os tipos de TREIN_NRS marcados com carteirinha:true.
 
-   Cor de segurança (NR-26) de cada treinamento com carteirinha, reaproveitando as mesmas variáveis de risco do sistema
-   (--low/--med/--high/--crit = verde/amarelo/laranja/vermelho da NR-26, ver comentário no :root): os treinamentos de
-   máquinas e equipamentos (NR-11 empilhadeira/carrinho, NR-12) usam laranja. A NR-35 (trabalho em altura) não tem uma cor
-   própria na paleta oficial da NR-26 (que define só verde/amarelo/laranja/vermelho); para diferenciar visualmente o
-   cartão de altura dos de máquinas/equipamentos, o sistema usa um azul próprio — convenção interna deste sistema, não
-   uma cor oficial da NR-26. */
+   Cores de segurança oficiais da NR-26 (hex conferidos contra a tabela de referência, igual às usadas no app irmão
+   "Cadastro de vencimentos"): laranja #F26B1D para máquinas e equipamentos (NR-11 empilhadeira/carrinho, NR-12); azul
+   #0A5BB5 para ação obrigatória (uso de EPI), categoria em que se enquadra o trabalho em altura da NR-35, já que o
+   operador de plataforma elevatória depende do uso de cinto/talabarte e sistema de ancoragem. */
 const NR26_CAT={
  nr11_empilhadeira:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
  nr11_carrinho:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
@@ -2507,10 +2509,18 @@ function chipCor(tipo){
  if(tipo==='nr11'||tipo==='nr18'||tipo==='nr34')return'#F26B1D';
  return'#1E9E4A';
 }
-/* Rótulo curto do equipamento/treinamento específico para a linha "Apto a operar" da carteirinha */
+/* Rótulo curto do equipamento/treinamento específico para a linha "Apto a operar" da carteirinha, usado só quando o
+   registro não tem máquinas específicas nomeadas (campo "equipamentos" do treinamento) */
 const CARTEIRINHA_EQUIP={nr11_empilhadeira:'Empilhadeira',nr11_carrinho:'Carrinho rebocador',nr12:'Máquinas e equipamentos',nr35_plataforma:'Plataforma elevatória'};
+/* Nomes das máquinas/equipamentos específicos informados no registro de treinamento (campo "equipamentos", lista
+   adicionada em initEquipeList) — vazio se o campo não foi preenchido. */
+function equipNomes(t){
+ return (Array.isArray(t.equipamentos)?t.equipamentos:[]).map(x=>(x&&x.nome||'').trim()).filter(Boolean);
+}
 /* Treinamentos de operador (carteirinha:true) que o colaborador possui atualmente com validade em dia — para a linha
-   "Apto a operar" —, sempre incluindo o treinamento que está sendo impresso (atual), mesmo que já esteja vencido. */
+   "Apto a operar" —, sempre incluindo o treinamento que está sendo impresso (atual), mesmo que já esteja vencido.
+   Quando o treinamento tem máquinas específicas nomeadas (ex.: duas empilhadeiras de modelos diferentes), cada uma
+   aparece separadamente; sem nome específico, usa a categoria geral do treinamento. */
 function aptoOperar(c,atual){
  const porTipo={};
  L('treinamentos').filter(t=>t.colabId===c.id&&TREIN_NRS[t.tipo]&&TREIN_NRS[t.tipo].carteirinha).forEach(t=>{
@@ -2519,7 +2529,12 @@ function aptoOperar(c,atual){
  });
  const validos=Object.values(porTipo).filter(t=>t.tipo===atual.tipo||!t.validadeAte||dias(t.validadeAte)>=0);
  if(!validos.some(t=>t.tipo===atual.tipo))validos.push(atual);
- return validos.map(t=>CARTEIRINHA_EQUIP[t.tipo]||(TREIN_NRS[t.tipo]||{}).l||t.tipo);
+ const out=[];
+ validos.forEach(t=>{
+  const nomes=equipNomes(t);
+  if(nomes.length)out.push(...nomes);else out.push(CARTEIRINHA_EQUIP[t.tipo]||(TREIN_NRS[t.tipo]||{}).l||t.tipo);
+ });
+ return out;
 }
 /* Vencimentos agregados do colaborador para a carteirinha: ASO (reaproveitando statusExame/examesDe, o mesmo cálculo já
    usado no Painel e na ficha do colaborador para o próximo exame) + o registro mais recente de cada treinamento de NR
