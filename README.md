@@ -49,7 +49,7 @@ Os números no topo do Painel (Empresas, Colaboradores ativos, Exames em andamen
 
 ## Cores (NR-26)
 
-As cores de risco e alerta do sistema seguem a lógica de cores de segurança da NR-26: **verde** = segurança/risco baixo, **amarelo** = atenção/risco médio, **laranja** = perigo/risco alto, **vermelho** = perigo grave/risco crítico. Essa mesma paleta é usada em todo o sistema (chips de risco no inventário, distribuição de riscos, faixa de pagamento suspenso, erros e botões de exclusão), para que cada cor signifique sempre a mesma coisa, inclusive nos documentos impressos (PGR/matriz de risco).
+O layout do sistema inteiro — não só os chips de risco — é construído sobre as cinco cores de segurança oficiais da NR-26, com os hexadecimais conferidos contra a tabela de referência: **verde `#1E9E4A`** = segurança (cor principal da marca: barra lateral, botões primários, links), **amarelo `#F5B800`** = atenção (cor de destaque: logotipo, indicador de item ativo no menu, avisos), **laranja `#F26B1D`** = perigo (variação mais escura usada nos chips de risco alto), **vermelho `#D3211A`** = perigo grave (exclusão, pagamento suspenso, erros, chips de risco crítico), **azul `#0A5BB5`** = ação obrigatória (usado nos atalhos para procedimentos oficiais obrigatórios fora do sistema, como abrir o eSocial ou registrar uma CAT no gov.br). Essa mesma paleta é usada em todo o sistema (chips de risco no inventário, distribuição de riscos, faixa de pagamento suspenso, erros e botões de exclusão, carteirinha de operador), para que cada cor signifique sempre a mesma coisa, inclusive nos documentos impressos (PGR/matriz de risco) e no modo escuro.
 
 ## Como funciona
 
