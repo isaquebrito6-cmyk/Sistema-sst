@@ -701,6 +701,17 @@ const byN=(a,b)=>norm(a.razao||a.nome).localeCompare(norm(b.razao||b.nome));
 const nEmp=id=>(G('empresas',id)||{}).razao||'—';
 const nCol=id=>(G('colaboradores',id)||{}).nome||'—';
 const nCli=id=>(G('clinicas',id)||{}).nome||'—';
+/* Avatar do colaborador (foto cadastrada ou iniciais do nome), para identificar visualmente na lista e na ficha */
+function iniciaisNome(nome){
+ const p=String(nome||'').trim().split(/\s+/).filter(Boolean);
+ if(!p.length)return '?';
+ return (p[0][0]+(p.length>1?p[p.length-1][0]:'')).toUpperCase();
+}
+function avatarColab(c,size){
+ size=size||32;
+ if(c&&c.foto)return `<img src="${c.foto}" alt="" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--line)">`;
+ return `<span style="width:${size}px;height:${size}px;border-radius:50%;background:var(--soft);color:var(--brand);display:inline-flex;align-items:center;justify-content:center;font-size:${Math.round(size*.38)}px;font-weight:700;flex:none">${esc(iniciaisNome(c&&c.nome))}</span>`;
+}
 const opts=(l,v,ph)=>(ph?`<option value="">${ph}</option>`:'')+l.map(o=>{const [k,t]=Array.isArray(o)?o:[o,o];return `<option value="${esc(k)}" ${String(k)===String(v)?'selected':''}>${esc(t)}</option>`}).join('');
 function empAtual(){
  if(S.role==='empresa')S.emp=S.rid;
@@ -838,7 +849,7 @@ colaborador:{col:'colaboradores',t:'colaborador',f:()=>[
  {k:'funcao',l:'Função / cargo',r:1,w:3},{k:'setor',l:'Setor / GHE',w:3},{k:'demissao',l:'Data de desligamento (se houver)',t:'date',w:2,h:'Usada no PPP como fim do período.'},
  {k:'matricula',l:'Matrícula',w:2,h:'Opcional, usada no PPP.'},{k:'pis',l:'PIS/PASEP/NIT',w:2,h:'Opcional, usada no PPP.'},
  {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:3},
- {t:'html',w:3,html:`<label>Foto (aparece na carteirinha de operador)</label><div id="colFotoPrev"></div><div class="row" style="gap:8px;margin-top:6px"><button type="button" class="btn s g" id="colFotoBtn">Enviar</button><button type="button" class="btn s g d" id="colFotoDel">Remover</button></div><input type="file" id="colFotoFile" accept="image/*" hidden><small>Opcional. Usada na carteirinha de operador (NR-12, NR-11, NR-35 etc). Sem foto, a carteirinha mostra um espaço reservado.</small>`}]},
+ {t:'html',w:3,html:`<label>Foto (identificação na lista e na carteirinha de operador)</label><div id="colFotoPrev"></div><div class="row" style="gap:8px;margin-top:6px"><button type="button" class="btn s g" id="colFotoBtn">Enviar</button><button type="button" class="btn s g d" id="colFotoDel">Remover</button></div><input type="file" id="colFotoFile" accept="image/*" hidden><small>Opcional. Aparece ao lado do nome na lista de colaboradores e na carteirinha de operador (NR-12, NR-11, NR-35 etc). Sem foto, mostra as iniciais do nome na lista e um espaço reservado na carteirinha.</small>`}]},
 acao:{col:'acoes',t:'ação',f:()=>[
  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'status',l:'Situação',t:'select',o:['Pendente','Em andamento','Concluída'],w:3},
  {k:'acao',l:'Ação / medida de prevenção',r:1,t:'textarea'},
@@ -1872,7 +1883,7 @@ VIEWS.colaboradores=()=>{
  if(isC()&&S.fEmp)l=l.filter(c=>c.empresaId===S.fEmp);
  l=l.filter(c=>!q||norm(c.nome+' '+c.cpf+' '+c.funcao+' '+c.setor).includes(q)).sort(byN);
  return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por nome, CPF, função ou setor" value="${esc(S.q)}" data-c="q">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}${(S.fEmp||!isC())?`<button class="btn g" data-a="expCol" data-id="${S.fEmp||S.rid}">${ic('down')}CSV</button>`:''}<button class="btn s" data-a="newColabImport">${ic('plus')}Importar colaboradores</button><button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button></div>`+
- (l.length?tbl([{h:'Nome',f:c=>`<a href="#" data-a="ficha" data-id="${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a><br><span class="muted sm">${esc(c.cpf||'')}</span>`},{h:'Empresa',f:c=>esc(nEmp(c.empresaId))},{h:'Função / setor',f:c=>esc((c.funcao||'')+(c.setor?' · '+c.setor:''))},{h:'Riscos (PGR)',f:c=>{const rs=riscosDoColab(c);return rs.length?`<span class="chip low">${rs.length} vinculado(s)</span>`:'<span class="chip high">sem risco</span>'}},{h:'Próximo exame',f:c=>{const p=proximo(c);return p?`<span class="chip ${dias(p)<0?'crit':dias(p)<=60?'med':'low'}">${fd(p)}</span>`:'<span class="chip gray">sem ASO</span>'}},{h:'Situação',f:c=>c.status==='Ativo'?'Ativo':`<span class="chip gray">${esc(c.status)}</span>`},{h:'',a:1,f:c=>`<button class="btn s p" data-a="ficha" data-id="${c.id}">Ficha e exames</button> <button class="btn s g" data-a="edit" data-e="colaborador" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delCol" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ (l.length?tbl([{h:'Nome',f:c=>`<div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">${avatarColab(c,32)}<div><a href="#" data-a="ficha" data-id="${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a><br><span class="muted sm">${esc(c.cpf||'')}</span></div></div>`},{h:'Empresa',f:c=>esc(nEmp(c.empresaId))},{h:'Função / setor',f:c=>esc((c.funcao||'')+(c.setor?' · '+c.setor:''))},{h:'Riscos (PGR)',f:c=>{const rs=riscosDoColab(c);return rs.length?`<span class="chip low">${rs.length} vinculado(s)</span>`:'<span class="chip high">sem risco</span>'}},{h:'Próximo exame',f:c=>{const p=proximo(c);return p?`<span class="chip ${dias(p)<0?'crit':dias(p)<=60?'med':'low'}">${fd(p)}</span>`:'<span class="chip gray">sem ASO</span>'}},{h:'Situação',f:c=>c.status==='Ativo'?'Ativo':`<span class="chip gray">${esc(c.status)}</span>`},{h:'',a:1,f:c=>`<button class="btn s p" data-a="ficha" data-id="${c.id}">Ficha e exames</button> <button class="btn s g" data-a="edit" data-e="colaborador" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delCol" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhum colaborador','Cadastre os colaboradores com função e setor: é isso que liga cada pessoa aos exames do PCMSO.',`<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button> <button class="btn s" data-a="newColabImport">${ic('plus')}Importar colaboradores</button>`,'users'));
 };
 VIEWS.clinicas=()=>{
@@ -2003,7 +2014,7 @@ function renderFicha(){
  const treinamentos=L('treinamentos').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const canReq=S.role!=='clinica';
  const pend=ks.filter(k=>statusExame(c,k,m).k!=='low').length;
- $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header><h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header>${avatarColab(c,36)}<h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
  <div class="kv"><div><span>Empresa</span>${esc(e.razao||'—')}</div><div><span>Função</span>${esc(c.funcao||'—')}</div><div><span>Setor / GHE</span>${esc(c.setor||'—')}</div><div><span>CPF</span>${esc(c.cpf||'—')}</div><div><span>Admissão</span>${fd(c.admissao)}</div><div><span>Nascimento</span>${fd(c.nasc)}</div></div>
  <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn s" data-a="docPPPA" data-id="${c.id}">${ic('file')}Emitir PPP (minuta)</button><a class="btn s" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a>`:''}${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
  ${canReq?'<p class="muted sm" style="margin:0 0 16px">O PPP com validade legal é o emitido pelo próprio eSocial, a partir dos eventos já transmitidos (S-2240). A minuta deste sistema serve para conferir os dados antes de transmitir.</p>':''}
