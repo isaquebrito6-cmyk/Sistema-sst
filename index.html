@@ -234,6 +234,18 @@ const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth
 const fd=iso=>{if(!iso)return '—';const p=String(iso).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso};
 const addM=(iso,m)=>{const d=new Date(iso+'T12:00:00');d.setMonth(d.getMonth()+Number(m));return d.toISOString().slice(0,10)};
 const dias=iso=>Math.round((new Date(iso+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5);
+/* próxima ocorrência anual (aniversário de nascimento ou de admissão) a partir de uma data-base no passado */
+function proxOcorrencia(iso){
+ if(!iso)return null;
+ const base=new Date(iso+'T12:00:00');if(isNaN(base))return null;
+ const anoBase=base.getFullYear(),mes=base.getMonth(),dia=base.getDate();
+ const hoje=new Date(today()+'T12:00:00');
+ let ano=hoje.getFullYear();
+ let prox=new Date(ano,mes,dia,12);
+ if(prox<hoje){ano++;prox=new Date(ano,mes,dia,12)}
+ const d=prox.toISOString().slice(0,10);
+ return {data:d,anos:ano-anoBase,dias:dias(d)};
+}
 const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const mask={cpf:v=>v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2'),
 cnpj:v=>v.replace(/\D/g,'').slice(0,14).replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2'),
@@ -1868,10 +1880,17 @@ VIEWS.painel=()=>{
  const riscosOrfaos=L('riscos').filter(riscoSemSetor);
  const atr=L('acoes').filter(a=>a.status!=='Concluída'&&a.prazo&&a.prazo<today()).sort((a,b)=>a.prazo.localeCompare(b.prazo));
  const rev=emp.map(e=>{const ds=L('documentos').filter(d=>d.empresaId===e.id&&d.tipo==='PGR').sort((a,b)=>b.emissao.localeCompare(a.emissao));return{e,u:ds[0]}}).filter(o=>!o.u||dias(addM(o.u.emissao,24))<=90);
+ const aniversarios=col.flatMap(c=>{
+  const out=[];
+  const n=proxOcorrencia(c.nasc);if(n)out.push({c,tipo:'nascimento',...n});
+  const a=proxOcorrencia(c.admissao);if(a)out.push({c,tipo:'admissao',...a});
+  return out;
+ }).filter(o=>o.dias>=0&&o.dias<=15).sort((a,b)=>a.dias-b.dias);
  const atalhos=[['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['documentos','PGR, PCMSO e modelos','file'],['clinicas','Clínicas','clinic'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert']];
  return btnResumo+`<div class="kpis"><button type="button" class="kpi click" data-a="go" data-v="empresas"><b>${emp.length}</b><span>Empresas</span></button><button type="button" class="kpi click" data-a="go" data-v="colaboradores"><b>${col.length}</b><span>Colaboradores ativos</span></button><button type="button" class="kpi click" data-a="go" data-v="solicitacoes"><b>${ab}</b><span>Exames em andamento</span></button><button type="button" class="kpi click" data-a="go" data-v="solicitacoes"><b>${feitos}</b><span>ASOs neste mês</span></button><button type="button" class="kpi click" data-a="go" data-v="colaboradores" style="${semR.length?'border-color:var(--high)':''}"><b style="${semR.length?'color:var(--high)':''}">${semR.length}</b><span>Sem risco vinculado</span></button></div>
  <div class="card" style="margin-bottom:16px"><h3 style="margin-top:0">Atalhos rápidos</h3><div class="shortcuts">${atalhos.map(([v,l,ico])=>`<button type="button" class="btn s g" data-a="go" data-v="${v}">${ic(ico)}${l}</button>`).join('')}</div></div>
  <div class="two"><div class="card"><h3>Exames vencidos ou a vencer (60 dias)</h3>${venc.length?venc.slice(0,10).map(o=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.c.nome)}<br><span class="muted sm">${esc(nEmp(o.c.empresaId))}</span></span><span class="chip ${o.d<0?'crit':'med'}">${o.d<0?'vencido há '+(-o.d)+' d':'em '+o.d+' d'} · ${fd(o.p)}</span></div>`).join(''):'<p class="muted">Nenhum exame vencendo. Os prazos aparecem quando o ASO é registrado.</p>'}${sem.length?`<p class="sm muted" style="margin-bottom:0">${sem.length} colaborador(es) ainda sem ASO registrado no sistema.</p>`:''}</div>
+ <div class="card"><h3>Aniversários (próximos 15 dias)</h3>${aniversarios.length?aniversarios.slice(0,10).map(o=>`<div class="row sb click" data-a="ficha" data-id="${o.c.id}" style="padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer"><span>${avatarColab(o.c,22)} ${esc(o.c.nome)}<br><span class="muted sm">${esc(nEmp(o.c.empresaId))} · ${o.tipo==='nascimento'?'completa '+o.anos+' anos':o.anos+' ano(s) de empresa'}</span></span><span class="chip ${o.dias===0?'crit':o.dias<=3?'med':'gray'}">${o.dias===0?'hoje':o.dias===1?'amanhã':'em '+o.dias+' d'} · ${fd(o.data)}</span></div>`).join(''):'<p class="muted">Nenhum aniversário de nascimento ou de empresa nos próximos 15 dias.</p>'}</div>
  <div class="card"><h3>Colaboradores sem risco vinculado</h3>${semR.length?`<p class="sm muted" style="margin:0 0 8px">Sem vínculo com o inventário de riscos, o PCMSO só exige o exame clínico para eles. Confira a função ou o setor no cadastro, e se o setor/função aparece nos riscos da empresa.</p>${semR.slice(0,8).map(c=>`<div class="row sb click" data-a="ficha" data-id="${c.id}" style="padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer"><span>${esc(c.nome)}<br><span class="muted sm">${esc(nEmp(c.empresaId))} · ${esc(c.funcao||'—')}</span></span><span class="chip high">sem risco</span></div>`).join('')}${semR.length>8?`<p class="sm muted" style="margin:8px 0 0">+ ${semR.length-8} colaborador(es).</p>`:''}`:'<p class="muted">Todos os colaboradores têm ao menos um risco vinculado.</p>'}</div>
  <div class="card"><h3>Riscos sem setor</h3>${riscosOrfaos.length?`<p class="sm muted" style="margin:0 0 8px">Sem um setor vinculado, este risco não entra no cálculo de exames de nenhum colaborador. Edite e informe o setor, ou use "Setores/funções" para reatribuir.</p>${riscosOrfaos.slice(0,8).map(r=>`<div class="row sb click" data-a="editRisco" data-id="${r.id}" style="padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer"><span>${esc(r.perigo||'—')}<br><span class="muted sm">${esc(nEmp(r.empresaId))}</span></span><span class="chip high">sem setor</span></div>`).join('')}${riscosOrfaos.length>8?`<p class="sm muted" style="margin:8px 0 0">+ ${riscosOrfaos.length-8} risco(s).</p>`:''}`:'<p class="muted">Todos os riscos têm um setor vinculado.</p>'}</div>
  <div class="card"><h3>Ações do plano em atraso</h3>${atr.length?atr.slice(0,8).map(a=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.acao.slice(0,80))}<br><span class="muted sm">${esc(nEmp(a.empresaId))} · ${esc(a.responsavel||'sem responsável')}</span></span><span class="chip crit">${fd(a.prazo)}</span></div>`).join(''):'<p class="muted">Nenhuma ação atrasada.</p>'}</div>
@@ -2140,10 +2159,11 @@ const DOC_CSS=`
 .idcard .ic-stripe{height:1.5mm;background:repeating-linear-gradient(135deg,#171208 0,#171208 2.1mm,#F2C200 2.1mm,#F2C200 4.2mm);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-body{position:absolute;inset:10.7mm 0 0;display:flex;flex-direction:column;gap:.9mm;padding:1.6mm 2.4mm 1.8mm}
 .idcard .ic-row{display:flex;gap:2mm;flex:1;min-height:0}
-.idcard .ic-photo{width:26mm;flex:none;display:flex;flex-direction:column;gap:.8mm}
-.idcard .ic-photo .ph{width:26mm;height:26mm;border:.7pt solid #B9C6C8;border-radius:1mm;background:#EEF3F3;display:flex;align-items:center;justify-content:center;font-size:5.6pt;color:#889;text-align:center}
+.idcard .ic-photo{width:21mm;flex:none;display:flex;flex-direction:column;gap:.8mm}
+.idcard .ic-photo .ph{width:21mm;height:30mm;border:.7pt solid #B9C6C8;border-radius:1mm;background:#EEF3F3;display:flex;align-items:center;justify-content:center;font-size:5.6pt;color:#889;text-align:center}
 .idcard .ic-photo .ph.foto{object-fit:cover;display:block}
-.idcard .ic-apto{margin-top:1mm;border-radius:1.2mm;padding:1mm;text-align:center;background:#1E8E4F;color:#fff;font-size:5.4pt;font-weight:800;letter-spacing:.03em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.idcard .ic-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:1mm}
+.idcard .ic-apto{border-radius:1.2mm;padding:.9mm 1mm;text-align:center;background:#1E8E4F;color:#fff;font-size:5pt;font-weight:800;letter-spacing:.02em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-apto.inapto{background:#C62828}
 .idcard .ic-swatch{display:flex;align-items:flex-start;gap:1mm}
 .idcard .ic-swatch i{width:2.3mm;height:2.3mm;border-radius:.6mm;flex:none;margin-top:.3mm}
@@ -2163,8 +2183,8 @@ const DOC_CSS=`
 .idcard .ic-chips{display:flex;gap:.8mm;flex-wrap:wrap;overflow:hidden}
 .idcard .ic-chip{flex:none;width:8mm;height:8mm;color:#fff;border-radius:1.3mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:.3mm;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-chip.active{box-shadow:inset 0 0 0 .6pt #1b1b1b}
-.idcard .ic-chip b{display:block;font-size:4.4pt;font-weight:800;line-height:1.1;white-space:nowrap}
-.idcard .ic-chip span{display:block;font-size:3pt;font-weight:600;line-height:1.1;text-transform:uppercase;letter-spacing:.01em;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.idcard .ic-chip b{display:block;font-size:3.1pt;font-weight:700;line-height:1.1;letter-spacing:.04em;white-space:nowrap;opacity:.9}
+.idcard .ic-chip span{display:block;font-size:5.6pt;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .idcard .ic-chip.active{box-shadow:inset 0 0 0 .5pt rgba(0,0,0,.35)}
 .idcard.back .ic-body{position:absolute;inset:10.7mm 0 0;padding:1.6mm 2.6mm 1.6mm;display:flex;flex-direction:column}
 .idcard.back .ic-venc-h{font-size:5.4pt;font-weight:700;color:#0B5560;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.6mm}
@@ -2609,20 +2629,22 @@ function docCarteirinha(a){
      ${c.foto?`<img class="ph foto" src="${c.foto}" alt="">`:`<div class="ph">FOTO</div>`}
      <div class="ic-swatch"><i style="background:${cat.hex}"></i><div><b>Cor de segurança (NR-26)</b>${esc(cat.nome)} — ${esc(cat.desc)}</div></div>
     </div>
-    <div class="ic-fields">
-     <span class="lbl">Nome</span><div class="nome">${esc(c.nome||'—')}</div>
-     <div class="fn">Função: ${esc((c.funcao||'—').toUpperCase())}</div>
-     <span class="lbl">Treinamento</span><div class="trn">${esc(nrTag)}</div>
-     <span class="lbl">Apto a operar${equip.length>1?' ('+equip.length+' máquinas)':''}</span>
-     <div class="eq">${equip.map(esc).join(' · ')}</div>
-     <div class="ic-dates">
-      <div><span class="lbl">Validade ${esc(nrTag)}</span><b>${a.validadeAte?fd(a.validadeAte):'—'}</b></div>
-      <div><span class="lbl">Validade ASO</span><b>${asoItem.due?fd(asoItem.due):'—'}</b></div>
+    <div class="ic-right">
+     <div class="ic-apto${apto?'':' inapto'}">${apto?'✓ APTO PARA ATIVIDADE':'⚠ VERIFICAR PENDÊNCIAS'}</div>
+     <div class="ic-fields">
+      <span class="lbl">Nome</span><div class="nome">${esc(c.nome||'—')}</div>
+      <div class="fn">Função: ${esc((c.funcao||'—').toUpperCase())}</div>
+      <span class="lbl">Treinamento</span><div class="trn">${esc(nrTag)}</div>
+      <span class="lbl">Apto a operar${equip.length>1?' ('+equip.length+' máquinas)':''}</span>
+      <div class="eq">${equip.map(esc).join(' · ')}</div>
+      <div class="ic-dates">
+       <div><span class="lbl">Validade ${esc(nrTag)}</span><b>${a.validadeAte?fd(a.validadeAte):'—'}</b></div>
+       <div><span class="lbl">Validade ASO</span><b>${asoItem.due?fd(asoItem.due):'—'}</b></div>
+      </div>
      </div>
     </div>
    </div>
-   <div class="ic-apto${apto?'':' inapto'}">${apto?'✓ APTO PARA ATIVIDADE':'⚠ VERIFICAR PENDÊNCIAS'}</div>
-   <div class="ic-chips">${venc.map(v=>`<div class="ic-chip${v.tipo===a.tipo?' active':''}" style="background:${chipCor(v.tipo)}"><b>${esc(v.label)}</b><span>${esc(v.nome||'')}</span></div>`).join('')}</div>
+   <div class="ic-chips">${venc.map(v=>{const num=v.tipo==='aso'?'':String(v.label||'').replace(/^NR-?/,'');return `<div class="ic-chip${v.tipo===a.tipo?' active':''}" style="background:${chipCor(v.tipo)}"><b>${v.tipo==='aso'?'':'NR'}</b><span>${esc(v.tipo==='aso'?'ASO':num)}</span></div>`}).join('')}</div>
   </div>
  </div>`;
  const back=`<div class="idcard back">
