@@ -2630,7 +2630,6 @@ function docCarteirinha(a){
      <div class="ic-swatch"><i style="background:${cat.hex}"></i><div><b>Cor de segurança (NR-26)</b>${esc(cat.nome)} — ${esc(cat.desc)}</div></div>
     </div>
     <div class="ic-right">
-     <div class="ic-apto${apto?'':' inapto'}">${apto?'✓ APTO PARA ATIVIDADE':'⚠ VERIFICAR PENDÊNCIAS'}</div>
      <div class="ic-fields">
       <span class="lbl">Nome</span><div class="nome">${esc(c.nome||'—')}</div>
       <div class="fn">Função: ${esc((c.funcao||'—').toUpperCase())}</div>
@@ -2642,6 +2641,7 @@ function docCarteirinha(a){
        <div><span class="lbl">Validade ASO</span><b>${asoItem.due?fd(asoItem.due):'—'}</b></div>
       </div>
      </div>
+     <div class="ic-apto${apto?'':' inapto'}">${apto?'✓ APTO PARA ATIVIDADE':'⚠ VERIFICAR PENDÊNCIAS'}</div>
      <div class="ic-chips">${venc.map(v=>{const num=v.tipo==='aso'?'':String(v.label||'').replace(/^NR-?/,'');return `<div class="ic-chip${v.tipo===a.tipo?' active':''}" style="background:${chipCor(v.tipo)}"><b>${v.tipo==='aso'?'':'NR'}</b><span>${esc(v.tipo==='aso'?'ASO':num)}</span></div>`}).join('')}</div>
     </div>
    </div>
