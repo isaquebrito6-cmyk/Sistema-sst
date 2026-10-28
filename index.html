@@ -330,7 +330,7 @@ const TREIN_NRS={
  nr10sep:{l:'NR-10 — Complementar SEP (Sistema Elétrico de Potência)',cargaH:40,validadeMeses:24,conteudo:'Aprofundamento em sistema elétrico de potência: geração, transmissão e distribuição de energia; medidas de proteção coletiva e individual aplicáveis ao SEP; riscos adicionais e trabalho em proximidade de rede energizada.'},
  nr11:{l:'NR-11 — Transporte, movimentação, armazenagem e manuseio de materiais (operador de equipamento)',cargaH:null,validadeMeses:null,conteudo:'Operação segura do equipamento (empilhadeira, ponte rolante, guincho etc.), inspeção pré-operacional, capacidade de carga, sinalização, direção defensiva e normas de segurança da NR-11.'},
  nr11_empilhadeira:{l:'NR-11 — Operador de empilhadeira',cargaH:null,validadeMeses:12,carteirinha:true,conteudo:'Treinamento específico do operador (item 11.1.5 da NR-11): componentes e funcionamento da empilhadeira, inspeção pré-operacional, estabilidade e capacidade de carga, regras de circulação e sinalização, direção defensiva. A norma não fixa carga horária, mas exige cartão de identificação do operador, válido por 1 (um) ano e renovável mediante exame de saúde completo (item 11.1.6.1 da NR-11).'},
- nr11_carrinho:{l:'NR-11 — Operador de carrinho rebocador / transportador industrial',cargaH:null,validadeMeses:12,carteirinha:true,conteudo:'Treinamento específico do operador (item 11.1.5 da NR-11): funcionamento do equipamento motorizado, inspeção pré-operacional, reboque e acoplamento de carrinhos, regras de circulação, sinalização sonora (item 11.1.7) e direção defensiva. A norma não fixa carga horária, mas exige cartão de identificação do operador, válido por 1 (um) ano e renovável mediante exame de saúde completo (item 11.1.6.1 da NR-11).'},
+ nr11_carrinho:{l:'NR-11/12 — Operador de carrinho rebocador / transportador industrial',cargaH:null,validadeMeses:12,carteirinha:true,conteudo:'Treinamento específico do operador (item 11.1.5 da NR-11): funcionamento do equipamento motorizado, inspeção pré-operacional, reboque e acoplamento de carrinhos, regras de circulação, sinalização sonora (item 11.1.7) e direção defensiva. A norma não fixa carga horária, mas exige cartão de identificação do operador, válido por 1 (um) ano e renovável mediante exame de saúde completo (item 11.1.6.1 da NR-11). Por ser máquina autopropelida, aplica-se também a capacitação geral de máquinas e equipamentos da NR-12 (item 12.16) — daí a referência conjunta NR-11/12.'},
  nr12:{l:'NR-12 — Segurança no trabalho em máquinas e equipamentos',cargaH:null,validadeMeses:null,carteirinha:true,conteudo:'Riscos mecânicos, dispositivos de segurança (proteções, intertravamento, parada de emergência), procedimentos de trabalho seguro, bloqueio e etiquetagem (LOTO) na máquina/equipamento utilizado.'},
  nr18:{l:'NR-18 — Segurança e saúde no trabalho na indústria da construção',cargaH:null,validadeMeses:24,conteudo:'Condições e meio ambiente de trabalho na construção; riscos da atividade/função; uso de EPI/EPC; ordem e organização do canteiro; prevenção de quedas e outras ocorrências conforme a frente de trabalho.'},
  nr18_pemt:{l:'NR-18 — Operador de PEMT (Plataforma Elevatória Móvel de Trabalho, em canteiro de obras)',cargaFormacao:4,cargaReciclagem:4,validadeMeses:24,carteirinha:true,conteudo:'Capacitação específica do operador de PEMT (antes chamada de PTA), exigida pelo item 18.14 e pelo Quadro I do Anexo I da NR-18 para quem opera esse equipamento em canteiro de obras (indústria da construção): 4 horas de capacitação inicial e 4 horas de capacitação periódica a cada 2 anos, com conteúdo baseado na norma técnica nacional vigente (ABNT NBR 16858). Inclui inspeção pré-operacional, estabilidade, limites de carga e vento, zona de exclusão, uso do cinto de segurança com talabarte curto preso ao ponto de ancoragem da própria plataforma e procedimentos de resgate. Carga horária conferida em fontes setoriais que reproduzem o Quadro I do Anexo I (CBIC, Seconci-SP); confirme no texto oficial da NR-18 publicado no DOU antes de usar como base para auditoria. Fora de canteiro de obras (NR-18 não se aplica), use o treinamento "NR-35 — Operador de plataforma elevatória" abaixo.'},
@@ -2124,7 +2124,7 @@ const DOC_CSS=`
 @media print{.paper{box-shadow:none;max-width:none;padding:0;margin:0}}
 @page idcard{size:A5 landscape;margin:8mm}
 .paper:has(.idcard-sheet){max-width:210mm;padding:0;background:none;box-shadow:none}
-.idcard-sheet{page:idcard;display:flex;gap:8mm;justify-content:center;align-items:flex-start;padding:10mm 8mm;break-inside:avoid;break-after:page;page-break-after:always}
+.idcard-sheet{page:idcard;display:flex;flex-direction:column;gap:6mm;justify-content:flex-start;align-items:center;padding:8mm;break-inside:avoid;break-after:page;page-break-after:always}
 .idcard-sheet:last-child{break-after:auto;page-break-after:auto}
 .idcard{width:85.6mm;height:54mm;flex:none;border:.9pt dashed #9AA;border-radius:3mm;position:relative;overflow:hidden;background:#FFFEF8;font-family:Arial,Helvetica,sans-serif;color:#1b1b1b;box-shadow:0 4px 14px rgba(0,0,0,.22);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-head{height:9.2mm;display:flex;align-items:center;gap:1.8mm;padding:0 2.4mm;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -2140,9 +2140,12 @@ const DOC_CSS=`
 .idcard .ic-stripe{height:1.5mm;background:repeating-linear-gradient(135deg,#171208 0,#171208 2.1mm,#F2C200 2.1mm,#F2C200 4.2mm);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-body{position:absolute;inset:10.7mm 0 0;display:flex;flex-direction:column;gap:.9mm;padding:1.6mm 2.4mm 1.8mm}
 .idcard .ic-row{display:flex;gap:2mm;flex:1;min-height:0}
-.idcard .ic-photo{width:14mm;flex:none;display:flex;flex-direction:column;gap:.8mm}
-.idcard .ic-photo .ph{width:14mm;height:16.5mm;border:.7pt solid #B9C6C8;border-radius:1mm;background:#EEF3F3;display:flex;align-items:center;justify-content:center;font-size:5.6pt;color:#889;text-align:center}
+.idcard .ic-photo{width:20mm;flex:none;display:flex;flex-direction:column;gap:.8mm}
+.idcard .ic-photo .ph{width:20mm;height:22mm;border:.7pt solid #B9C6C8;border-radius:1mm;background:#EEF3F3;display:flex;align-items:center;justify-content:center;font-size:5.6pt;color:#889;text-align:center}
 .idcard .ic-photo .ph.foto{object-fit:cover;display:block}
+.idcard .ic-apto-side{width:7mm;flex:none;border-radius:1.2mm;display:flex;align-items:center;justify-content:center;background:#1E8E4F;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.idcard .ic-apto-side.inapto{background:#C62828}
+.idcard .ic-apto-side span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:4.6pt;font-weight:700;letter-spacing:.03em;text-align:center;white-space:nowrap}
 .idcard .ic-swatch{display:flex;align-items:flex-start;gap:1mm}
 .idcard .ic-swatch i{width:2.3mm;height:2.3mm;border-radius:.6mm;flex:none;margin-top:.3mm}
 .idcard .ic-swatch div{font-size:3.9pt;line-height:1.25;color:#556}
@@ -2158,10 +2161,11 @@ const DOC_CSS=`
 .idcard .ic-dates>div{flex:1;min-width:0}
 .idcard .ic-dates .lbl{margin-top:0}
 .idcard .ic-dates b{display:block;font-size:5.8pt;font-weight:700;color:#223}
-.idcard .ic-apto{background:#1E8E4F;color:#fff;text-align:center;border-radius:2.2mm;font-size:5.2pt;font-weight:700;padding:1mm 0;letter-spacing:.02em}
-.idcard .ic-apto.inapto{background:#C62828}
-.idcard .ic-chips{display:flex;gap:.7mm;flex-wrap:nowrap;overflow:hidden}
-.idcard .ic-chip{flex:none;font-size:3.9pt;font-weight:700;color:#fff;border-radius:1.3mm;padding:.6mm 1.3mm;white-space:nowrap}
+.idcard .ic-chips{display:flex;gap:.8mm;flex-wrap:wrap;overflow:hidden}
+.idcard .ic-chip{flex:none;width:8mm;height:8mm;color:#fff;border-radius:1.3mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:.3mm;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.idcard .ic-chip.active{box-shadow:inset 0 0 0 .6pt #1b1b1b}
+.idcard .ic-chip b{display:block;font-size:4.4pt;font-weight:800;line-height:1.1;white-space:nowrap}
+.idcard .ic-chip span{display:block;font-size:3pt;font-weight:600;line-height:1.1;text-transform:uppercase;letter-spacing:.01em;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .idcard .ic-chip.active{box-shadow:inset 0 0 0 .5pt rgba(0,0,0,.35)}
 .idcard.back .ic-body{position:absolute;inset:10.7mm 0 0;padding:1.6mm 2.6mm 1.6mm;display:flex;flex-direction:column}
 .idcard.back .ic-venc-h{font-size:5.4pt;font-weight:700;color:#0B5560;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.6mm}
@@ -2561,10 +2565,13 @@ function aptoOperar(c,atual){
    usado no Painel e na ficha do colaborador para o próximo exame) + o registro mais recente de cada treinamento de NR
    que ele possui (agrupado por tipo). Status usa o mesmo limiar do resto do sistema: vencido (<0 dias), a vencer
    (até 60 dias) ou em dia — ver statusExame. */
+/* Nome curto (1 palavra, para caber no chip quadrado) de cada tipo de treinamento — usado embaixo do número da NR nos
+   chips de vencimento da carteirinha. Sem entrada no mapa, cai no primeiro nome depois do "—" do catálogo. */
+const NR_CHIP_NOME={nr6:'EPI',nr10b:'Elétrica',nr10sep:'SEP',nr11:'Equipamento',nr11_empilhadeira:'Empilhadeira',nr11_carrinho:'Rebocador',nr12:'Máquinas',nr18:'Construção',nr18_pemt:'PEMT',nr20:'Inflamáveis',nr33_trab:'Confinado',nr33_sup:'Supervisor',nr34:'Naval',nr35:'Altura',nr35_plataforma:'Plataforma'};
 function vencimentosColab(c){
  const m=examesDe(riscosDoColab(c));
  const aso=statusExame(c,'clinico',m);
- const itens=[{tipo:'aso',label:'ASO',due:aso.due,status:aso.k}];
+ const itens=[{tipo:'aso',label:'ASO',nome:'Saúde',due:aso.due,status:aso.k}];
  const porTipo={};
  L('treinamentos').filter(t=>t.colabId===c.id).forEach(t=>{
   const cur=porTipo[t.tipo],key=t.validadeAte||t.data||'';
@@ -2573,8 +2580,9 @@ function vencimentosColab(c){
  Object.values(porTipo).forEach(t=>{
   const tn=TREIN_NRS[t.tipo]||{l:t.tipo};
   const label=String(tn.l||t.tipo).split(/\s+[—-]\s+/)[0].trim()||t.tipo;
+  const nome=NR_CHIP_NOME[t.tipo]||String(tn.l||t.tipo).split(/\s+[—-]\s+/)[1]||'';
   let status='gray';if(t.validadeAte){const d=dias(t.validadeAte);status=d<0?'crit':d<=60?'med':'low'}
-  itens.push({tipo:t.tipo,label,due:t.validadeAte||null,status});
+  itens.push({tipo:t.tipo,label,nome,due:t.validadeAte||null,status});
  });
  return itens;
 }
@@ -2602,6 +2610,7 @@ function docCarteirinha(a){
      ${c.foto?`<img class="ph foto" src="${c.foto}" alt="">`:`<div class="ph">FOTO</div>`}
      <div class="ic-swatch"><i style="background:${cat.hex}"></i><div><b>Cor de segurança (NR-26)</b>${esc(cat.nome)} — ${esc(cat.desc)}</div></div>
     </div>
+    <div class="ic-apto-side${apto?'':' inapto'}"><span>${apto?'✓ APTO P/ ATIVIDADE':'⚠ VERIFICAR PENDÊNCIAS'}</span></div>
     <div class="ic-fields">
      <span class="lbl">Nome</span><div class="nome">${esc(c.nome||'—')}</div>
      <div class="fn">Função: ${esc((c.funcao||'—').toUpperCase())}</div>
@@ -2614,8 +2623,7 @@ function docCarteirinha(a){
      </div>
     </div>
    </div>
-   <div class="ic-apto${apto?'':' inapto'}">${apto?'✓ Apto para atividade':'⚠ Verificar pendências'}</div>
-   <div class="ic-chips">${venc.map(v=>`<div class="ic-chip${v.tipo===a.tipo?' active':''}" style="background:${chipCor(v.tipo)}">${esc(v.label)}</div>`).join('')}</div>
+   <div class="ic-chips">${venc.map(v=>`<div class="ic-chip${v.tipo===a.tipo?' active':''}" style="background:${chipCor(v.tipo)}"><b>${esc(v.label)}</b><span>${esc(v.nome||'')}</span></div>`).join('')}</div>
   </div>
  </div>`;
  const back=`<div class="idcard back">
