@@ -2017,7 +2017,7 @@ function renderDetalhe(){
  <div class="kv"><div><span>Empresa</span>${esc(e.razao||'')}</div><div><span>Exame</span>${esc(s.tipo)}</div><div><span>Clínica</span>${esc(nCli(s.clinicaId))}</div><div><span>Solicitado em</span>${fd(s.dataSolic)}</div><div><span>Agendado para</span>${fd(s.dataAgend)}</div><div><span>Função / setor</span>${esc((c.funcao||'')+(c.setor?' · '+c.setor:''))}</div></div>
  <div class="row" style="gap:5px;margin:8px 0 6px">${(s.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div>${s.obs?`<p class="sm muted">Obs.: ${nl(s.obs)}</p>`:''}
  <div style="margin-top:10px">
- ${st(true,1,'Encaminhamento à clínica',`<p class="sm muted" style="margin:0 0 8px">Guia com dados da empresa, riscos e exames, o formulário do ASO e o checklist psicossocial em um único arquivo.</p><div class="row"><button class="btn s p" data-a="docPacote" data-id="${s.id}">Gerar pacote completo</button><button class="btn s" data-a="docGuia" data-id="${s.id}">Só a guia</button></div>`)}
+ ${st(true,1,'Encaminhamento à clínica',`<p class="sm muted" style="margin:0 0 8px">Ficha clínica (cadastro completo da empresa e da clínica), guia com dados da empresa, riscos e exames, o formulário do ASO e o checklist psicossocial em um único arquivo.</p><div class="row"><button class="btn s p" data-a="docPacote" data-id="${s.id}">Gerar pacote completo</button><button class="btn s" data-a="docFichaClinica" data-id="${s.id}">Ficha clínica</button><button class="btn s" data-a="docGuia" data-id="${s.id}">Só a guia</button></div>`)}
  ${st(!!psicoData(s),2,'Checklist psicossocial do colaborador',`<p class="sm muted" style="margin:0 0 8px">${psicoData(s)?'Respondido em '+fd(psicoData(s))+'.':'O colaborador responde no sistema ou em papel.'}${podeVerPsico()?'':' As respostas são sigilosas: a empresa vê apenas se foi respondido.'}</p><div class="row">${podeVerPsico()?`<button class="btn s" data-a="psico" data-id="${s.id}">${psicoDe(s)?'Ver / editar respostas':'Preencher agora'}</button>`:''}<button class="btn s" data-a="docPsico" data-id="${s.id}">Imprimir${podeVerPsico()?'':' em branco'}</button></div>${psicoDe(s)?`<div class="row" style="gap:5px;margin-top:8px">${psicoResumo(psicoDe(s)).map(r=>`<span class="chip ${r.k}">${r.d}: ${r.t}</span>`).join('')}</div>`:''}`)}
  ${st(!!a.data,3,'Dados do ASO (clínica)',`<p class="sm muted" style="margin:0 0 8px">${a.data?'Exame em '+fd(a.data)+' · '+esc(a.resultado||'')+' · '+esc(a.medico_nome||''):'A clínica edita os campos do ASO e imprime.'}</p><div class="row">${canCl?`<button class="btn s ${a.data?'':'p'}" data-a="aso" data-id="${s.id}">${a.data?'Editar dados':'Preencher ASO'}</button>`:''}<button class="btn s" data-a="docAso" data-id="${s.id}">${ic('print')}${a.data?'Imprimir ASO':'ASO em branco'}</button></div>`)}
  ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF até 3 MB, ou foto, que o sistema reduz sozinho) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
@@ -2405,6 +2405,37 @@ function docAso(s){
  h+=`<h2>7. Médicos responsáveis</h2>${kv([['Médico coordenador do PCMSO',BL((e.medico_nome||'')+(e.medico_crm?' — '+e.medico_crm:''))],['Médico examinador',BL((a.medico_nome||'')+(a.medico_crm?' — '+a.medico_crm:''))],['Data do exame',a.data?fd(a.data):B('')]])}`;
  h+=`<div class="sig"><div>Assinatura e carimbo do médico examinador<span>Nome, CRM e data</span></div><div>Ciência e recebimento do trabalhador<span>${esc(c.nome||'Nome')} — Data: ____/____/______</span></div></div>`;
  h+=`<p class="small" style="margin-top:14pt">Documento com dados de saúde sujeito a sigilo (LGPD). Uma via deve ser entregue ao trabalhador e outra arquivada pela organização.</p>`;
+ return h;
+}
+/* Ficha clínica: cadastro completo da empresa contratante e da clínica/prestador, para acompanhar a guia de encaminhamento e o ASO — fica no prontuário da clínica como registro cadastral das partes, sem precisar repetir CNPJ/endereço/responsáveis a cada encaminhamento. */
+function docFichaClinica(s){
+ const c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
+ let h=dHead('Ficha clínica — dados da empresa e da clínica',fd(s.dataSolic),e.logo);
+ h+=`<h1 style="font-size:18pt">Ficha clínica</h1><p class="small">Cadastro completo da empresa contratante e da clínica/prestador de serviço em medicina do trabalho, para acompanhar a guia de encaminhamento e o ASO deste trabalhador. Mantido no prontuário da clínica como registro das partes envolvidas no Programa de Controle Médico de Saúde Ocupacional (PCMSO — NR-7).</p>`;
+ h+=`<h2>1. Empresa contratante</h2>${kv([
+  ['Razão social',esc(e.razao||'—')],['Nome fantasia',esc(e.fantasia||'—')],
+  ['CNPJ',esc(e.cnpj||'—')],['CNAE principal',esc(e.cnae||'—')],
+  ['Grau de risco (NR-4)',esc(e.grau||'—')],['Nº de trabalhadores',e.funcionarios?esc(String(e.funcionarios)):'—'],
+  ['Endereço',esc(endEmp(e)||'—')],['Telefone / e-mail',esc([e.telefone,e.email].filter(Boolean).join(' · ')||'—')],
+  ['Responsável pela empresa',esc((e.resp_nome||'—')+(e.resp_cargo?' — '+e.resp_cargo:''))],
+  ['Médico coordenador do PCMSO',esc((e.medico_nome||'—')+(e.medico_crm?' — '+e.medico_crm:''))],
+  ['Responsável técnico do PGR',esc((e.tec_nome||'—')+(e.tec_reg?' — '+e.tec_reg:''))]
+ ])}`;
+ h+=`<h2>2. Clínica / prestador de serviço</h2>${kv([
+  ['Nome / razão social',esc(cl.nome||'—')],['CNPJ',esc(cl.cnpj||'—')],
+  ['Endereço',esc(endEmp(cl)||'—')],['Telefone / e-mail',esc([cl.telefone,cl.email].filter(Boolean).join(' · ')||'—')],
+  ['Médico responsável',esc((cl.medico_nome||'—')+(cl.medico_crm?' — '+cl.medico_crm:''))],
+  ['Exames oferecidos',cl.exames?nl(cl.exames):'—']
+ ])}`;
+ h+=`<h2>3. Trabalhador encaminhado</h2>${kv([
+  ['Nome',esc(c.nome||'—')],['CPF',esc(c.cpf||'—')],
+  ['Nascimento / sexo',esc((c.nasc?fd(c.nasc):'—')+' / '+(c.sexo||'—'))],
+  ['Função / setor',esc((c.funcao||'—')+(c.setor?' · '+c.setor:''))],
+  ['Admissão',c.admissao?fd(c.admissao):'—'],['Matrícula / PIS',esc([c.matricula,c.pis].filter(Boolean).join(' · ')||'—')],
+  ['Exame solicitado',esc(s.tipo||'—')]
+ ])}`;
+ h+=`<p class="small">Esta ficha, a guia de encaminhamento e o formulário do ASO formam o conjunto de documentos enviados pela empresa à clínica para a realização do exame ocupacional. Qualquer alteração nos dados cadastrais da empresa ou da clínica deve ser atualizada no sistema e reimpressa.</p>`;
+ h+=`<div class="sig"><div>${esc(e.resp_nome||'Responsável pela empresa')}<span>${esc(e.razao||'')}</span></div><div>${esc(cl.medico_nome||'Responsável pela clínica')}<span>${esc(cl.nome||'')}${cl.medico_crm?' — '+esc(cl.medico_crm):''}</span></div></div>`;
  return h;
 }
 function docGuia(s){
@@ -2866,7 +2897,8 @@ function docDe(s,kind){
  const base='-'+slug(c.nome)+'.html';
  const corpo='Olá,\n\nSegue em anexo o encaminhamento para exame ocupacional ('+s.tipo+') do(a) colaborador(a) '+(c.nome||'')+', da empresa '+(e.razao||'')+'.\nApós o atendimento, enviar o ASO assinado para a empresa.\n\nAtenciosamente,\n'+(e.razao||'');
  const m={
-  pacote:{t:'Encaminhamento completo — '+c.nome,h:docGuia(s)+'<div class="pb"></div>'+docAso(s)+'<div class="pb"></div>'+docPsico(s),f:'encaminhamento'+base},
+  pacote:{t:'Encaminhamento completo — '+c.nome,h:docFichaClinica(s)+'<div class="pb"></div>'+docGuia(s)+'<div class="pb"></div>'+docAso(s)+'<div class="pb"></div>'+docPsico(s),f:'encaminhamento'+base},
+  fichaClinica:{t:'Ficha clínica — '+c.nome,h:docFichaClinica(s),f:'ficha-clinica'+base},
   guia:{t:'Guia de encaminhamento — '+c.nome,h:docGuia(s),f:'guia'+base},
   aso:{t:'ASO — '+c.nome,h:docAso(s),f:'aso'+base},
   psico:{t:'Checklist psicossocial — '+c.nome,h:docPsico(s),f:'checklist'+base}}[kind];
@@ -2922,6 +2954,7 @@ delSol(d){ask('Excluir esta solicitação e o ASO anexado?','Excluir',()=>{const
 stf(d){S.sst=d.v;render()},
 det(d){S.det=d.id;renderDetalhe()},
 docPacote(d){docDe(G('solicitacoes',d.id),'pacote')},docGuia(d){docDe(G('solicitacoes',d.id),'guia')},
+docFichaClinica(d){docDe(G('solicitacoes',d.id),'fichaClinica')},
 docAso(d){docDe(G('solicitacoes',d.id),'aso')},docPsico(d){docDe(G('solicitacoes',d.id),'psico')},
 docEpi(d){const a=G('epis',d.id);if(!a)return;openDoc({title:'Recibo de EPI — '+nCol(a.colabId),html:docEpi(a),filename:'recibo-epi-'+slug(nCol(a.colabId))+'.html',assunto:'Recibo de entrega de EPI — '+nCol(a.colabId),corpo:'Segue o recibo de entrega de EPI de '+nCol(a.colabId)+'.'})},
 docPt(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PT — '+nCol(a.colabId),html:docPt(a),filename:'pt-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Trabalho (PT) — '+nCol(a.colabId),corpo:'Segue a PT de '+nCol(a.colabId)+'.'})},
