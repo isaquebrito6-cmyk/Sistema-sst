@@ -2434,7 +2434,24 @@ function docFichaClinica(s){
   ['Admissão',c.admissao?fd(c.admissao):'—'],['Matrícula / PIS',esc([c.matricula,c.pis].filter(Boolean).join(' · ')||'—')],
   ['Exame solicitado',esc(s.tipo||'—')]
  ])}`;
- h+=`<p class="small">Esta ficha, a guia de encaminhamento e o formulário do ASO formam o conjunto de documentos enviados pela empresa à clínica para a realização do exame ocupacional. Qualquer alteração nos dados cadastrais da empresa ou da clínica deve ser atualizada no sistema e reimpressa.</p>`;
+ h+=`<h2>4. Questionário de antecedentes de saúde (declaração do trabalhador)</h2><p class="small">Preenchido e assinado pelo próprio trabalhador antes da consulta, como apoio à anamnese ocupacional do médico — não substitui a avaliação clínica. Marque "Sim" ou "Não" para cada item; onde houver, descreva brevemente.</p>`;
+ {const linha=(nome)=>`<tr><td>${esc(nome)}</td><td class="box">☐ Sim</td><td class="box">☐ Não</td></tr>`;
+ h+=`<h3>4.1 Antecedentes pessoais (já teve ou tem atualmente)</h3><table><tr><th>Condição</th><th style="width:14%">Sim</th><th style="width:14%">Não</th></tr>${[
+  'Hipertensão arterial (pressão alta)','Diabetes','Doença do coração (infarto, arritmia, sopro)','Colesterol ou triglicerídeos elevados',
+  'Doença da tireoide','Asma, bronquite ou outra doença respiratória','Tuberculose','Doença do fígado (hepatite, cirrose)','Doença dos rins',
+  'Úlcera ou outra doença do estômago/intestino','Epilepsia ou convulsões','Outra doença neurológica','Depressão, ansiedade ou outro transtorno psiquiátrico',
+  'Problema de coluna, hérnia de disco ou LER/DORT','Outra doença articular, óssea ou muscular','Problema de visão (usa óculos/lentes)','Problema de audição',
+  'Alergia a medicamento, alimento ou outra substância','Doença de pele','Doença autoimune','HIV','Câncer (qualquer tipo)'
+ ].map(linha).join('')}<tr><td>Outra condição não listada acima</td><td colspan="2"><span class="blank"></span></td></tr></table>`;
+ h+=`<h3>4.2 Cirurgias, internações e uso de medicamentos</h3><table><tr><td class="k">Já fez cirurgia ou foi internado?</td><td class="box">☐ Sim</td><td class="box">☐ Não</td><td>Qual(is) e quando: <span class="blank"></span></td></tr><tr><td class="k">Usa medicamento de uso contínuo?</td><td class="box">☐ Sim</td><td class="box">☐ Não</td><td>Qual(is): <span class="blank"></span></td></tr></table>`;
+ h+=`<h3>4.3 Antecedentes familiares (pais, irmãos e avós)</h3><table><tr><th>Condição comum na família</th><th style="width:14%">Sim</th><th style="width:14%">Não</th></tr>${[
+  'Diabetes','Hipertensão arterial','Doença do coração ou AVC','Câncer','Doença psiquiátrica ou neurológica','Doença renal'
+ ].map(linha).join('')}<tr><td>Outra</td><td colspan="2"><span class="blank"></span></td></tr></table>`;
+ h+=`<h3>4.4 Hábitos de vida</h3><table><tr><td class="k">Fuma ou já fumou?</td><td class="box">☐ Sim, atualmente</td><td class="box">☐ Já fumei, parei</td><td class="box">☐ Nunca fumei</td></tr><tr><td class="k">Consome bebida alcoólica?</td><td class="box">☐ Sim</td><td class="box">☐ Não</td><td>Frequência: <span class="blank"></span></td></tr><tr><td class="k">Pratica atividade física regular?</td><td class="box">☐ Sim</td><td class="box">☐ Não</td><td></td></tr></table>`;
+ h+=`<h3>4.5 Antecedentes e queixas ocupacionais</h3><table><tr><td class="k">Já sofreu acidente de trabalho?</td><td class="box">☐ Sim</td><td class="box">☐ Não</td><td>Quando/o que aconteceu: <span class="blank"></span></td></tr><tr><td class="k">Já teve doença relacionada ao trabalho?</td><td class="box">☐ Sim</td><td class="box">☐ Não</td><td>Qual: <span class="blank"></span></td></tr></table><p style="margin-top:6pt"><b>Sintomas ou queixas atuais (dores, desconfortos, dificuldades relacionadas ao trabalho):</b></p><p><span class="blank l"></span></p><p><span class="blank l"></span></p>`;
+ h+=`<p class="small" style="margin-top:6pt">Declaro que as informações acima são verdadeiras e completas, e que estou ciente de que omitir ou falsear dados de saúde pode comprometer minha segurança no trabalho.</p>`;
+ h+=`<div class="sig"><div>${esc(c.nome||'Assinatura do trabalhador')}<span>Data: ____/____/______</span></div><div>Recebido pelo médico/enfermeiro do trabalho<span>Nome e registro</span></div></div>`;}
+ h+=`<p class="small" style="margin-top:10pt">Esta ficha, a guia de encaminhamento e o formulário do ASO formam o conjunto de documentos enviados pela empresa à clínica para a realização do exame ocupacional. Qualquer alteração nos dados cadastrais da empresa ou da clínica deve ser atualizada no sistema e reimpressa.</p>`;
  h+=`<div class="sig"><div>${esc(e.resp_nome||'Responsável pela empresa')}<span>${esc(e.razao||'')}</span></div><div>${esc(cl.medico_nome||'Responsável pela clínica')}<span>${esc(cl.nome||'')}${cl.medico_crm?' — '+esc(cl.medico_crm):''}</span></div></div>`;
  return h;
 }
