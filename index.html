@@ -1002,6 +1002,133 @@ function abrirEnt(kind,id,pre){
   if(del)del.onclick=()=>{rec.foto='';if(prev)prev.innerHTML=prevImg('')};
  },30);
 }
+/* ====================== IMPORTAR DE FICHA (colar texto ou foto/scanner) ====================== */
+/* Lê o texto de uma ficha de empresa ou de colaborador e abre o formulário de cadastro já preenchido, para conferência.
+   Nada é gravado sem o usuário revisar e salvar (e as validações de CPF/CNPJ do formulário continuam valendo).
+   O texto vem de colar direto, ou de uma foto/scan lida por OCR (Tesseract.js, carregado sob demanda — roda no navegador,
+   sem backend e sem custo no Firebase). OCR de letra à mão ou foto ruim erra bastante: por isso sempre há conferência. */
+const FICHA_ROTULOS={
+ colaborador:{
+  nome:['nome completo','nome do colaborador','nome do funcionario','nome do trabalhador','colaborador','funcionario','trabalhador','nome'],
+  cpf:['cpf'],nasc:['data de nascimento','data nascimento','nascimento','data nasc','dt nascimento','nasc'],
+  sexo:['sexo','genero'],admissao:['data de admissao','data admissao','dt admissao','admissao'],
+  demissao:['data de desligamento','data de demissao','desligamento','demissao'],
+  funcao:['funcao cargo','cargo funcao','funcao','cargo','ocupacao'],setor:['setor ghe','setor','departamento','ghe','lotacao'],
+  matricula:['n matricula','matricula'],pis:['pis pasep nit','pis pasep','pis','pasep','nit'],
+  telefone:['telefone','celular','whatsapp','fone','tel'],email:['e-mail','email'],
+  empresaNome:['razao social','empregador','empresa']},
+ empresa:{
+  razao:['razao social','nome empresarial','nome da empresa','empresa','razao'],fantasia:['nome fantasia','fantasia'],
+  cnpj:['cnpj'],cnae:['cnae principal','cnae','atividade principal'],grau:['grau de risco','grau risco'],
+  funcionarios:['numero de funcionarios','numero de trabalhadores','total de funcionarios','quantidade de funcionarios','n de funcionarios','n de trabalhadores','qtd funcionarios','funcionarios','trabalhadores'],
+  jornada:['jornada de trabalho','horario de trabalho','jornada','turnos'],cep:['cep'],
+  endereco:['endereco','logradouro'],cidade:['cidade','municipio'],uf:['uf','estado'],
+  telefone:['telefone','celular','fone','tel'],email:['e-mail','email'],
+  resp_nome:['responsavel pela empresa','responsavel legal','representante legal','responsavel'],
+  medico_nome:['medico coordenador do pcmso','medico coordenador','coordenador do pcmso','medico do trabalho','medico responsavel'],
+  medico_crm:['crm'],
+  tec_nome:['responsavel tecnico do pgr','responsavel tecnico','tecnico de seguranca do trabalho','engenheiro de seguranca'],
+  tec_reg:['registro profissional','crea','registro']}
+};
+const ficha_sem=s=>Array.from(String(s||'')).map(ch=>{if('º°ª'.includes(ch))return ' ';const b=ch.normalize('NFD')[0]||ch;return b.toLowerCase()}).join(''); // 1 caractere -> 1 caractere (preserva posições)
+function fichaData(v,tipo){
+ const m=String(v||'').match(/(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{2,4})/);if(!m)return '';
+ let [,d,mo,y]=m;d=+d;mo=+mo;y=+y;
+ if(y<100){y+= (tipo==='nasc'?(y>30?1900:2000):2000)}
+ if(mo<1||mo>12||d<1||d>31)return '';
+ return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+}
+function fichaLimpa(k,v){
+ v=String(v||'').replace(/\s+/g,' ').replace(/^[\s:;,\-–|·]+|[\s;,|·]+$/g,'').trim();if(!v)return '';
+ if(k==='cpf'){const d=v.replace(/\D/g,'');return d.length===11?mask.cpf(d):''}
+ if(k==='cnpj'){const d=v.replace(/\D/g,'');return d.length===14?mask.cnpj(d):''}
+ if(k==='cep'){const d=v.replace(/\D/g,'');return d.length===8?mask.cep(d):''}
+ if(k==='telefone'){const d=v.replace(/\D/g,'');return d.length>=10&&d.length<=11?mask.tel(d):''}
+ if(k==='pis'){const d=v.replace(/\D/g,'');return d.length===11?d:''}
+ if(k==='email'){if(!v.includes('@'))v=v.replace(/\s*[Qq©]\s*(?=[\w-]+\.[a-z]{2,})/,'@');const m=v.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/);return m?m[0].toLowerCase():''} // OCR costuma ler o @ como Q ou ©
+ if(k==='nasc'||k==='admissao'||k==='demissao')return fichaData(v,k);
+ if(k==='sexo'){const n=norm(v);return /^f/.test(n)?'Feminino':/^m/.test(n)?'Masculino':''}
+ if(k==='grau'){const m=v.match(/[1-4]/);return m?m[0]:''}
+ if(k==='funcionarios'){const m=v.match(/\d+/);return m?m[0]:''}
+ if(k==='uf'){const u=v.toUpperCase().match(/\b[A-Z]{2}\b/);return u&&UFS.includes(u[0])?u[0]:''}
+ if(k==='cnae'){const m=v.match(/\d{2}\.?\d{2}-?\d\/?-?\d{2}|\d{4}-?\d\/?\d{2}|\d{7}/);return m?m[0]:v.slice(0,40)}
+ return v.slice(0,160);
+}
+function fichaInterpretar(texto,kind){
+ const R=FICHA_ROTULOS[kind],out={},linhas=String(texto||'').replace(/\r/g,'').split('\n');
+ // alternativas de rótulo (mais longas primeiro, para "nome completo" ganhar de "nome")
+ const alts=[];Object.entries(R).forEach(([k,ls])=>ls.forEach(l=>alts.push([ficha_sem(l).replace(/[^a-z0-9\- ]/g,''),k])));
+ alts.sort((a,b)=>b[0].length-a[0].length);
+ const esc_=s=>s.replace(/[.*+?^${}()|[\]\\\-]/g,'\\$&');
+ const re=new RegExp('(?<![a-z0-9])('+alts.map(a=>esc_(a[0]).replace(/ /g,'[ ./\\\\-]*')).join('|')+')\\s*[:：]','g');
+ const chaveDe=r=>{const n=r.replace(/[^a-z0-9\- ]/g,' ').replace(/\s+/g,' ').trim();const a=alts.find(x=>x[0]===n)||alts.find(x=>x[0].replace(/ /g,'')===n.replace(/ /g,''));return a?a[1]:null};
+ linhas.forEach((ln,i)=>{
+  const t=ficha_sem(ln);const ms=[...t.matchAll(re)];
+  ms.forEach((m,j)=>{
+   const k=chaveDe(m[1]);if(!k||out[k])return;
+   const ini=m.index+m[0].length,fim=ms[j+1]?ms[j+1].index:ln.length;
+   let v=ln.slice(ini,fim);
+   if(!v.trim()&&j===ms.length-1){const prox=(linhas[i+1]||'').trim();if(prox&&!/[:：]/.test(prox)&&prox.length<90)v=prox}
+   const c=fichaLimpa(k,v);if(c)out[k]=c;
+  });
+ });
+ // reforço por formato, só para o que não veio com rótulo
+ const T=String(texto||'');
+ const ac=(k,rx,fn)=>{if(out[k])return;const m=T.match(rx);if(m){const c=fichaLimpa(k,fn?fn(m):m[0]);if(c)out[k]=c}};
+ ac('email',T.includes('@')?/[\w.+-]+@[\w-]+(\.[\w-]+)+/:/[\w.+-]+\s*[Qq©]\s*[\w-]+(\.[\w-]+)+/);
+ if(kind==='colaborador'){ac('cpf',/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
+ else{ac('cnpj',/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);ac('cep',/\b\d{5}-?\d{3}\b/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
+ // colaborador: vincular à empresa cadastrada pelo nome
+ if(kind==='colaborador'&&out.empresaNome){
+  const n=norm(out.empresaNome),e=empOpts().find(([id,r])=>{const x=norm(r);return x&&(x===n||x.includes(n)||n.includes(x))});
+  if(e)out.empresaId=e[0];delete out.empresaNome;
+ }else delete out.empresaNome;
+ return out;
+}
+const FICHA_OCR_URL='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+function fichaLoadOCR(){
+ if(window.Tesseract)return Promise.resolve();
+ if(window._ocrLoading)return window._ocrLoading;
+ window._ocrLoading=new Promise((res,rej)=>{const s=document.createElement('script');s.src=FICHA_OCR_URL;s.onload=()=>res();s.onerror=()=>{window._ocrLoading=null;rej(new Error('Não foi possível carregar o leitor de imagens. Confira a conexão, ou cole o texto da ficha.'))};document.head.appendChild(s)});
+ return window._ocrLoading;
+}
+/* Reduz a foto antes do OCR (celular gera imagens enormes e lentas) e converte para tons de cinza com contraste leve */
+async function fichaPrepImg(file){
+ const bmp=await createImageBitmap(file);const k=Math.min(1,2200/Math.max(bmp.width,bmp.height));
+ const cv=document.createElement('canvas');cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
+ const cx=cv.getContext('2d');cx.filter='grayscale(1) contrast(1.25)';cx.drawImage(bmp,0,0,cv.width,cv.height);if(bmp.close)bmp.close();
+ return cv;
+}
+function abrirFichaImport(kind){
+ const nome=kind==='empresa'?'empresa':'colaborador';
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:760px" role="dialog" aria-modal="true" aria-label="Importar de ficha"><header><h2>Importar ${nome} de uma ficha</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <p class="sm muted" style="margin:0 0 10px">Cole o texto da ficha (copiado de PDF, Word, e-mail ou WhatsApp) <b>ou</b> tire uma foto / escaneie. O sistema reconhece campos no formato <b>"Rótulo: valor"</b> (ex.: ${kind==='empresa'?'Razão social: ..., CNPJ: ..., Endereço: ...':'Nome: ..., CPF: ..., Função: ..., Admissão: ...'}) e abre o cadastro já preenchido para você conferir antes de salvar.</p>
+ <div class="fld w6"><label for="fi_txt">Texto da ficha</label><textarea id="fi_txt" rows="9" placeholder="Cole aqui..."></textarea></div>
+ <div class="row" style="gap:8px;margin-top:8px;align-items:center"><button type="button" class="btn s" id="fi_img">${ic('up')}Ler foto ou scanner</button><button type="button" class="btn s g" data-paste="fi_file">Colar imagem</button><input type="file" id="fi_file" accept="image/*" hidden><span id="fi_st" class="sm muted"></span></div>
+ <p class="sm muted" style="margin:8px 0 0">A leitura de imagem roda no seu aparelho (grátis, sem enviar a ficha a terceiros); na primeira vez baixa o leitor (cerca de 15 MB). Funciona melhor com ficha impressa, reta e bem iluminada; letra à mão costuma errar — confira sempre.</p>
+ </div><footer><button type="button" class="btn" data-a="closeForm">Cancelar</button><button type="button" class="btn p" id="fi_go">Interpretar e abrir cadastro</button></footer></div></div>`;
+ const txt=$('#fi_txt'),st=$('#fi_st'),fi=$('#fi_file');
+ $('#fi_img').onclick=()=>fi.click();
+ fi.onchange=async()=>{
+  const f=fi.files[0];if(!f)return;
+  try{
+   st.textContent='Carregando leitor de imagens…';await fichaLoadOCR();
+   st.textContent='Preparando imagem…';const cv=await fichaPrepImg(f);
+   const w=await Tesseract.createWorker('por',1,{logger:m=>{if(m.status==='recognizing text')st.textContent='Lendo a imagem… '+Math.round((m.progress||0)*100)+'%';else if(/loading/.test(m.status||''))st.textContent='Carregando idioma português…'}});
+   const r=await w.recognize(cv);await w.terminate();
+   txt.value=(txt.value?txt.value+'\n':'')+(r.data.text||'').trim();
+   st.textContent='Leitura concluída. Confira o texto abaixo e clique em "Interpretar".';
+  }catch(e){st.textContent='';toast(e.message||'Falha ao ler a imagem.',5000)}
+  fi.value='';
+ };
+ $('#fi_go').onclick=()=>{
+  const campos=fichaInterpretar(txt.value,kind);const n=Object.keys(campos).length;
+  if(!n){toast('Não reconheci nenhum campo. Use o formato "Rótulo: valor" (ex.: Nome: Maria, CPF: 000.000.000-00).',6000);return}
+  closeForm();abrirEnt(kind,null,campos);
+  toast(n+' campo(s) preenchido(s) a partir da ficha. Confira os dados antes de salvar.',6000);
+ };
+}
+
 /* ====================== IMPORTAÇÃO DE COLABORADORES (planilha) ====================== */
 /* Lê CSV ou XLSX inteiramente no navegador (sem backend): CSV com um parser próprio
    (aceita vírgula ou ponto e vírgula, e campos entre aspas), XLSX com a biblioteca SheetJS
@@ -1918,7 +2045,7 @@ VIEWS.painel=()=>{
 };
 VIEWS.empresas=()=>{
  const q=norm(S.q);const l=L('empresas').filter(e=>!q||norm(e.razao+' '+e.fantasia+' '+e.cnpj).includes(q)).sort(byN);
- return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar empresa ou CNPJ" value="${esc(S.q)}" data-c="q"><button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button></div>`+
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar empresa ou CNPJ" value="${esc(S.q)}" data-c="q"><button class="btn s" data-a="fichaImp" data-e="empresa">${ic('file')}Importar de ficha</button><button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button></div>`+
  (l.length?`<div class="grid">${l.map(e=>{const rs=L('riscos').filter(r=>r.empresaId===e.id);const nc=L('colaboradores').filter(c=>c.empresaId===e.id&&c.status!=='Desligado').length;
   return `<div class="card"><div class="row sb"><h3 style="margin:0">${esc(e.razao)}</h3><span class="chip gray">Grau ${esc(e.grau||'—')}</span></div><p class="muted sm" style="margin:4px 0 10px">${esc(e.cnpj||'CNPJ não informado')} · ${nc} colaborador(es)</p>${rs.length?distBar(rs):''}<p class="sm muted" style="margin:6px 0 12px">${rs.length?rs.length+' risco(s) no inventário':'Inventário de riscos vazio'}</p><div class="row"><button class="btn s" data-a="edit" data-e="empresa" data-id="${e.id}">${ic('edit')}Editar</button><button class="btn s" data-a="goEmp" data-v="riscos" data-id="${e.id}">Riscos</button><button class="btn s" data-a="goEmp" data-v="documentos" data-id="${e.id}">Documentos</button><button class="btn s d g" data-a="delEmp" data-id="${e.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`:emptyBox('Nenhuma empresa encontrada','Cadastre a empresa cliente para começar.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`,'build'));
 };
@@ -1926,7 +2053,7 @@ VIEWS.colaboradores=()=>{
  const q=norm(S.q);let l=L('colaboradores');if(S.role==='empresa')l=l.filter(c=>c.empresaId===S.rid);
  if(isC()&&S.fEmp)l=l.filter(c=>c.empresaId===S.fEmp);
  l=l.filter(c=>!q||norm(c.nome+' '+c.cpf+' '+c.funcao+' '+c.setor).includes(q)).sort(byN);
- return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por nome, CPF, função ou setor" value="${esc(S.q)}" data-c="q">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}${(S.fEmp||!isC())?`<button class="btn g" data-a="expCol" data-id="${S.fEmp||S.rid}">${ic('down')}CSV</button>`:''}<button class="btn s" data-a="newColabImport">${ic('plus')}Importar colaboradores</button><button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button></div>`+
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar por nome, CPF, função ou setor" value="${esc(S.q)}" data-c="q">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}${(S.fEmp||!isC())?`<button class="btn g" data-a="expCol" data-id="${S.fEmp||S.rid}">${ic('down')}CSV</button>`:''}<button class="btn s" data-a="newColabImport">${ic('plus')}Importar colaboradores</button><button class="btn s" data-a="fichaImp" data-e="colaborador">${ic('file')}Importar de ficha</button><button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button></div>`+
  (l.length?tbl([{h:'Nome',f:c=>`<div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">${avatarColab(c,32)}<div><a href="#" data-a="ficha" data-id="${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a><br><span class="muted sm">${esc(c.cpf||'')}</span></div></div>`},{h:'Empresa',f:c=>esc(nEmp(c.empresaId))},{h:'Função / setor',f:c=>esc((c.funcao||'')+(c.setor?' · '+c.setor:''))},{h:'Riscos (PGR)',f:c=>{const rs=riscosDoColab(c);return rs.length?`<span class="chip low">${rs.length} vinculado(s)</span>`:'<span class="chip high">sem risco</span>'}},{h:'Próximo exame',f:c=>{const p=proximo(c);return p?`<span class="chip ${dias(p)<0?'crit':dias(p)<=60?'med':'low'}">${fd(p)}</span>`:'<span class="chip gray">sem ASO</span>'}},{h:'Situação',f:c=>c.status==='Ativo'?'Ativo':`<span class="chip gray">${esc(c.status)}</span>`},{h:'',a:1,f:c=>`<button class="btn s p" data-a="ficha" data-id="${c.id}">Ficha e exames</button> <button class="btn s g" data-a="edit" data-e="colaborador" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button> <button class="btn s g d" data-a="delCol" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhum colaborador','Cadastre os colaboradores com função e setor: é isso que liga cada pessoa aos exames do PCMSO.',`<button class="btn p" data-a="new" data-e="colaborador">${ic('plus')}Novo colaborador</button> <button class="btn s" data-a="newColabImport">${ic('plus')}Importar colaboradores</button>`,'users'));
 };
@@ -2986,6 +3113,7 @@ fichaPt(d){const c=G('colaboradores',d.id);abrirPt(null,{empresaId:c.empresaId,c
 fichaTrein(d){const c=G('colaboradores',d.id);abrirTreinamento(null,{empresaId:c.empresaId,colabId:c.id})},
 expCol(d){exportColaboradores(d.id)},expRiscos(d){exportRiscos(d.id)},expAcoes(d){exportAcoes(d.id)},
 newColabImport(){abrirColaboradorImport()},
+fichaImp(d){abrirFichaImport(d.e)},
 resumoSemana(){openDoc({title:'Resumo da semana',html:docResumoSemana(),filename:'resumo-semana-'+today()+'.html',assunto:'Resumo semanal de pendências',corpo:'Segue o resumo semanal de exames e ações pendentes.'})},
 irClinicas(){closeForm();S.view='clinicas';render();setTimeout(()=>abrirEnt('clinica'),30)},
 solTodos(){mostrarTodosExames()},
@@ -3243,7 +3371,7 @@ document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.m
 /* ---- Colar imagem (Ctrl+V ou botão "Colar imagem"): entrega a imagem ao mesmo campo de arquivo já usado por "Enviar",
    então reaproveita toda a compressão/recorte existente (foto 3:4, logotipo, ASO). Só age se houver um desses campos aberto. */
 function colarAlvo(){
- for(const id of ['colFotoFile','empLogoFile']){const el=document.getElementById(id);if(el)return el}
+ for(const id of ['fi_file','colFotoFile','empLogoFile']){const el=document.getElementById(id);if(el)return el}
  const bt=document.querySelector('[data-a=pickAso]');const aso=document.getElementById('aso-f');if(bt&&aso)return aso;
  const lg=document.getElementById('logo-f');if(lg&&document.querySelector('[data-a=cfgForm]'))return lg;
  return null;
