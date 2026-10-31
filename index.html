@@ -2053,7 +2053,7 @@ function renderFicha(){
  const pend=ks.filter(k=>statusExame(c,k,m).k!=='low').length;
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header>${avatarColab(c,36)}<h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
  <div class="kv"><div><span>Empresa</span>${esc(e.razao||'—')}</div><div><span>Função</span>${esc(c.funcao||'—')}</div><div><span>Setor / GHE</span>${esc(c.setor||'—')}</div><div><span>CPF</span>${esc(c.cpf||'—')}</div><div><span>Admissão</span>${fd(c.admissao)}</div><div><span>Nascimento</span>${fd(c.nasc)}</div></div>
- <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn s" data-a="docPPPA" data-id="${c.id}">${ic('file')}Emitir PPP (minuta)</button><a class="btn s ext" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a>`:''}${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
+ <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn s" data-a="docOSA" data-id="${c.id}">${ic('file')}Ordem de serviço (NR-1)</button><button class="btn s" data-a="docPPPA" data-id="${c.id}">${ic('file')}Emitir PPP (minuta)</button><a class="btn s ext" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a>`:''}${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
  ${canReq?'<p class="muted sm" style="margin:0 0 16px">O PPP com validade legal é o emitido pelo próprio eSocial, a partir dos eventos já transmitidos (S-2240). A minuta deste sistema serve para conferir os dados antes de transmitir.</p>':''}
  ${rs.length?'':`<div class="note-w card" style="border-color:var(--high);margin-bottom:14px"><b>Nenhum risco do PGR vinculado.</b><p class="sm muted" style="margin:4px 0 0">Os exames dependem do inventário de riscos. Confira se o setor <b>${esc(c.setor||'—')}</b> ou a função <b>${esc(c.funcao||'—')}</b> aparecem nos riscos da empresa (campo "Funções expostas"). Enquanto isso, só o exame clínico é exigido.</p>${isC()?`<button class="btn s" style="margin-top:8px" data-a="fichaRiscos" data-id="${c.empresaId}">Abrir inventário de riscos</button>`:''}</div>`}
  <h3 style="font-size:15px;margin:0 0 8px">1. Riscos ocupacionais (PGR)</h3>
@@ -2863,6 +2863,31 @@ function docPPP(c){
  openDoc({title:'PPP — '+(c.nome||''),html:h,filename:'ppp-'+slug(c.nome||'')+'.html',assunto:'PPP — '+(c.nome||''),corpo:'Segue o Perfil Profissiográfico Previdenciário (PPP) de '+(c.nome||'')+'.'});
 }
 
+/* ---------- OS — Ordem de Serviço de Segurança e Saúde no Trabalho (NR-1, item 1.4.1, alínea "c") ----------
+   Base normativa conferida no texto da NR-1 (Portaria SEPRT nº 6.730/2020 e alterações): cabe ao empregador "elaborar ordens de serviço
+   sobre segurança e saúde no trabalho, dando ciência aos trabalhadores" (1.4.1 "c"); informar os riscos ocupacionais e as medidas de
+   prevenção (1.4.1 "b"); determinar procedimentos em caso de acidente ou doença relacionada ao trabalho (1.4.1 "e"); deveres do trabalhador
+   (1.4.2) e recusa injustificada como ato faltoso (1.4.2.1); direito de interromper atividade com risco grave e iminente (1.4.3 e 1.4.3.1).
+   Definição do Anexo I: "instruções por escrito quanto às precauções para evitar acidentes do trabalho ou doenças ocupacionais".
+   A NR-1 NÃO fixa um modelo nem um conteúdo mínimo para a OS — a estrutura abaixo é o que a prática reconhece e reflete esses itens. */
+function docOS(c){
+ const e=G('empresas',c.empresaId)||{};
+ const rs=riscosDoColab(c).sort((a,b)=>nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
+ let h=dHead('Ordem de Serviço de SST','Emitida em '+fd(today()),e.logo);
+ h+=`<h1 style="font-size:18pt">Ordem de Serviço de Segurança e Saúde no Trabalho</h1><p class="small">Instruções por escrito quanto às precauções para evitar acidentes do trabalho e doenças ocupacionais, emitida conforme o item 1.4.1, alínea "c", da NR-1, com ciência do trabalhador.</p>`;
+ h+=`<h2>1. Empresa</h2>${kv([['Razão social',esc(e.razao||'—')],['CNPJ',esc(e.cnpj||'—')],['Endereço',esc(endEmp(e)||'—')]])}`;
+ h+=`<h2>2. Trabalhador</h2>${kv([['Nome',esc(c.nome||'—')],['CPF',esc(c.cpf||'—')],['Função / cargo',esc(c.funcao||'—')],['Setor / GHE',esc(c.setor||'—')],['Admissão',c.admissao?fd(c.admissao):'—']])}`;
+ h+=`<h2>3. Riscos ocupacionais e medidas de prevenção</h2><p class="small">Riscos identificados no inventário do PGR para a função e o setor do trabalhador (NR-1, item 1.4.1, alínea "b"), com as medidas de prevenção adotadas pela empresa.</p>${rs.length?`<table><tr><th>Risco</th><th>Categoria</th><th>Possíveis danos à saúde</th><th>Medidas de prevenção (EPC, EPI, administrativas)</th></tr>${rs.map(r=>`<tr><td>${esc(r.perigo)}</td><td>${esc(CATS[r.cat]||'')}</td><td>${esc(r.danos||'—')}</td><td>${esc(r.medidas||'—')}</td></tr>`).join('')}</table>`:'<p class="small">Nenhum risco do inventário está vinculado à função/setor deste trabalhador. Confira o campo "Funções expostas" no inventário de riscos antes de emitir.</p>'}`;
+ h+=`<h2>4. Obrigações do trabalhador (NR-1, item 1.4.2)</h2><ul><li>Cumprir as disposições legais e regulamentares sobre segurança e saúde no trabalho, inclusive as ordens de serviço expedidas pela empresa;</li><li>submeter-se aos exames médicos previstos nas normas regulamentadoras;</li><li>colaborar com a empresa na aplicação das normas regulamentadoras;</li><li>usar o equipamento de proteção individual fornecido pela empresa, conservá-lo e comunicar qualquer dano, extravio ou necessidade de troca.</li></ul>`;
+ h+=`<h2>5. Em caso de acidente ou doença relacionada ao trabalho</h2><ul><li>Comunicar imediatamente o superior hierárquico, qualquer que seja a gravidade;</li><li>receber os primeiros socorros e, se necessário, ser encaminhado ao atendimento médico;</li><li>a empresa registra o ocorrido e emite a Comunicação de Acidente de Trabalho (CAT) quando aplicável (NR-1, item 1.4.1, alínea "e").</li></ul>`;
+ h+=`<h2>6. Direito de interromper a atividade (NR-1, item 1.4.3)</h2><p>Quando constatar situação de trabalho que, a seu ver, envolva <b>risco grave e iminente</b> para a sua vida ou saúde, o trabalhador pode interromper suas atividades, informando imediatamente o superior hierárquico. Comprovada pela empresa a situação de grave e iminente risco, não pode ser exigido o retorno à atividade enquanto não forem tomadas as medidas corretivas (item 1.4.3.1).</p>`;
+ h+=`<h2>7. Consequências do descumprimento</h2><p>A recusa injustificada ao cumprimento das obrigações do item 4 constitui <b>ato faltoso</b> (NR-1, item 1.4.2.1), sujeita às medidas disciplinares previstas na legislação trabalhista.</p>`;
+ h+=`<div class="note">Esta ordem de serviço deve ser mantida atualizada: emita nova via quando o trabalhador mudar de função ou setor, ou quando o inventário de riscos (PGR) for alterado. Uma via fica com o trabalhador e outra no arquivo da empresa.</div>`;
+ h+=`<h2>8. Ciência do trabalhador</h2><p>Declaro que recebi esta ordem de serviço, que fui informado sobre os riscos ocupacionais da minha função, as medidas de prevenção e os procedimentos acima, e que me comprometo a cumpri-los.</p><p>Local e data: ${esc(e.cidade||'__________________')}, ____/____/______.</p>`;
+ h+=`<div class="sig"><div>${esc(c.nome||'Trabalhador')}<span>Assinatura do trabalhador</span></div><div>${esc(e.tec_nome||'Responsável de Segurança do Trabalho')}<span>${esc(e.tec_reg||'Registro profissional')}</span></div><div>${esc(e.resp_nome||'Representante da empresa')}<span>${esc(e.resp_cargo||e.razao||'')}</span></div></div>`;
+ openDoc({title:'Ordem de serviço — '+(c.nome||''),html:h,filename:'ordem-de-servico-'+slug(c.nome||'')+'.html',assunto:'Ordem de serviço de SST — '+(c.nome||''),corpo:'Segue a ordem de serviço de segurança e saúde no trabalho de '+(c.nome||'')+'.'});
+}
+
 /* ====================== RENDER E EVENTOS ====================== */
 function roleSel(){
  if(S.usingAuth&&S.authLocked){
@@ -2947,6 +2972,7 @@ fichaSol(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId
 fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='riscos';render()},
 docFicha(d){docFicha(G('colaboradores',d.id))},
 docPPPA(d){docPPP(G('colaboradores',d.id))},
+docOSA(d){docOS(G('colaboradores',d.id))},
 fichaCat(d){const c=G('colaboradores',d.id);abrirCat(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaEpi(d){const c=G('colaboradores',d.id);abrirEpi(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaPt(d){const c=G('colaboradores',d.id);abrirPt(null,{empresaId:c.empresaId,colabId:c.id})},
