@@ -659,6 +659,15 @@ function initSigPad(canvasId,rec,statusId,clearId,selId,imgKey,dataKey){
  const upd=()=>{if(status)status.textContent=rec[imgKey]?'Assinatura digital registrada em '+fd(rec[dataKey])+'.':'Nenhuma assinatura digital ainda — desenhe acima com o dedo ou o mouse.'};
  if(rec[imgKey]){const im=new Image();im.onload=()=>cx.drawImage(im,0,0,cv.width,cv.height);im.src=rec[imgKey]}
  upd();
+ /* O campo de assinatura só aparece quando o usuário pede (botão); se já houver assinatura gravada, abre direto. */
+ {const pad=cv.closest('.sigpad');
+  if(pad&&!rec[imgKey]){
+   const extra=[pad];let n=pad.nextElementSibling;while(n&&extra.length<3&&(n.classList.contains('row')||n.tagName==='SMALL')){extra.push(n);n=n.nextElementSibling}
+   extra.forEach(x=>x.style.display='none');
+   const b=document.createElement('button');b.type='button';b.className='btn s g';b.textContent='✍ Assinar digitalmente';b.setAttribute('data-sigopen',canvasId);
+   b.onclick=()=>{extra.forEach(x=>x.style.display='');b.remove()};
+   pad.parentNode.insertBefore(b,pad);
+  }}
  let drawing=false,moved=false;
  const pos=ev=>{const r=cv.getBoundingClientRect();return[(ev.clientX-r.left)*(cv.width/r.width),(ev.clientY-r.top)*(cv.height/r.height)]};
  cv.addEventListener('pointerdown',ev=>{drawing=true;moved=false;const[x,y]=pos(ev);cx.beginPath();cx.moveTo(x,y);ev.preventDefault()});
