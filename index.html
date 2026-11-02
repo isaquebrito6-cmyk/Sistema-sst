@@ -1013,13 +1013,14 @@ const FICHA_ROTULOS={
   cpf:['cpf'],nasc:['data de nascimento','data nascimento','nascimento','data nasc','dt nascimento','nasc'],
   sexo:['sexo','genero'],admissao:['data de admissao','data admissao','dt admissao','admissao'],
   demissao:['data de desligamento','data de demissao','desligamento','demissao'],
+  afastDesde:['afastado desde','data de afastamento','inicio do afastamento','afastamento'],status:['situacao','status'],
   funcao:['funcao cargo','cargo funcao','funcao','cargo','ocupacao'],setor:['setor ghe','setor','departamento','ghe','lotacao'],
   matricula:['n matricula','matricula'],pis:['pis pasep nit','pis pasep','pis','pasep','nit'],
   telefone:['telefone','celular','whatsapp','fone','tel'],email:['e-mail','email'],
   empresaNome:['razao social','empregador','empresa']},
  empresa:{
   razao:['razao social','nome empresarial','nome da empresa','empresa','razao'],fantasia:['nome fantasia','fantasia'],
-  cnpj:['cnpj'],cnae:['cnae principal','cnae','atividade principal'],grau:['grau de risco','grau risco'],
+  cnpj:['cnpj'],cnae:['cnae principal','cnae','atividade principal'],grau:['grau de risco','grau risco'],porte:['porte da empresa','porte'],
   funcionarios:['numero de funcionarios','numero de trabalhadores','total de funcionarios','quantidade de funcionarios','n de funcionarios','n de trabalhadores','qtd funcionarios','funcionarios','trabalhadores'],
   jornada:['jornada de trabalho','horario de trabalho','jornada','turnos'],cep:['cep'],
   endereco:['endereco','logradouro'],cidade:['cidade','municipio'],uf:['uf','estado'],
@@ -1046,7 +1047,9 @@ function fichaLimpa(k,v){
  if(k==='telefone'){const d=v.replace(/\D/g,'');return d.length>=10&&d.length<=11?mask.tel(d):''}
  if(k==='pis'){const d=v.replace(/\D/g,'');return d.length===11?d:''}
  if(k==='email'){if(!v.includes('@'))v=v.replace(/\s*[Qq©]\s*(?=[\w-]+\.[a-z]{2,})/,'@');const m=v.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/);return m?m[0].toLowerCase():''} // OCR costuma ler o @ como Q ou ©
- if(k==='nasc'||k==='admissao'||k==='demissao')return fichaData(v,k);
+ if(k==='nasc'||k==='admissao'||k==='demissao'||k==='afastDesde')return fichaData(v,k);
+ if(k==='status')return colimpStatus(v);
+ if(k==='porte'){const n=norm(v);return /\bmei\b|microempreendedor/.test(n)?'MEI':/\bepp\b|pequeno porte/.test(n)?'EPP':/\bme\b|microempresa|micro empresa/.test(n)?'ME':/demais|media|grande/.test(n)?'Demais':''}
  if(k==='sexo'){const n=norm(v);return /^f/.test(n)?'Feminino':/^m/.test(n)?'Masculino':''}
  if(k==='grau'){const m=v.match(/[1-4]/);return m?m[0]:''}
  if(k==='funcionarios'){const m=v.match(/\d+/);return m?m[0]:''}
@@ -1177,6 +1180,7 @@ const COLIMP_FIELDS=[
  {k:'funcao',l:'Função / cargo',req:1,al:['funcao','função','cargo','funcao/cargo','função/cargo']},
  {k:'setor',l:'Setor / GHE',req:1,al:['setor','departamento','ghe','setor/ghe','setor / ghe']},
  {k:'demissao',l:'Data de desligamento',al:['demissao','demissão','desligamento','data de desligamento','data de demissao']},
+ {k:'afastDesde',l:'Afastado desde',al:['afastado desde','afastamento','data de afastamento','inicio do afastamento','início do afastamento']},
  {k:'matricula',l:'Matrícula',al:['matricula','matrícula','registro']},
  {k:'pis',l:'PIS/PASEP/NIT',al:['pis','pasep','nit','pis/pasep/nit']},
  {k:'telefone',l:'Telefone',al:['telefone','celular','fone','tel']},
@@ -1206,6 +1210,7 @@ function abrirColaboradorImport(){
    if(mapped.nasc)mapped.nasc=colimpData(mapped.nasc);
    if(mapped.admissao)mapped.admissao=colimpData(mapped.admissao);
    if(mapped.demissao)mapped.demissao=colimpData(mapped.demissao);
+   if(mapped.afastDesde)mapped.afastDesde=colimpData(mapped.afastDesde);
    if(mapped.sexo)mapped.sexo=colimpSexo(mapped.sexo);
    mapped.status=colimpStatus(mapped.status)||'Ativo';
    const errors=[];
@@ -1266,7 +1271,7 @@ function abrirColaboradorImport(){
   if(!validas.length){toast('Nenhuma linha válida para importar. Confira o mapeamento das colunas.',4500);return}
   validas.forEach(r=>{
    const m=r.mapped;
-   save('colaboradores',{empresaId:S.role==='empresa'?S.rid:state.empresaId,status:m.status||'Ativo',nome:m.nome,cpf:m.cpf?mask.cpf(m.cpf):'',nasc:m.nasc||'',sexo:m.sexo||'',admissao:m.admissao||'',funcao:m.funcao,setor:m.setor,demissao:m.demissao||'',matricula:m.matricula||'',pis:m.pis||'',telefone:m.telefone?mask.tel(m.telefone):'',email:m.email||''},true);
+   save('colaboradores',{empresaId:S.role==='empresa'?S.rid:state.empresaId,status:m.status||'Ativo',nome:m.nome,cpf:m.cpf?mask.cpf(m.cpf):'',nasc:m.nasc||'',sexo:m.sexo||'',admissao:m.admissao||'',afastDesde:m.status==='Afastado'?(m.afastDesde||''):'',funcao:m.funcao,setor:m.setor,demissao:m.demissao||'',matricula:m.matricula||'',pis:m.pis||'',telefone:m.telefone?mask.tel(m.telefone):'',email:m.email||''},true);
   });
   const skipped=rowsData.length-validas.length;
   closeForm();render();
