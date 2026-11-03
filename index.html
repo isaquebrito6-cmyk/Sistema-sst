@@ -1921,23 +1921,24 @@ function abrirAso(id){
  const s=G('solicitacoes',id),c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
  const a=clone(s.aso||{});
  const rs=riscosDoColab(c);
- const val={data:a.data||s.dataAgend||today(),medico_nome:a.medico_nome||cl.medico_nome||'',medico_crm:a.medico_crm||cl.medico_crm||'',resultado:a.resultado||'',
+ const val={data:a.data||s.dataAgend||today(),hora:a.hora||'',medico_nome:a.medico_nome||cl.medico_nome||'',medico_crm:a.medico_crm||cl.medico_crm||'',resultado:a.resultado||'',
   riscos:a.riscos!=null?a.riscos:(rs.map(r=>r.perigo).join('; ')||'Ausência de riscos específicos'),obs:a.obs||'',proximo:a.proximo||'',
   aptoAltura:a.aptoAltura||'',aptoConfinado:a.aptoConfinado||'',aptoMaquinas:a.aptoMaquinas||''};
  const fs=[{sec:'Exame clínico'},
-  {k:'data',l:'Data do exame clínico',t:'date',r:1,w:2},{k:'medico_nome',l:'Médico examinador',r:1,w:2},{k:'medico_crm',l:'CRM',r:1,w:2},
+  {k:'data',l:'Data do exame clínico',t:'date',r:1,w:2},{k:'hora',l:'Hora',t:'time',w:1},{k:'medico_nome',l:'Médico examinador',r:1,w:2},{k:'medico_crm',l:'CRM',r:1,w:2},
   {k:'resultado',l:'Conclusão',t:'select',r:1,o:['Apto','Inapto'],ph:'Selecione',w:3},{k:'proximo',l:'Próximo exame periódico',t:'date',w:3,h:'Em branco: calculado pela periodicidade.'},
   {k:'riscos',l:'Riscos ocupacionais informados no ASO',t:'textarea',rows:2},
-  {sec:'Exames complementares (data de realização)'}];
- (s.exames||[]).filter(k=>k!=='clinico').forEach(k=>{fs.push({k:'ex_'+k,l:(EXAMES[k]||{n:k}).n,t:'date',w:3});val['ex_'+k]=(a.exames||{})[k]||''});
+  {sec:'Exames complementares (data e hora de realização)'},
+  {t:'html',w:6,html:'<button type="button" class="btn s" data-a="asoRep">Replicar data e hora do exame clínico em todos os complementares</button><small>Preenche (ou substitui) a data e a hora de cada exame abaixo com as do exame clínico; depois você pode ajustar um a um.</small>'}];
+ (s.exames||[]).filter(k=>k!=='clinico').forEach(k=>{fs.push({k:'ex_'+k,l:(EXAMES[k]||{n:k}).n,t:'date',w:3},{k:'hx_'+k,l:'Hora',t:'time',w:1});val['ex_'+k]=(a.exames||{})[k]||'';val['hx_'+k]=(a.horas||{})[k]||''});
  fs.push({sec:'Aptidões específicas (preencha só quando a função exigir)'},
   {k:'aptoAltura',l:'Trabalho em altura (NR-35)',t:'select',o:['Apto','Inapto'],ph:'Não avaliado / não se aplica',w:3},
   {k:'aptoConfinado',l:'Espaço confinado (NR-33)',t:'select',o:['Apto','Inapto'],ph:'Não avaliado / não se aplica',w:3},
   {k:'aptoMaquinas',l:'Operação de máquinas e equipamentos',t:'select',o:['Apto','Inapto'],ph:'Não avaliado / não se aplica',w:3});
  fs.push({k:'obs',l:'Observações (restrições, recomendações)',t:'textarea'});
  openForm({title:'Dados do ASO — '+(c.nome||''),val,fields:fs,btn:'Salvar ASO',save:v=>{
-  const ex={};(s.exames||[]).forEach(k=>{if(v['ex_'+k])ex[k]=v['ex_'+k]});
-  const n=clone(s);n.aso={data:v.data,medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:v.riscos,obs:v.obs,exames:ex,
+  const ex={},hr={};(s.exames||[]).forEach(k=>{if(v['ex_'+k]){ex[k]=v['ex_'+k];if(v['hx_'+k])hr[k]=v['hx_'+k]}});
+  const n=clone(s);n.aso={data:v.data,hora:v.hora||'',horas:hr,medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:v.riscos,obs:v.obs,exames:ex,
    aptoAltura:v.aptoAltura||'',aptoConfinado:v.aptoConfinado||'',aptoMaquinas:v.aptoMaquinas||''};
   if(n.status!=='Cancelado')n.status='Realizado';
   save('solicitacoes',n);toast('ASO registrado. Anexe o arquivo assinado, se houver.');
@@ -2567,7 +2568,7 @@ function docAso(s){
  h+=`<h2>2. Trabalhador</h2>${kv([['Nome',BL(c.nome)],['CPF',B(c.cpf)],['Data de nascimento',c.nasc?fd(c.nasc):B('')],['Função',B(c.funcao)],['Setor',B(c.setor)]])}`;
  h+=`<h2>3. Tipo de exame</h2><p class="box">${TIPOS.map(t=>`${chk(s&&s.tipo===t)} ${t}`).join('&nbsp;&nbsp; ')}</p>`;
  h+=`<h2>4. Perigos ou fatores de risco ocupacionais</h2><p>${riscosTxt?esc(riscosTxt):'<span class="blank l"></span><br><br><span class="blank l"></span>'}</p>`;
- h+=`<h2>5. Exames realizados</h2><table><tr><th>Exame</th><th style="width:22%">Data</th></tr><tr><td>${esc(EXAMES.clinico.n)}</td><td>${a.data?fd(a.data):'&nbsp;'}</td></tr>${(s?ex.filter(k=>k!=='clinico'):[]).map(k=>`<tr><td>${esc((EXAMES[k]||{n:k}).n)}</td><td>${(a.exames||{})[k]?fd(a.exames[k]):'&nbsp;'}</td></tr>`).join('')}${s?'':'<tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr>'}</table>`;
+ h+=`<h2>5. Exames realizados</h2><table><tr><th>Exame</th><th style="width:22%">Data</th></tr><tr><td>${esc(EXAMES.clinico.n)}</td><td>${a.data?fd(a.data)+(a.hora?' às '+esc(a.hora):''):'&nbsp;'}</td></tr>${(s?ex.filter(k=>k!=='clinico'):[]).map(k=>`<tr><td>${esc((EXAMES[k]||{n:k}).n)}</td><td>${(a.exames||{})[k]?fd(a.exames[k])+((a.horas||{})[k]?' às '+esc(a.horas[k]):''):'&nbsp;'}</td></tr>`).join('')}${s?'':'<tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr><tr><td>&nbsp;</td><td></td></tr>'}</table>`;
  h+=`<h2>6. Conclusão</h2><p class="box">${chk(a.resultado==='Apto')} <b>Apto</b> para a função &nbsp;&nbsp;&nbsp; ${chk(a.resultado==='Inapto')} <b>Inapto</b> para a função</p>`;
  const aptosPed=s&&s.aptos||[];
  h+=`<p><b>Aptidões específicas</b> (preencher só quando a função exigir):</p><table><tr><th>Atividade</th><th style="width:16%">Apto</th><th style="width:16%">Inapto</th></tr>${APTOS_F.map(x=>`<tr><td>${esc(x[0])}${aptosPed.includes(x[2])&&!a[x[1]]?' <span class="tag">solicitada</span>':''}</td><td class="box">${chk(a[x[1]]==='Apto')}</td><td class="box">${chk(a[x[1]]==='Inapto')}</td></tr>`).join('')}</table>`;
@@ -3130,6 +3131,7 @@ fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='ris
 docFicha(d){docFicha(G('colaboradores',d.id))},
 docPPPA(d){docPPP(G('colaboradores',d.id))},
 docOSA(d){docOS(G('colaboradores',d.id))},
+asoRep(){const g=id=>document.getElementById(id);const d=g('f_data'),hr=g('f_hora');if(!d||!d.value){toast('Preencha primeiro a data do exame clínico.');return}let n=0;document.querySelectorAll('#fm [id^="f_ex_"]').forEach(i=>{i.value=d.value;const x=g('f_hx_'+i.id.slice(5));if(x&&hr)x.value=hr.value;n++});toast(n?'Data e hora replicadas em '+n+' exame(s).':'Este ASO não tem exames complementares.')},
 fichaCat(d){const c=G('colaboradores',d.id);abrirCat(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaEpi(d){const c=G('colaboradores',d.id);abrirEpi(null,{empresaId:c.empresaId,colabId:c.id})},
 fichaPt(d){const c=G('colaboradores',d.id);abrirPt(null,{empresaId:c.empresaId,colabId:c.id})},
