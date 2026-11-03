@@ -61,8 +61,16 @@ a{color:var(--brand)}
 .top h1{font-size:21px;flex:1;min-width:120px;color:var(--ink)}
 .ft-bl{border:1px solid var(--line);border-radius:10px;padding:10px 12px 4px;margin-bottom:10px}
 .ft-bl h4{margin:0 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);display:flex;align-items:center;gap:6px}
-.ft-nav{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
-.ft-nav .btn b{background:rgba(0,0,0,.08);border-radius:10px;padding:0 6px;font-size:11px}
+.ft-pane{display:none}.ft-pane.on{display:block}
+.ft-st{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 12px}
+.ft-st>div{border:1px solid var(--line);border-left:4px solid #9AA3AB;border-radius:8px;padding:8px 10px;font-size:13px}
+.ft-st>div span{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2)}
+.ft-st>div b{display:block;font-size:14px;margin-top:2px}
+.ft-st .low{border-left-color:#1E9E4A}.ft-st .med{border-left-color:#F5B800}.ft-st .crit{border-left-color:#D3211A}
+.ft-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin:0 0 14px;position:sticky;top:0;background:var(--sf);z-index:2;padding-top:2px}
+.ft-tab{flex:none;border:0;background:transparent;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer;border-bottom:3px solid transparent;color:var(--ink2);display:flex;gap:6px;align-items:center;white-space:nowrap}
+.ft-tab.on{color:var(--ink);font-weight:700;border-bottom-color:var(--acc,#0B7A8A)}
+.ft-tab b{background:rgba(0,0,0,.08);border-radius:10px;padding:0 6px;font-size:11px}
 .busca-btn{display:inline-flex;align-items:center;gap:6px}
 @media (max-width:520px){.busca-btn span{display:none}}
 .sheet.busca{max-width:560px;width:100%;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:80vh}
@@ -2227,11 +2235,30 @@ function fichaTopicos(c,e,x){
  const tempo=iso=>{if(!iso)return '';const d=new Date(iso+'T12:00:00'),n=new Date();let m=(n.getFullYear()-d.getFullYear())*12+n.getMonth()-d.getMonth();if(n.getDate()<d.getDate())m--;if(m<0)return '';const a=Math.floor(m/12),r=m%12;return (a?a+' ano'+(a>1?'s':''):'')+(a&&r?' e ':'')+(r||!a?r+' mes'+(r===1?'':'es'):'')};
  const idade=anos(c.nasc),tmp=tempo(c.admissao);
  const bloco=(t,i,corpo)=>`<section class="ft-bl"><h4>${ic(i)}${t}</h4><div class="kv">${corpo}</div></section>`;
- const idx=[['ft-riscos','Riscos',x.rs.length],['ft-exames','Exames PCMSO',null],['ft-asos','ASOs',x.sols.length]].concat(x.canReq?[['ft-cat','CAT',x.cats.length]]:[]).concat([['ft-epi','EPI',x.epis.length],['ft-pt','PT',x.pts.length],['ft-trein','Treinamentos',x.treinamentos.length]]);
- return bloco('Dados pessoais','users',v('Nome completo',esc(c.nome))+v('CPF',esc(c.cpf||''))+v('Nascimento',c.nasc?fd(c.nasc)+(idade!==''?' · '+idade+' anos':''):'')+v('Sexo',esc(c.sexo||''))+v('PIS/PASEP/NIT',esc(c.pis||'')))
+  return bloco('Dados pessoais','users',v('Nome completo',esc(c.nome))+v('CPF',esc(c.cpf||''))+v('Nascimento',c.nasc?fd(c.nasc)+(idade!==''?' · '+idade+' anos':''):'')+v('Sexo',esc(c.sexo||''))+v('PIS/PASEP/NIT',esc(c.pis||'')))
  +bloco('Vínculo e função','build',v('Empresa',esc(e.razao||''))+v('Função / cargo',esc(c.funcao||''))+v('Setor / GHE',esc(c.setor||''))+v('Matrícula',esc(c.matricula||''))+v('Admissão',c.admissao?fd(c.admissao)+(tmp?' · '+tmp+' de empresa':''):'')+v('Situação',esc(c.status||'Ativo')+(c.status==='Afastado'&&c.afastDesde?' desde '+fd(c.afastDesde):''))+(c.demissao?v('Desligamento',fd(c.demissao)):''))
  +bloco('Contato','send',v('Telefone',esc(c.telefone||''))+v('E-mail',esc(c.email||'')))
- +`<nav class="ft-nav" aria-label="Ir para o tópico">${idx.map(([id,l,n])=>`<button type="button" class="btn s g" data-a="ftGo" data-id="${id}">${l}${n!=null?` <b>${n}</b>`:''}</button>`).join('')}</nav>`;
+;
+}
+/* Ficha em abas + faixa de situação (semáforo) no topo. */
+function fichaStatus(c,m,pend,rs){
+ const aso=statusExame(c,'clinico',m);
+ const tr=vencimentosColab(c).filter(v=>v.tipo!=='aso');
+ const trVenc=tr.filter(v=>v.status==='crit').length,trProx=tr.filter(v=>v.status==='med').length;
+ const it=(k,l,v)=>`<div class="${k}"><span>${l}</span><b>${v}</b></div>`;
+ let h=it(aso.k,'ASO',esc(aso.t)+(aso.due?' · '+fd(aso.due):''));
+ h+=it(!tr.length?'gray':trVenc?'crit':trProx?'med':'low','Treinamentos',!tr.length?'nenhum registrado':trVenc?trVenc+' vencido(s)':trProx?trProx+' a vencer':'em dia');
+ h+=it(pend?'med':'low','Exames do PCMSO',pend?pend+' pendente(s)':'em dia');
+ if(c.status==='Afastado'){const d=c.afastDesde?-dias(c.afastDesde):null;h+=it(d!=null&&d>=30?'crit':'med','Afastamento',d!=null?d+' dias':'sem data')}
+ if(!rs.length)h+=it('crit','Riscos do PGR','nenhum vinculado');
+ return `<div class="ft-st" role="status">${h}</div>`;
+}
+function fichaAbas(tab,x){
+ const t=[['resumo','Resumo',null],['saude','Saúde',x.sols.length],['seg','Segurança',x.rs.length+(x.canReq?x.epis.length+x.pts.length:0)]];
+ if(x.canReq)t.splice(2,0,['trein','Treinamentos',x.treinamentos.length]);
+ if(x.canReq)t.push(['ocorr','Ocorrências',x.cats.length]);
+ t.push(['docs','Documentos',null]);
+ return `<nav class="ft-tabs" role="tablist" aria-label="Seções da ficha">${t.map(([id,l,n])=>`<button type="button" class="ft-tab${id===tab?' on':''}" role="tab" aria-selected="${id===tab}" data-a="ftTab" data-id="${id}" data-tab="${id}">${l}${n!=null?` <b>${n}</b>`:''}</button>`).join('')}</nav>`;
 }
 function renderFicha(){
  const c=G('colaboradores',S.ficha);if(!c){S.ficha=null;$('#modal-root').innerHTML='';return}
@@ -2244,27 +2271,53 @@ function renderFicha(){
  const treinamentos=L('treinamentos').filter(a=>a.colabId===c.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  const canReq=S.role!=='clinica';
  const pend=ks.filter(k=>statusExame(c,k,m).k!=='low').length;
+ const tab=['resumo','saude','trein','seg','ocorr','docs'].includes(S.fichaTab)&&!(S.fichaTab==='ocorr'&&!canReq)?S.fichaTab:'resumo';
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:900px" role="dialog" aria-modal="true"><header>${avatarColab(c,36)}<h2>${esc(c.nome)}</h2><span class="chip gray">${esc(c.status||'Ativo')}</span><button class="btn g s" data-a="closeFicha" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ ${fichaStatus(c,m,pend,rs)}
+ ${fichaAbas(tab,{rs,sols,cats,epis,pts,treinamentos,canReq})}
+ <div class="ft-pane${tab==='resumo'?' on':''}" data-p="resumo">
  ${fichaTopicos(c,e,{rs,sols,cats,epis,pts,treinamentos,canReq})}
- <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn s" data-a="docOSA" data-id="${c.id}">${ic('file')}Ordem de serviço (NR-1)</button><button class="btn s" data-a="docPPPA" data-id="${c.id}">${ic('file')}Emitir PPP (minuta)</button><a class="btn s ext" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a>`:''}${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
- ${canReq?'<p class="muted sm" style="margin:0 0 16px">O PPP com validade legal é o emitido pelo próprio eSocial, a partir dos eventos já transmitidos (S-2240). A minuta deste sistema serve para conferir os dados antes de transmitir.</p>':''}
- ${rs.length?'':`<div class="note-w card" style="border-color:var(--high);margin-bottom:14px"><b>Nenhum risco do PGR vinculado.</b><p class="sm muted" style="margin:4px 0 0">Os exames dependem do inventário de riscos. Confira se o setor <b>${esc(c.setor||'—')}</b> ou a função <b>${esc(c.funcao||'—')}</b> aparecem nos riscos da empresa (campo "Funções expostas"). Enquanto isso, só o exame clínico é exigido.</p>${isC()?`<button class="btn s" style="margin-top:8px" data-a="fichaRiscos" data-id="${c.empresaId}">Abrir inventário de riscos</button>`:''}</div>`}
- <h3 id="ft-riscos" style="font-size:15px;margin:0 0 8px">1. Riscos ocupacionais (PGR)</h3>
- ${rs.length?tbl([{h:'Risco',f:r=>`<b>${esc(r.perigo)}</b><br><span class="muted sm">${esc(CATS[r.cat]||'')} · setor ${esc(r.setor||'—')}</span>`},{h:'Nível',f:r=>{const n=nivel(r.sev,r.prob);return `<span class="chip ${n.k}">${n.n} · ${n.v}</span>`}},{h:'Exames que este risco exige',f:r=>(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join(' ')||'—'}],rs):'<p class="muted sm">Sem riscos vinculados.</p>'}
- <h3 id="ft-exames" style="font-size:15px;margin:18px 0 4px">2. Exames exigidos pelo PCMSO ${pend?`<span class="chip med">${pend} pendente(s)</span>`:'<span class="chip low">tudo em dia</span>'}</h3>
+
+ </div>
+ <div class="ft-pane${tab==='saude'?' on':''}" data-p="saude">
+ <h3 id="ft-exames" style="font-size:15px;margin:18px 0 4px">Exames exigidos pelo PCMSO ${pend?`<span class="chip med">${pend} pendente(s)</span>`:'<span class="chip low">tudo em dia</span>'}</h3>
  <p class="muted sm" style="margin:0 0 8px">Definidos pelos riscos acima. A periodicidade vale a menor entre os riscos que exigem o exame.</p>
  ${tbl([{h:'Exame',f:k=>`<b>${esc(EXAMES[k].n)}</b>`},{h:'Motivo (PGR)',f:k=>`<span class="sm">${esc(origemExame(rs,k).join('; '))}</span>`},{h:'Periodicidade',f:k=>m[k]+' meses'},{h:'Último',f:k=>fd(statusExame(c,k,m).last)},{h:'Vence em',f:k=>fd(statusExame(c,k,m).due)},{h:'Situação',f:k=>{const s=statusExame(c,k,m);return `<span class="chip ${s.k==='gray'?'gray':s.k}">${s.t}</span>`}}],ks)}
- <h3 id="ft-asos" style="font-size:15px;margin:18px 0 8px">3. Pedidos de exame e ASOs</h3>
+
+ <h3 id="ft-asos" style="font-size:15px;margin:18px 0 8px">Pedidos de exame e ASOs</h3>
  ${sols.length?tbl([{h:'Data',f:s=>fd(s.dataSolic)},{h:'Exame',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'ASO',f:s=>s.aso&&s.aso.data?esc(s.aso.resultado||'')+' · '+fd(s.aso.data):'—'},{h:'Situação',f:s=>`<span class="chip ${s.status==='Realizado'?'low':''}">${s.status}</span>${s.arquivo?' <span class="chip low">arquivo</span>':''}`}],sols,s=>`class="click" data-a="det" data-id="${s.id}"`):'<p class="muted sm">Nenhum pedido ainda. Use "Enviar pedido de exame à clínica".</p>'}
- ${canReq?`<h3 id="ft-cat" style="font-size:15px;margin:18px 0 8px">4. Acidentes de trabalho (CAT) <button class="btn s g" style="margin-left:6px" data-a="fichaCat" data-id="${c.id}">${ic('plus')}Nova</button> <a class="btn s ext" style="margin-left:4px" href="https://www.gov.br/pt-br/servicos/registrar-comunicacao-de-acidente-de-trabalho-cat" target="_blank" rel="noopener">${ic('send')}Registrar CAT (gov.br)</a> <a class="btn s ext" style="margin-left:4px" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a></h3>
+
+ </div>
+ <div class="ft-pane${tab==='trein'?' on':''}" data-p="trein">
+${canReq?` <h3 id="ft-trein" style="font-size:15px;margin:18px 0 8px">Treinamentos de NR <button class="btn s g" style="margin-left:6px" data-a="fichaTrein" data-id="${c.id}">${ic('plus')}Novo</button></h3>
+ ${treinamentos.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')+(a.modalidade?' · '+esc(a.modalidade):'')},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>a.validadeAte?fd(a.validadeAte):'—'},{h:'Situação',f:a=>esc(a.situacao||'Emitido')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado" title="Imprimir certificado">${ic('diploma')}</button>${(TREIN_NRS[a.tipo]||{}).carteirinha?`<button class="btn s g" data-a="docCarteirinha" data-id="${a.id}" aria-label="Imprimir carteirinha" title="Imprimir carteirinha de operador">${ic('idcard')}</button>`:''}<button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],treinamentos):'<p class="muted sm">Nenhum treinamento registrado.</p>'}`:''}
+ </div>
+ <div class="ft-pane${tab==='seg'?' on':''}" data-p="seg">
+ ${rs.length?'':`<div class="note-w card" style="border-color:var(--high);margin-bottom:14px"><b>Nenhum risco do PGR vinculado.</b><p class="sm muted" style="margin:4px 0 0">Os exames dependem do inventário de riscos. Confira se o setor <b>${esc(c.setor||'—')}</b> ou a função <b>${esc(c.funcao||'—')}</b> aparecem nos riscos da empresa (campo "Funções expostas"). Enquanto isso, só o exame clínico é exigido.</p>${isC()?`<button class="btn s" style="margin-top:8px" data-a="fichaRiscos" data-id="${c.empresaId}">Abrir inventário de riscos</button>`:''}</div>`}
+
+ <h3 id="ft-riscos" style="font-size:15px;margin:0 0 8px">Riscos ocupacionais (PGR)</h3>
+ ${rs.length?tbl([{h:'Risco',f:r=>`<b>${esc(r.perigo)}</b><br><span class="muted sm">${esc(CATS[r.cat]||'')} · setor ${esc(r.setor||'—')}</span>`},{h:'Nível',f:r=>{const n=nivel(r.sev,r.prob);return `<span class="chip ${n.k}">${n.n} · ${n.v}</span>`}},{h:'Exames que este risco exige',f:r=>(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join(' ')||'—'}],rs):'<p class="muted sm">Sem riscos vinculados.</p>'}
+
+${canReq?` <h3 id="ft-epi" style="font-size:15px;margin:18px 0 8px">Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
+ ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
+
+ <h3 id="ft-pt" style="font-size:15px;margin:18px 0 8px">Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
+ ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}
+`:''}
+ </div>
+ <div class="ft-pane${tab==='ocorr'?' on':''}" data-p="ocorr">
+${canReq?` <h3 id="ft-cat" style="font-size:15px;margin:18px 0 8px">Acidentes de trabalho (CAT) <button class="btn s g" style="margin-left:6px" data-a="fichaCat" data-id="${c.id}">${ic('plus')}Nova</button> <a class="btn s ext" style="margin-left:4px" href="https://www.gov.br/pt-br/servicos/registrar-comunicacao-de-acidente-de-trabalho-cat" target="_blank" rel="noopener">${ic('send')}Registrar CAT (gov.br)</a> <a class="btn s ext" style="margin-left:4px" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a></h3>
  <p class="muted sm" style="margin:0 0 8px">A emissão oficial da CAT é feita pelo serviço "Registrar Comunicação de Acidente de Trabalho" em gov.br ou pelo eSocial (evento S-2210). O registro abaixo é só o histórico interno deste sistema.</p>
  ${cats.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Lesão',f:a=>esc(a.lesao||'—')},{h:'Afastamento',f:a=>a.houveAfastamento==='Sim'?(a.dias||'')+' d':'Não'},{h:'CAT',f:a=>esc(a.cat||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="editCat" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],cats):'<p class="muted sm">Nenhum acidente registrado.</p>'}
- <h3 id="ft-epi" style="font-size:15px;margin:18px 0 8px">5. Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
- <h3 id="ft-pt" style="font-size:15px;margin:18px 0 8px">6. Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}
- <h3 id="ft-trein" style="font-size:15px;margin:18px 0 8px">7. Treinamentos de NR <button class="btn s g" style="margin-left:6px" data-a="fichaTrein" data-id="${c.id}">${ic('plus')}Novo</button></h3>
- ${treinamentos.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Treinamento',f:a=>esc((TREIN_NRS[a.tipo]||{}).l||a.tipo||'—')+(a.modalidade?' · '+esc(a.modalidade):'')},{h:'Carga horária',f:a=>a.cargaHoraria?a.cargaHoraria+'h':'—'},{h:'Válido até',f:a=>a.validadeAte?fd(a.validadeAte):'—'},{h:'Situação',f:a=>esc(a.situacao||'Emitido')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docCert" data-id="${a.id}" aria-label="Imprimir certificado" title="Imprimir certificado">${ic('diploma')}</button>${(TREIN_NRS[a.tipo]||{}).carteirinha?`<button class="btn s g" data-a="docCarteirinha" data-id="${a.id}" aria-label="Imprimir carteirinha" title="Imprimir carteirinha de operador">${ic('idcard')}</button>`:''}<button class="btn s g" data-a="editTrein" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],treinamentos):'<p class="muted sm">Nenhum treinamento registrado.</p>'}`:''}
+`:''}
+ </div>
+ <div class="ft-pane${tab==='docs'?' on':''}" data-p="docs">
+ <p class="muted sm" style="margin:0 0 8px">Documentos prontos para imprimir, baixar ou enviar.</p>
+ <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn s" data-a="docOSA" data-id="${c.id}">${ic('file')}Ordem de serviço (NR-1)</button><button class="btn s" data-a="docPPPA" data-id="${c.id}">${ic('file')}Emitir PPP (minuta)</button><a class="btn s ext" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a>`:''}${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
+
+ ${canReq?'<p class="muted sm" style="margin:0 0 16px">O PPP com validade legal é o emitido pelo próprio eSocial, a partir dos eventos já transmitidos (S-2240). A minuta deste sistema serve para conferir os dados antes de transmitir.</p>':''}
+
+ </div>
  </div><footer><button class="btn p" data-a="closeFicha">Fechar</button></footer></div></div>`;
 }
 
@@ -3130,7 +3183,7 @@ function buscaItens(q,pick){
   if(k<8&&s.aso&&s.aso.data&&ok(norm('aso '+nome+' '+(s.tipo||'')))){out.push({g:'ASO e guias',ic:'clip',t:'ASO — '+nome,s:(s.tipo||'')+' · '+fd(s.aso.data),run:()=>A.docAso({id:s.id})});k++}
   if(k<8&&ok(norm('guia encaminhamento '+nome+' '+(s.tipo||'')))){out.push({g:'ASO e guias',ic:'send',t:'Guia de encaminhamento — '+nome,s:(s.tipo||'')+(s.dataAgend?' · '+fd(s.dataAgend):''),run:()=>A.docGuia({id:s.id})});k++}
  });
- cols.filter(c=>ok(colH(c))).slice(0,8).forEach(c=>out.push({g:'Colaboradores',ic:'users',t:c.nome,s:[c.funcao,nEmp(c.empresaId)].filter(Boolean).join(' · '),run:()=>{S.ficha=c.id;renderFicha()}}));
+ cols.filter(c=>ok(colH(c))).slice(0,8).forEach(c=>out.push({g:'Colaboradores',ic:'users',t:c.nome,s:[c.funcao,nEmp(c.empresaId)].filter(Boolean).join(' · '),run:()=>{S.ficha=c.id;S.fichaTab='resumo';renderFicha()}}));
  if(S.role==='consultoria')L('empresas').filter(e=>ok(norm(e.razao+' '+(e.fantasia||'')+' '+(e.cnpj||'')+' pgr pcmso documentos'))).sort(byN).slice(0,6).forEach(e=>out.push({g:'PGR, PCMSO e modelos da empresa',ic:'build',t:e.razao,s:'Abrir documentos da empresa',run:()=>A.goEmp({id:e.id,v:'documentos'})}));
  (NAV[S.role]||[]).filter(([v,l])=>ok(norm('ir para '+l))).forEach(([v,l,i])=>out.push({g:'Ir para',ic:i,t:l,run:()=>A.go({v})}));
  return out.slice(0,40);
@@ -3252,7 +3305,8 @@ go(d){S.view=d.v;S.nav=false;S.q='';window.scrollTo(0,0);render()},
 goEmp(d){S.emp=d.id;S.view=d.v;render()},
 closeForm(){closeForm()},
 closeDet(){S.det=null;$('#modal-root').innerHTML='';if(S.ficha)renderFicha()},
-ficha(d,t,e){e.preventDefault();S.ficha=d.id;renderFicha()},
+ficha(d,t,e){e.preventDefault();S.ficha=d.id;S.fichaTab='resumo';renderFicha()},
+ftTab(d){S.fichaTab=d.id;document.querySelectorAll('.ft-pane').forEach(p=>p.classList.toggle('on',p.dataset.p===d.id));document.querySelectorAll('.ft-tab').forEach(b=>{const on=b.dataset.id===d.id;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});const bd=document.querySelector('#modal-root .bd');if(bd)bd.scrollTop=0},
 closeFicha(){S.ficha=null;$('#modal-root').innerHTML=''},
 fichaSol(d){const c=G('colaboradores',d.id);abrirSol(null,{empresaId:c.empresaId,colabId:c.id,tipo:ultimoAso(c.id)?'Periódico':'Admissional',exames:examesPend(c),_enviar:true})},
 fichaRiscos(d){S.ficha=null;$('#modal-root').innerHTML='';S.emp=d.id;S.view='riscos';render()},
