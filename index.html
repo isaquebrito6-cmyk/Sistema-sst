@@ -59,6 +59,19 @@ a{color:var(--brand)}
 .main{flex:1;min-width:0}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,#fff);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:10px 20px;flex-wrap:wrap;box-shadow:0 1px 0 rgba(11,38,43,.02)}
 .top h1{font-size:21px;flex:1;min-width:120px;color:var(--ink)}
+.busca-btn{display:inline-flex;align-items:center;gap:6px}
+@media (max-width:520px){.busca-btn span{display:none}}
+.sheet.busca{max-width:560px;width:100%;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:80vh}
+.busca-in{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:4px 6px 4px 10px;background:var(--card,#fff)}
+.busca-in input{flex:1;border:0;outline:0;background:transparent;font-size:16px;padding:8px 2px;min-width:0}
+.busca-chip{font-size:13px;background:rgba(0,0,0,.05);border-radius:8px;padding:6px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#busca-res{overflow:auto;flex:1;min-height:60px;max-height:55vh}
+.busca-g{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut,#667);padding:10px 8px 4px}
+.busca-it{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:9px 8px;border-radius:8px;cursor:pointer;color:inherit;font:inherit}
+.busca-it:hover,.busca-it.on{background:rgba(0,120,140,.12)}
+.busca-it span{display:flex;flex-direction:column;min-width:0}
+.busca-it small{color:var(--mut,#667);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.busca-it .ic{flex:none}
 .menu{display:none}
 .roles{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .roles select{max-width:190px;height:36px;min-height:0;border-radius:99px;background:var(--sf2);font-size:13px;padding:6px 12px}
@@ -289,6 +302,7 @@ trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
 check:'<path d="M5 12l5 5 9-10"/>',
 alert:'<path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17v.5"/>',
 lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
 diploma:'<rect x="2.5" y="4" width="19" height="13" rx="1.5"/><path d="M6.5 8.5h7M6.5 11.5h5"/><circle cx="16.5" cy="12" r="2"/><path d="M15.5 13.8L15 19l1.5-1 1.5 1-.5-5.2"/>',
 cert:'<circle cx="12" cy="8.5" r="5.5"/><path d="M9 13.2L7 21l5-3 5 3-2-7.8"/>',
 idcard:'<rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="8" cy="11.3" r="2.1"/><path d="M5.3 16c.4-1.6 1.5-2.4 2.7-2.4s2.3.8 2.7 2.4"/><path d="M13 10h5.5M13 13h5.5"/>'
@@ -3056,6 +3070,91 @@ function docOS(c){
  openDoc({title:'Ordem de serviço — '+(c.nome||''),html:h,filename:'ordem-de-servico-'+slug(c.nome||'')+'.html',assunto:'Ordem de serviço de SST — '+(c.nome||''),corpo:'Segue a ordem de serviço de segurança e saúde no trabalho de '+(c.nome||'')+'.'});
 }
 
+/* ====================== BUSCA RÁPIDA (documentos, pessoas e telas) ======================
+   Botão "Buscar" no topo (ou Ctrl+K / "/"): digite "ordem de serviço", "ppp", "certificado joão"… e abra direto.
+   Escolher um documento por colaborador abre a lista de colaboradores para escolher. Não grava nada. */
+const BUSCA_DOCS=[
+ {k:'os',t:'Ordem de serviço (NR-1)',kw:'ordem servico os nr1 nr 1 seguranca riscos ciencia',run:id=>A.docOSA({id})},
+ {k:'ppp',t:'PPP — Perfil Profissiográfico Previdenciário',kw:'ppp perfil profissiografico previdenciario aposentadoria especial',run:id=>A.docPPPA({id})},
+ {k:'ficha',t:'Ficha do colaborador (documento para imprimir)',kw:'ficha cadastro imprimir colaborador dados',run:id=>A.docFicha({id})}
+];
+const buscaPodeUsar=()=>S.role==='consultoria'||S.role==='empresa';
+function buscaItens(q,pick){
+ const toks=norm(q).split(/\s+/).filter(Boolean),ok=h=>toks.every(t=>h.includes(t));
+ const cols=colsEscopo().slice().sort(byN);
+ const colH=c=>norm([c.nome,c.funcao,c.setor,nEmp(c.empresaId),c.cpf].join(' '));
+ const out=[];
+ if(pick){
+  const d=BUSCA_DOCS.find(x=>x.k===pick);
+  cols.filter(c=>ok(colH(c))).slice(0,30).forEach(c=>out.push({g:d.t,ic:'users',t:c.nome,s:[c.funcao,nEmp(c.empresaId)].filter(Boolean).join(' · '),run:()=>d.run(c.id)}));
+  return out;
+ }
+ if(!toks.length){
+  BUSCA_DOCS.forEach(d=>out.push({g:'Documentos por colaborador',ic:'file',t:d.t,s:'Escolher o colaborador',pick:d.k}));
+  (NAV[S.role]||[]).forEach(([v,l,i])=>out.push({g:'Ir para',ic:i,t:l,run:()=>A.go({v})}));
+  return out;
+ }
+ BUSCA_DOCS.filter(d=>ok(norm(d.t+' '+d.kw))).forEach(d=>out.push({g:'Documentos por colaborador',ic:'file',t:d.t,s:'Escolher o colaborador',pick:d.k}));
+ /* documento + nome: "ordem joão" já lista "Ordem de serviço — João" */
+ let n=0;
+ for(const d of BUSCA_DOCS){for(const c of cols){if(n>=10)break;const dh=norm(d.t+' '+d.kw),ch=colH(c);if(toks.every(t=>dh.includes(t)||ch.includes(t))&&toks.some(t=>ch.includes(t))&&toks.some(t=>dh.includes(t))){out.push({g:'Documento de um colaborador',ic:'file',t:d.t.split(' — ')[0].replace(/ \(.*/,'')+' — '+c.nome,s:[c.funcao,nEmp(c.empresaId)].filter(Boolean).join(' · '),run:()=>d.run(c.id)});n++}}}
+ const emp=S.role==='empresa'?x=>x.empresaId===S.rid:()=>true;
+ /* certificados e carteirinhas dos treinamentos */
+ let m=0;
+ L('treinamentos').filter(emp).forEach(a=>{
+  const tn=TREIN_NRS[a.tipo]||{l:a.tipo||''},nome=nCol(a.colabId),base=(tn.l||'')+' '+nome;
+  if(m<10&&ok(norm('certificado '+base))){out.push({g:'Certificados e carteirinhas',ic:'diploma',t:'Certificado — '+nome,s:(tn.l||'')+(a.data?' · '+fd(a.data):''),run:()=>A.docCert({id:a.id})});m++}
+  if(m<10&&tn.carteirinha&&ok(norm('carteirinha '+base))){out.push({g:'Certificados e carteirinhas',ic:'idcard',t:'Carteirinha — '+nome,s:(tn.l||'')+(a.data?' · '+fd(a.data):''),run:()=>A.docCarteirinha({id:a.id})});m++}
+ });
+ /* ASO e guia já emitidos */
+ let k=0;
+ L('solicitacoes').filter(emp).forEach(s=>{
+  const nome=nCol(s.colabId);
+  if(k<8&&s.aso&&s.aso.data&&ok(norm('aso '+nome+' '+(s.tipo||'')))){out.push({g:'ASO e guias',ic:'clip',t:'ASO — '+nome,s:(s.tipo||'')+' · '+fd(s.aso.data),run:()=>A.docAso({id:s.id})});k++}
+  if(k<8&&ok(norm('guia encaminhamento '+nome+' '+(s.tipo||'')))){out.push({g:'ASO e guias',ic:'send',t:'Guia de encaminhamento — '+nome,s:(s.tipo||'')+(s.dataAgend?' · '+fd(s.dataAgend):''),run:()=>A.docGuia({id:s.id})});k++}
+ });
+ cols.filter(c=>ok(colH(c))).slice(0,8).forEach(c=>out.push({g:'Colaboradores',ic:'users',t:c.nome,s:[c.funcao,nEmp(c.empresaId)].filter(Boolean).join(' · '),run:()=>{S.ficha=c.id;renderFicha()}}));
+ if(S.role==='consultoria')L('empresas').filter(e=>ok(norm(e.razao+' '+(e.fantasia||'')+' '+(e.cnpj||'')+' pgr pcmso documentos'))).sort(byN).slice(0,6).forEach(e=>out.push({g:'PGR, PCMSO e modelos da empresa',ic:'build',t:e.razao,s:'Abrir documentos da empresa',run:()=>A.goEmp({id:e.id,v:'documentos'})}));
+ (NAV[S.role]||[]).filter(([v,l])=>ok(norm('ir para '+l))).forEach(([v,l,i])=>out.push({g:'Ir para',ic:i,t:l,run:()=>A.go({v})}));
+ return out.slice(0,40);
+}
+function abrirBusca(){
+ if(!buscaPodeUsar()||!S.ready)return;
+ S.busca={pick:''};
+ const r=$('#modal-root');
+ r.innerHTML=`<div class="overlay busca-ov" data-bclose="1"><div class="sheet busca" role="dialog" aria-modal="true" aria-label="Busca rápida"><div class="busca-in">${ic('search')}<input id="busca-q" type="search" autocomplete="off" placeholder="Buscar documento, colaborador ou tela… ex.: ordem de serviço" aria-label="Buscar"><button type="button" class="btn s g" data-bclose="1" aria-label="Fechar">${ic('x')}</button></div><div id="busca-pick"></div><div id="busca-res" role="listbox"></div><small class="muted">Dica: Ctrl+K abre a busca em qualquer tela. Ex.: “ordem joão” abre a ordem de serviço do João.</small></div></div>`;
+ const inp=$('#busca-q'),res=$('#busca-res'),pk=$('#busca-pick');let itens=[],sel=0;
+ const pintar=()=>{
+  const d=S.busca.pick?BUSCA_DOCS.find(x=>x.k===S.busca.pick):null;
+  pk.innerHTML=d?`<div class="busca-chip"><b>${esc(d.t)}</b> — escolha o colaborador <button type="button" class="btn s g" data-bback="1">Trocar</button></div>`:'';
+  inp.placeholder=d?'Nome do colaborador':'Buscar documento, colaborador ou tela… ex.: ordem de serviço';
+  itens=buscaItens(inp.value,S.busca.pick);if(sel>=itens.length)sel=0;
+  if(!itens.length){res.innerHTML='<p class="muted sm" style="padding:14px">Nada encontrado. Tente outra palavra (ex.: “ppp”, “certificado”, o nome do colaborador).</p>';return}
+  let g='';res.innerHTML=itens.map((it,i)=>{const h=it.g!==g?(g=it.g,`<div class="busca-g">${esc(it.g)}</div>`):'';return h+`<button type="button" class="busca-it${i===sel?' on':''}" data-bi="${i}" role="option">${ic(it.ic||'file')}<span><b>${esc(it.t)}</b>${it.s?`<small>${esc(it.s)}</small>`:''}</span></button>`}).join('');
+  const on=res.querySelector('.busca-it.on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest'});
+ };
+ const abrir=i=>{const it=itens[i];if(!it)return;if(it.pick){S.busca.pick=it.pick;inp.value='';sel=0;pintar();inp.focus();return}fecharBusca();it.run()};
+ inp.addEventListener('input',()=>{sel=0;pintar()});
+ inp.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){sel=Math.min(sel+1,itens.length-1);pintar();e.preventDefault()}
+  else if(e.key==='ArrowUp'){sel=Math.max(sel-1,0);pintar();e.preventDefault()}
+  else if(e.key==='Enter'){abrir(sel);e.preventDefault()}
+  else if(e.key==='Backspace'&&!inp.value&&S.busca.pick){S.busca.pick='';pintar()}
+ });
+ r.onclick=e=>{
+  const b=e.target.closest('[data-bi]');if(b){abrir(+b.dataset.bi);return}
+  if(e.target.closest('[data-bback]')){S.busca.pick='';pintar();inp.focus();return}
+  const c=e.target.closest('[data-bclose]');if(c&&(c.classList.contains('busca-ov')?e.target===c:true))fecharBusca();
+ };
+ pintar();setTimeout(()=>inp.focus(),30);
+}
+function fecharBusca(){if(!S.busca)return;S.busca=null;const r=$('#modal-root');r.onclick=null;r.innerHTML=''}
+document.addEventListener('keydown',e=>{
+ const tag=(e.target&&e.target.tagName)||'';
+ if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='k'){if(buscaPodeUsar()){e.preventDefault();S.busca?fecharBusca():abrirBusca()}return}
+ if(e.key==='/'&&!S.busca&&!/INPUT|TEXTAREA|SELECT/.test(tag)&&!(e.target&&e.target.isContentEditable)&&!S.form&&!S.doc&&buscaPodeUsar()){e.preventDefault();abrirBusca()}
+});
+
 /* ====================== RENDER E EVENTOS ====================== */
 function roleSel(){
  if(S.usingAuth&&S.authLocked){
@@ -3074,7 +3173,7 @@ function shell(){
  const al=alertas();
  const grp={empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
  const navHTML=nav.map(n=>(grp[n[0]]?`<div class="navgroup">${grp[n[0]]}</div>`:'')+`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${ic(n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('');
- return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1><div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1>${buscaPodeUsar()?`<button type="button" class="btn s busca-btn" data-a="busca" aria-label="Buscar documentos, colaboradores e telas" title="Buscar (Ctrl+K)">${ic('search')}<span>Buscar</span></button>`:''}<div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
 }
 /* Faixa de aviso para o administrador de UMA consultoria quando o pagamento está pendente ou suspenso. */
 /* Empresa/clínica/colaborador não têm tela de Configurações: o contato de suporte delas é a própria consultoria. */
@@ -3130,6 +3229,7 @@ function docDe(s,kind){
 }
 const A={
 nav(){S.nav=!S.nav;render()},
+busca(){abrirBusca()},
 go(d){S.view=d.v;S.nav=false;S.q='';window.scrollTo(0,0);render()},
 goEmp(d){S.emp=d.id;S.view=d.v;render()},
 closeForm(){closeForm()},
@@ -3433,7 +3533,7 @@ document.addEventListener('click',async e=>{
  }catch(err){toast('Seu navegador bloqueou o botão. Use Ctrl+V (ou Cmd+V) com este formulário aberto.',5000)}
 });
 document.addEventListener('submit',e=>{if(e.target.id==='fm')submitForm(e);else if(e.target.id==='psf')salvarPsico(e)});
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(S.doc)closeDoc();else if(S.form)closeForm();else if(S.det){A.closeDet()}else if(S.ficha){A.closeFicha()}else if(S.nav){S.nav=false;render()}});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(S.doc)closeDoc();else if(S.busca)fecharBusca();else if(S.form)closeForm();else if(S.det){A.closeDet()}else if(S.ficha){A.closeFicha()}else if(S.nav){S.nav=false;render()}});
 
 /* ====================== DADOS DE EXEMPLO ====================== */
 function carregarDemo(){
