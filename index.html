@@ -1926,7 +1926,7 @@ function abrirAso(id){
   aptoAltura:a.aptoAltura||'',aptoConfinado:a.aptoConfinado||'',aptoMaquinas:a.aptoMaquinas||''};
  const fs=[{sec:'Exame clínico'},
   {k:'data',l:'Data do exame clínico',t:'date',r:1,w:2},{k:'hora',l:'Hora',t:'time',w:1},{k:'medico_nome',l:'Médico examinador',r:1,w:2},{k:'medico_crm',l:'CRM',r:1,w:2},
-  {k:'resultado',l:'Conclusão',t:'select',r:1,o:['Apto','Inapto'],ph:'Selecione',w:3},{k:'proximo',l:'Próximo exame periódico',t:'date',w:3,h:'Em branco: calculado pela periodicidade.'},
+  {k:'resultado',l:'Conclusão',t:'select',r:1,o:['Apto','Inapto'],ph:'Selecione',w:3},{k:'proximo',l:'Próximo exame periódico',t:'date',w:3,h:'Preenchido automaticamente a partir da data do exame clínico e da periodicidade do PGR; você pode alterar.'},
   {k:'riscos',l:'Riscos ocupacionais informados no ASO',t:'textarea',rows:2},
   {sec:'Exames complementares (data e hora de realização)'},
   {t:'html',w:6,html:'<button type="button" class="btn s" data-a="asoRep">Replicar data e hora do exame clínico em todos os complementares</button><small>Preenche (ou substitui) a data e a hora de cada exame abaixo com as do exame clínico; depois você pode ajustar um a um.</small>'}];
@@ -1943,6 +1943,16 @@ function abrirAso(id){
   if(n.status!=='Cancelado')n.status='Realizado';
   save('solicitacoes',n);toast('ASO registrado. Anexe o arquivo assinado, se houver.');
  }});
+ /* Próximo exame periódico: acompanha a data do exame clínico enquanto o usuário não o alterar à mão. */
+ {const dEl=document.getElementById('f_data'),pEl=document.getElementById('f_proximo'),meses=examesDe(rs).clinico||12;
+  if(dEl&&pEl){
+   const calc=()=>dEl.value?addM(dEl.value,meses):'';
+   let manual=!!a.proximo&&a.proximo!==(a.data?addM(a.data,meses):'');
+   if(!manual)pEl.value=calc();
+   pEl.addEventListener('input',()=>{manual=true});
+   dEl.addEventListener('input',()=>{if(!manual)pEl.value=calc()});
+   dEl.addEventListener('change',()=>{if(!manual)pEl.value=calc()});
+  }}
 }
 /* checklist psicossocial: respostas em /psico/{id da solicitação}; a empresa nunca as recebe.
    (s.psico é o formato antigo, usado só até rodar "Atualizar permissões de acesso") */
