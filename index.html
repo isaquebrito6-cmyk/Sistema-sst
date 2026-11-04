@@ -675,7 +675,7 @@ async function saveAs(filename,data){
  try{if(DB.dl){await DB.dl.save({filename,data});return true}}catch(e){if(e&&e.code==='declined')return false;console.warn(e)}
  try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);return true}catch(e){toast('Não foi possível baixar o arquivo neste ambiente.');return false}
 }
-/* Campo de assinatura digital (desenhada na tela): grava a imagem direto no registro (rec), sem coleção/arquivo novo no Firestore.
+/* Campo de assinatura eletrônica simples (desenhada na tela; Lei 14.063/2020, não é assinatura qualificada ICP-Brasil): grava a imagem direto no registro (rec), sem coleção/arquivo novo no Firestore.
    imgKey/dataKey permitem mais de uma assinatura no mesmo registro (ex.: responsável técnico e vigia na PET) — padrão 'assinaturaImg'/'assinaturaData' (EPI). */
 function initSigPad(canvasId,rec,statusId,clearId,selId,imgKey,dataKey){
  imgKey=imgKey||'assinaturaImg';dataKey=dataKey||'assinaturaData';
@@ -683,7 +683,7 @@ function initSigPad(canvasId,rec,statusId,clearId,selId,imgKey,dataKey){
  cv.width=500;cv.height=150;
  const cx=cv.getContext('2d');cx.lineWidth=2.2;cx.lineCap='round';cx.lineJoin='round';cx.strokeStyle='#17323a';
  const status=document.getElementById(statusId);
- const upd=()=>{if(status)status.textContent=rec[imgKey]?'Assinatura digital registrada em '+fd(rec[dataKey])+'.':'Nenhuma assinatura digital ainda — desenhe acima com o dedo ou o mouse.'};
+ const upd=()=>{if(status)status.textContent=rec[imgKey]?'Assinatura eletrônica registrada em '+fd(rec[dataKey])+'.':'Nenhuma assinatura ainda — desenhe acima com o dedo ou o mouse.'};
  if(rec[imgKey]){const im=new Image();im.onload=()=>cx.drawImage(im,0,0,cv.width,cv.height);im.src=rec[imgKey]}
  upd();
  /* O campo de assinatura só aparece quando o usuário pede (botão); se já houver assinatura gravada, abre direto. */
@@ -691,7 +691,7 @@ function initSigPad(canvasId,rec,statusId,clearId,selId,imgKey,dataKey){
   if(pad&&!rec[imgKey]){
    const extra=[pad];let n=pad.nextElementSibling;while(n&&extra.length<3&&(n.classList.contains('row')||n.tagName==='SMALL')){extra.push(n);n=n.nextElementSibling}
    extra.forEach(x=>x.style.display='none');
-   const b=document.createElement('button');b.type='button';b.className='btn s g';b.textContent='✍ Assinar digitalmente';b.setAttribute('data-sigopen',canvasId);
+   const b=document.createElement('button');b.type='button';b.className='btn s g';b.textContent='✍ Assinar na tela';b.setAttribute('data-sigopen',canvasId);
    b.onclick=()=>{extra.forEach(x=>x.style.display='');b.remove()};
    pad.parentNode.insertBefore(b,pad);
   }}
@@ -1793,7 +1793,7 @@ function abrirEpi(id,pre){
   {k:'validade',l:'Validade / próxima troca',t:'date',w:3},
   {k:'assinado',l:'Colaborador assinou o recibo?',t:'select',o:['Não','Sim'],w:3},
   {sec:'Assinatura'},
-  {t:'html',w:6,html:'<label>Assinatura digital do colaborador (opcional)</label><div class="sigpad"><canvas id="epiSigCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="epiSigClear">Limpar assinatura</button><span class="sm muted" id="epiSigStatus"></span></div><small>Peça para o colaborador assinar acima com o dedo (celular/tablet) ou o mouse. Prefere colher no papel? Deixe em branco e use "Imprimir recibo" depois de salvar — o documento sai com uma linha para assinatura física.</small>'}],
+  {t:'html',w:6,html:'<label>Assinatura eletrônica do colaborador (opcional)</label><div class="sigpad"><canvas id="epiSigCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="epiSigClear">Limpar assinatura</button><span class="sm muted" id="epiSigStatus"></span></div><small>Peça para o colaborador assinar acima com o dedo (celular/tablet) ou o mouse. Prefere colher no papel? Deixe em branco e use "Imprimir recibo" depois de salvar — o documento sai com uma linha para assinatura física.</small>'}],
  save:v=>{
   Object.assign(rec,v);const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
  setTimeout(()=>{
@@ -1829,10 +1829,10 @@ function abrirTreinamento(id,pre){
   {k:'situacao',l:'Situação',t:'select',o:['Emitido','Cancelado'],w:3},
   {k:'obs',l:'Observações',t:'textarea',rows:2},
   {sec:'Assinaturas'},
-  {t:'html',w:6,html:'<label>Assinatura digital do colaborador (opcional)</label><div class="sigpad"><canvas id="treinColCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinColClear">Limpar assinatura</button><span class="sm muted" id="treinColStatus"></span></div>'},
-  {t:'html',w:6,html:'<label>Assinatura digital do responsável pela empresa (opcional)</label><div class="sigpad"><canvas id="treinEmpCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinEmpClear">Limpar assinatura</button><span class="sm muted" id="treinEmpStatus"></span></div>'},
-  {t:'html',w:6,html:'<label>Assinatura digital do responsável técnico (opcional)</label><div class="sigpad"><canvas id="treinRtCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinRtClear">Limpar assinatura</button><span class="sm muted" id="treinRtStatus"></span></div>'},
-  {t:'html',w:6,html:'<label>Assinatura digital do instrutor (opcional)</label><div class="sigpad"><canvas id="treinInstCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinInstClear">Limpar assinatura</button><span class="sm muted" id="treinInstStatus"></span></div><small>Quem não assinar na tela pode assinar no papel: o certificado impresso traz uma linha em branco para cada assinatura que não foi colhida digitalmente.</small>'}],
+  {t:'html',w:6,html:'<label>Assinatura eletrônica do colaborador (opcional)</label><div class="sigpad"><canvas id="treinColCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinColClear">Limpar assinatura</button><span class="sm muted" id="treinColStatus"></span></div>'},
+  {t:'html',w:6,html:'<label>Assinatura eletrônica do responsável pela empresa (opcional)</label><div class="sigpad"><canvas id="treinEmpCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinEmpClear">Limpar assinatura</button><span class="sm muted" id="treinEmpStatus"></span></div>'},
+  {t:'html',w:6,html:'<label>Assinatura eletrônica do responsável técnico (opcional)</label><div class="sigpad"><canvas id="treinRtCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinRtClear">Limpar assinatura</button><span class="sm muted" id="treinRtStatus"></span></div>'},
+  {t:'html',w:6,html:'<label>Assinatura eletrônica do instrutor (opcional)</label><div class="sigpad"><canvas id="treinInstCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="treinInstClear">Limpar assinatura</button><span class="sm muted" id="treinInstStatus"></span></div><small>Quem não assinar na tela pode assinar no papel: o certificado impresso traz uma linha em branco para cada assinatura que não foi colhida na tela.</small>'}],
  save:v=>{
   Object.assign(rec,v);const r=save('treinamentos',rec);toast('Treinamento salvo.');return r}})
  setTimeout(()=>{
@@ -2145,7 +2145,7 @@ VIEWS.epis=()=>{
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
  return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button></div>
  <p class="sm muted" style="margin:0 0 14px">Ficha de entrega e troca de EPI por colaborador: o que ela faz é registrar e guardar o histórico — a entrega do equipamento em si continua sendo física.</p>`+
- (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinaturaImg?'<span class="chip low">Sim (digital)</span>':a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinaturaImg?'<span class="chip low">Sim (eletrônica)</span>':a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma entrega registrada','Registre aqui cada entrega ou troca de EPI por colaborador.',`<button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button>`,'check'));
 };
 VIEWS.pts=()=>{
@@ -2299,7 +2299,7 @@ ${canReq?` <h3 id="ft-trein" style="font-size:15px;margin:18px 0 8px">Treinament
  ${rs.length?tbl([{h:'Risco',f:r=>`<b>${esc(r.perigo)}</b><br><span class="muted sm">${esc(CATS[r.cat]||'')} · setor ${esc(r.setor||'—')}</span>`},{h:'Nível',f:r=>{const n=nivel(r.sev,r.prob);return `<span class="chip ${n.k}">${n.n} · ${n.v}</span>`}},{h:'Exames que este risco exige',f:r=>(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join(' ')||'—'}],rs):'<p class="muted sm">Sem riscos vinculados.</p>'}
 
 ${canReq?` <h3 id="ft-epi" style="font-size:15px;margin:18px 0 8px">Entregas de EPI <button class="btn s g" style="margin-left:6px" data-a="fichaEpi" data-id="${c.id}">${ic('plus')}Nova</button></h3>
- ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (digital)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
+ ${epis.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo',f:a=>a.assinaturaImg?'Assinado (eletrônico)':a.assinado==='Sim'?'Assinado':'Pendente'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],epis):'<p class="muted sm">Nenhuma entrega registrada.</p>'}
 
  <h3 id="ft-pt" style="font-size:15px;margin:18px 0 8px">Permissões de Trabalho (PT) <button class="btn s g" style="margin-left:6px" data-a="fichaPt" data-id="${c.id}">${ic('plus')}Nova</button></h3>
  ${pts.length?tbl([{h:'Data',f:a=>fd(a.data)},{h:'Tipo',f:a=>esc(a.tipo||'—')},{h:'Local',f:a=>esc(a.local||'—')},{h:'Executantes',f:a=>equipeListaHtml(a)},{h:'Situação',f:a=>esc(a.situacao||'—')},{h:'',a:1,f:a=>`<button class="btn s g" data-a="${a.tipo==='Espaço confinado (NR-33)'?'docPet':'docPt'}" data-id="${a.id}" aria-label="${a.tipo==='Espaço confinado (NR-33)'?'Imprimir PET':'Imprimir PT'}">${ic('print')}</button><button class="btn s g" data-a="editPt" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button>`}],pts):'<p class="muted sm">Nenhuma PT registrada.</p>'}
@@ -2482,8 +2482,8 @@ const pessoasPt=(a,c)=>{const l=[{nome:c.nome||'',entrada:'',saida:''},...equipe
 const equipeListaHtml=a=>{const l=equipeArr(a);return l.length?`<ul class="tlist">${l.map(p=>`<li>${esc(p.nome)}</li>`).join('')}</ul>`:'<span class="muted sm">—</span>'};
 const listHtml=(pessoas,withTimes)=>pessoas.length?`<ul style="margin:4pt 0 0 16pt;padding:0">${pessoas.map(p=>`<li>${esc(p.nome)}${withTimes&&(p.entrada||p.saida)?` — Entrada: ${esc(p.entrada||'—')} · Saída: ${esc(p.saida||'—')}`:''}</li>`).join('')}</ul>`:'<span class="blank l"></span>';
 const sigRows=pessoas=>{const names=pessoas.map(p=>p.nome);return names.length?names.map((n,i)=>`<div>Executante ${names.length>1?i+1:''}<span>${esc(n)}</span></div>`).join(''):`<div>Executante(s)<span>Nome e assinatura</span></div>`};
-/* Assinatura digital (imagem) ou linha em branco para o responsável técnico / vigia */
-const sigCell=(label,name,a,imgKey,dataKey)=>(imgKey&&a[imgKey])?`<div>${esc(label)}<br><img src="${a[imgKey]}" alt="Assinatura" style="max-width:190px;max-height:58px;margin:3pt 0 1pt"><span>${esc(name||'')} — digital em ${fd(a[dataKey])}</span></div>`:`<div>${esc(label)}<span>${esc(name||'Nome e assinatura')}</span></div>`;
+/* Assinatura eletrônica (imagem) ou linha em branco para o responsável técnico / vigia */
+const sigCell=(label,name,a,imgKey,dataKey)=>(imgKey&&a[imgKey])?`<div>${esc(label)}<br><img src="${a[imgKey]}" alt="Assinatura" style="max-width:190px;max-height:58px;margin:3pt 0 1pt"><span>${esc(name||'')} — assinatura eletrônica em ${fd(a[dataKey])}</span></div>`:`<div>${esc(label)}<span>${esc(name||'Nome e assinatura')}</span></div>`;
 /* Medidas de controle verificadas na PT: lista de marcar conforme o tipo de atividade (array) — com fallback para registros antigos em texto livre */
 function medidasHtml(a){
  if(Array.isArray(a.medidas)){
@@ -2763,7 +2763,7 @@ function docEpi(a){
  {const itens=epiItensCa(a);
  h+=`<h2>Equipamento(s) entregue(s)</h2>${itens.length?`<table><tr><th>Item</th><th>CA (Certificado de Aprovação)</th></tr>${itens.map(it=>`<tr><td>${esc(it.nome)}</td><td>${it.ca?esc(it.ca):'<span class="blank"></span>'}</td></tr>`).join('')}</table>`:'<p><span class="blank l"></span></p>'}<p class="small" style="margin-top:6pt"><b>Validade / próxima troca:</b> ${a.validade?fd(a.validade):'—'}</p>`;}
  h+=`<div class="note">Declaro ter recebido o(s) equipamento(s) de proteção individual acima, em perfeito estado, e ter sido orientado sobre o uso correto, a guarda e a conservação, conforme a NR-6. Comprometo-me a usá-lo(s) e comunicar qualquer dano, extravio ou necessidade de troca.</div>`;
- if(a.assinaturaImg)h+=`<h2>Assinatura digital</h2><img src="${a.assinaturaImg}" alt="Assinatura do colaborador" style="max-width:320px;max-height:110px;border-bottom:1px solid #999"><p class="small">${esc(c.nome||'')} — assinado digitalmente em ${a.assinaturaData?fd(a.assinaturaData):'—'}</p>`;
+ if(a.assinaturaImg)h+=`<h2>Assinatura eletrônica</h2><img src="${a.assinaturaImg}" alt="Assinatura do colaborador" style="max-width:320px;max-height:110px;border-bottom:1px solid #999"><p class="small">${esc(c.nome||'')} — assinatura eletrônica simples (desenhada na tela) em ${a.assinaturaData?fd(a.assinaturaData):'—'}</p>`;
  else h+=`<div class="sig"><div>Assinatura do colaborador<span>${esc(c.nome||'Nome')}</span></div><div>Data<span>____/____/______</span></div></div>`;
  return h;
 }
@@ -2805,7 +2805,7 @@ ${seal?`<g transform="translate(148.5 172) scale(1.22)"><circle r="13.4" fill="u
 }
 function certSig(label,name,sub,a,imgKey,dataKey){
  const img=imgKey&&a[imgKey];
- return `<div class="cs"><div class="ln">${img?`<img src="${img}" alt="Assinatura">`:''}</div><b>${esc(name||label)}</b><span>${esc(label)}${sub?' — '+esc(sub):''}</span>${img&&a[dataKey]?`<span style="font-size:7.5pt">assinado digitalmente em ${fd(a[dataKey])}</span>`:''}</div>`;
+ return `<div class="cs"><div class="ln">${img?`<img src="${img}" alt="Assinatura">`:''}</div><b>${esc(name||label)}</b><span>${esc(label)}${sub?' — '+esc(sub):''}</span>${img&&a[dataKey]?`<span style="font-size:7.5pt">assinatura eletrônica simples em ${fd(a[dataKey])}</span>`:''}</div>`;
 }
 function docCertificado(a){
  const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
