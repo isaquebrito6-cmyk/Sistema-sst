@@ -2378,7 +2378,7 @@ const DOC_CSS=`
 .cert-sheet.front{break-after:page;page-break-after:always}
 .cert-sheet svg.cf{position:absolute;inset:0;width:100%;height:100%}
 .cert-in{position:absolute;inset:24mm 30mm 22mm;display:flex;flex-direction:column;align-items:center;text-align:center}
-.cert-logo{height:21mm;width:100%;display:flex;align-items:center;justify-content:flex-start;margin:-2mm 0 1mm}
+.cert-logo{height:21mm;width:100%;display:flex;align-items:center;justify-content:space-between;margin:-2mm 0 1mm}
 .cert-logo img{max-height:21mm;max-width:80mm;object-fit:contain;mix-blend-mode:multiply}
 .cert-kicker{font:600 10.5pt Arial,sans-serif;letter-spacing:.32em;text-transform:uppercase;color:#8A6300}
 .paper h1.cert-title{font:700 46pt Georgia,'Times New Roman',serif;letter-spacing:.14em;margin:1mm 0 0;line-height:1.1;color:#0B5560;background:linear-gradient(100deg,#0B5560 0%,#1E8E4F 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -2833,18 +2833,20 @@ ${seal?`<g transform="translate(148.5 172) scale(1.22)"><circle r="13.4" fill="u
 const nomeProprio=s=>String(s||'').split(/(\s+)/).map(w=>(/^[a-zà-ÿ]{2,}$/.test(w)&&!['da','de','do','das','dos','e','di','du','del','von','van'].includes(w))?w[0].toUpperCase()+w.slice(1):w).join('');
 function certSig(label,name,sub,a,imgKey,dataKey){
  const img=imgKey&&a[imgKey];
- return `<div class="cs"><div class="ln">${img?`<img src="${img}" alt="Assinatura">`:''}</div><b>${esc(nomeProprio(name)||label)}</b><span>${esc(label)}${sub?' — '+esc(sub):''}</span>${img&&a[dataKey]?`<span style="font-size:7.5pt">assinatura eletrônica simples em ${fd(a[dataKey])}</span>`:''}</div>`;
+ return `<div class="cs"><div class="ln">${img?`<img src="${img}" alt="Assinatura">`:''}</div><b>${esc(nomeProprio(name)||label)}</b><span>${esc(label)}${sub?' — '+esc(sub):''}</span></div>`;
 }
 function docCertificado(a){
  const c0=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};const c=Object.assign({},c0,{nome:nomeProprio(c0.nome)});
  const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'—'};
- const cf=CFG();const logoEmp=e.logo||cf.logo;
+ const cf=CFG();
  const nrTag=String(tn.l||'NR').split(/\s+[—-]\s+/)[0].trim();
  const nomeTrein=String(tn.l||'').replace(/^\s*NR[-\s]?[\w-]+\s+[—-]\s+/,'')||tn.l;
  const regNo=String(a.id||'').replace(/[^A-HJ-NP-Za-hj-np-z2-9]/g,'').slice(-6).toUpperCase();
- const logos=`${regNo?`<div class="cert-reg">Registro nº ${esc(regNo)}</div>`:''}${logoEmp?`<div class="cert-logo"><img src="${logoEmp}" alt=""></div>`:''}`;
+ const modoLogo=cf.logosCert||'padrao';
+ const logoA=modoLogo==='consultoria'?cf.logo:(e.logo||cf.logo),logoB=modoLogo==='ambas'&&e.logo&&cf.logo&&e.logo!==cf.logo?cf.logo:'';
+ const logos=logoA?`<div class="cert-logo"><img src="${logoA}" alt="">${logoB?`<img src="${logoB}" alt="">`:''}</div>`:'';
  const apertado=(String(c.nome||'')+String(e.razao||'')+String(tn.l||'')+String(a.local||'')).length>125;
- const front=`<section class="cert-sheet front${apertado?' tight':''}${logoEmp?' withlogo':''}">${certFrame(nrTag,true,a.tipo)}<div class="cert-in">
+ const front=`<section class="cert-sheet front${apertado?' tight':''}${logoA?' withlogo':''}">${certFrame(nrTag,true,a.tipo)}<div class="cert-in">
   ${logos}
   <div class="cert-kicker">${esc(e.razao||cf.nome||'')}</div>
   <h1 class="cert-title">Certificado</h1>
@@ -3444,7 +3446,7 @@ blank(d){const aso=d.t==='aso';openDoc({title:aso?'ASO em branco':'Checklist psi
 dPrint(){let ok=false;const f=()=>{ok=true};window.addEventListener('beforeprint',f,{once:true});try{window.print()}catch(e){}setTimeout(()=>{window.removeEventListener('beforeprint',f);if(!ok)toast('A impressão não abriu aqui. Use Baixar e imprima o arquivo salvo.',5000)},1200)},
 async dSave(){const d=S.doc;if(d&&await saveAs(d.filename,standalone(d.title,d.html)))toast('Arquivo salvo.')},
 dSend(){sendDoc()},dClose(){closeDoc()},
-cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
+cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'},{k:'logosCert',l:'Logotipos no certificado de treinamento',t:'select',o:[['padrao','Padrão: logo da empresa (ou da consultoria, se a empresa não tiver)'],['ambas','As duas: logo da empresa à esquerda e da consultoria à direita'],['consultoria','Somente a logo da consultoria']],w:6,h:'Vale para todos os certificados novos e reimpressos.'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
 logo(){$('#logo-f').click()},
 logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:CFG_ID()}))},
 async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j)){setLastBackup();toast('Backup salvo.');render()}},
