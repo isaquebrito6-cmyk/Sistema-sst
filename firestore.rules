@@ -222,6 +222,24 @@ service cloud.firestore {
       allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
+    // ---------- verificação pública de certificados (QR code) ----------
+    // Cada certificado tem um código aleatório de 16 caracteres (id do documento). Quem tem o código lê SÓ aquele
+    // documento (get); ninguém consegue listar a coleção. O documento guarda apenas o mínimo para conferência:
+    // nome abreviado, empresa, treinamento, datas e número — nunca CPF nem dados de saúde.
+    match /verificacoes/{id} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.resource.data.keys().hasOnly(['consultoriaId', 'empresaId', 'trein', 'nome', 'empresa', 'data', 'validade', 'carga', 'num', 'emissor', 'upd'])
+        && (podeAdmin(request.resource.data)
+            || (ehEmpresa(request.resource.data.empresaId) && request.resource.data.consultoriaId == minhaConsultoria()));
+      allow update: if request.resource.data.keys().hasOnly(['consultoriaId', 'empresaId', 'trein', 'nome', 'empresa', 'data', 'validade', 'carga', 'num', 'emissor', 'upd'])
+        && (podeAdmin(resource.data)
+            || (ehEmpresa(resource.data.empresaId)
+                && request.resource.data.empresaId == resource.data.empresaId
+                && request.resource.data.consultoriaId == resource.data.consultoriaId));
+      allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
+    }
+
     // ---------- documentos emitidos (histórico de PGR/PCMSO) ----------
     match /documentos/{id} {
       allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
