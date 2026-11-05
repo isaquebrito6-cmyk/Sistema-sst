@@ -2832,7 +2832,7 @@ function docCertificado(a){
   <div class="cert-sub">de conclusão de treinamento${a.modalidade?' — '+esc(a.modalidade):''}</div>
   <p class="cert-txt">Certificamos que <b>${esc(c.nome||'—')}</b>${c.cpf?`, portador(a) do CPF ${esc(c.cpf)}`:''}${c.funcao?`, função de ${esc(c.funcao)}`:''}, da empresa <b>${esc(e.razao||'—')}</b>${e.cnpj?` (CNPJ ${esc(e.cnpj)})`:''}, concluiu com aproveitamento o treinamento</p>
   <p class="cert-nr">${esc(tn.l)}</p>
-  <p class="cert-txt" style="margin-top:2mm">${a.local?`realizado em ${esc(a.local)}, `:''}no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>${(a.cargaTeorica||a.cargaPratica)?` (${[a.cargaTeorica?esc(String(a.cargaTeorica))+'h teóricas':'',a.cargaPratica?esc(String(a.cargaPratica))+'h práticas':''].filter(Boolean).join(' + ')})`:''}`:''}.</p>
+  <p class="cert-txt" style="margin-top:2mm">${a.local?`realizado em ${esc(a.local)}, `:''}no dia ${fd(a.data)}${a.cargaHoraria?`, com carga horária de <b>${esc(String(a.cargaHoraria))} hora(s)</b>`:''}. Treinamento teórico e prático, com aproveitamento de 100%.</p>
   <div class="cert-sigs">${certSig('Aluno / Colaborador',c.nome,'',a,'colabAssinaturaImg','colabAssinaturaData')}<div style="width:30mm;flex:none"></div>${certSig('Instrutor',a.instrutor,a.instrutorForm,a,'instrutorAssinaturaImg','instrutorAssinaturaData')}</div>
  </div></section>`;
  const back=`<section class="cert-sheet back">${certFrame(nrTag,false)}<div class="cert-in" style="inset:22mm 28mm 20mm">
@@ -2840,7 +2840,7 @@ function docCertificado(a){
   <div class="cert-kicker">${esc(tn.l)}${a.modalidade?' — '+esc(a.modalidade):''}</div>
   <table class="cert-back-t" style="margin-top:3mm">
    <tr><td class="k">Colaborador</td><td>${esc(c.nome||'—')}${c.cpf?' — CPF '+esc(c.cpf):''}</td><td class="k">Empresa</td><td>${esc(e.razao||'—')}${e.cnpj?' — '+esc(e.cnpj):''}</td></tr>
-   <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}${(a.cargaTeorica||a.cargaPratica)?` (${[a.cargaTeorica?esc(String(a.cargaTeorica))+'h teóricas':'',a.cargaPratica?esc(String(a.cargaPratica))+'h práticas':''].filter(Boolean).join(' + ')})`:''}</td></tr>
+   <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}</td></tr>
    <tr><td class="k">Válido até (reciclagem)</td><td>${a.validadeAte?fd(a.validadeAte):'—'}</td><td class="k">Instrutor</td><td>${esc(a.instrutor||'—')}${a.instrutorForm?' — '+esc(a.instrutorForm):''}</td></tr>
   </table>
   <h3 style="font:700 10pt Arial,sans-serif;color:#0B5560;align-self:flex-start;margin:1mm 0 1mm">Conteúdo programático</h3>
