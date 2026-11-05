@@ -378,6 +378,7 @@ const TREIN_NRS={
  nr10sep:{l:'NR-10 — Complementar SEP (Sistema Elétrico de Potência)',cargaH:40,validadeMeses:24,conteudo:'Aprofundamento em sistema elétrico de potência: geração, transmissão e distribuição de energia; medidas de proteção coletiva e individual aplicáveis ao SEP; riscos adicionais e trabalho em proximidade de rede energizada.'},
  nr11:{l:'NR-11/12 — Transporte, movimentação, armazenagem e manuseio de materiais (operador de equipamento)',cargaH:null,validadeMeses:null,conteudo:'Operação segura do equipamento (empilhadeira, ponte rolante, guincho etc.), inspeção pré-operacional, capacidade de carga, sinalização, direção defensiva e normas de segurança da NR-11.'},
  nr11_empilhadeira:{l:'NR-11/12 — Operador de empilhadeira',cargaH:null,validadeMeses:12,carteirinha:true,conteudo:'Treinamento específico do operador (item 11.1.5 da NR-11): componentes e funcionamento da empilhadeira, inspeção pré-operacional, estabilidade e capacidade de carga, regras de circulação e sinalização, direção defensiva. A norma não fixa carga horária, mas exige cartão de identificação do operador, válido por 1 (um) ano e renovável mediante exame de saúde completo (item 11.1.6.1 da NR-11). '+COMPORT_OPERADOR},
+ nr11_rebocador:{l:'NR-11/12 — Operador de rebocador e veículos industriais',cargaH:null,validadeMeses:12,carteirinha:true,baseLegal:'Certificado emitido conforme a Lei nº 9.394/1996 (LDB), art. 39, § 2º, inciso I, e o Decreto nº 5.154/2004, com a redação dada pelo Decreto nº 8.268/2014. Curso de aperfeiçoamento, na modalidade presencial.',conteudo:'Definição, tipos e classificação de rebocadores industriais; especificação técnica do rebocador industrial (capacidade de tração e de carga, dimensões, freios, bateria ou combustível); noções sobre a legislação de trânsito (Código de Trânsito Brasileiro — Lei nº 9.503/1997) aplicáveis à circulação interna; legislação de segurança e saúde no trabalho: Portaria nº 3.214/1978 (MTb) e Normas Regulamentadoras; estudo da NR-11 (treinamento específico, item 11.1.5, e cartão de identificação do operador, item 11.1.6) e da NR-12 (capacitação, item 12.16); identificação dos comandos e dispositivos de controle e de segurança (freio, buzina, sinalização luminosa, parada de emergência); inspeção pré-operacional (lista de verificação); medidas de controle dos riscos (EPC e EPI); regras de circulação interna, sinalização, velocidade, cruzamentos e pedestres; reboque e acoplamento de carretas e carrinhos, limites de carga, estabilidade e manobras; procedimentos de operação do rebocador industrial; operação do rebocador industrial com bases rolantes; estacionamento seguro e recarga de bateria/abastecimento; situações de emergência; noções sobre prestação de primeiros socorros. Avaliação prática.'},
  nr11_carrinho:{l:'NR-11/12 — Operador de carrinho rebocador / transportador industrial',cargaH:null,validadeMeses:12,carteirinha:true,conteudo:'Treinamento específico do operador (item 11.1.5 da NR-11): funcionamento do equipamento motorizado, inspeção pré-operacional, reboque e acoplamento de carrinhos, regras de circulação, sinalização sonora (item 11.1.7) e direção defensiva. A norma não fixa carga horária, mas exige cartão de identificação do operador, válido por 1 (um) ano e renovável mediante exame de saúde completo (item 11.1.6.1 da NR-11). Por ser máquina autopropelida, aplica-se também a capacitação geral de máquinas e equipamentos da NR-12 (item 12.16) — daí a referência conjunta NR-11/12. '+COMPORT_OPERADOR},
  nr12:{l:'NR-11/12 — Segurança no trabalho em máquinas e equipamentos',cargaH:null,validadeMeses:null,carteirinha:true,conteudo:'Riscos mecânicos, dispositivos de segurança (proteções, intertravamento, parada de emergência), procedimentos de trabalho seguro, bloqueio e etiquetagem (LOTO) na máquina/equipamento utilizado. '+COMPORT_OPERADOR},
  nr12_compactador:{l:'NR-12 — Operação segura de compactador estacionário (container roll-off)',cargaH:null,validadeMeses:null,carteirinha:true,conteudo:'Treinamento específico para o operador do compactador estacionário com container roll-off (alimentação com papelão e materiais recicláveis). '+
@@ -1830,6 +1831,7 @@ function abrirTreinamento(id,pre){
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
+  {k:'baseLegal',l:'Base legal do certificado (opcional)',t:'textarea',rows:2,w:6,h:'Aparece no rodapé do verso. Preenchida só em cursos que a exigem; confirme com quem responde pela instituição emissora'},
   {t:'html',w:6,html:'<label>Máquina(s)/equipamento(s) que o colaborador está apto a operar</label><div id="treinEquipList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar máquina/equipamento</button></div><small>Opcional. Útil quando o colaborador opera mais de uma máquina (ex.: duas empilhadeiras de modelos diferentes) — cada uma aparece na carteirinha de operador. Deixe em branco para usar só a categoria geral do treinamento.</small>'},
   {sec:'Responsáveis'},
   {k:'instrutor',l:'Instrutor',r:1,w:3},
@@ -1877,6 +1879,7 @@ function abrirTreinamentoLote(){
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
+  {k:'baseLegal',l:'Base legal do certificado (opcional)',t:'textarea',rows:2,w:6,h:'Aparece no rodapé do verso. Preenchida só em cursos que a exigem; confirme com quem responde pela instituição emissora'},
   {t:'html',w:6,html:'<label>Máquina(s)/equipamento(s) que os colaboradores estão aptos a operar</label><div id="loteEquipList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar máquina/equipamento</button></div><small>Opcional, aplicado a todos os colaboradores desta turma. Deixe em branco para usar só a categoria geral do treinamento.</small>'},
   {sec:'Responsáveis'},
   {k:'instrutor',l:'Instrutor',r:1,w:3},
@@ -1890,7 +1893,7 @@ function abrirTreinamentoLote(){
   const sel=[...document.querySelectorAll('#fm input[name="colabIds"]:checked')].map(x=>x.value);
   if(!sel.length){toast('Selecione ao menos um colaborador da turma.');return false}
   const turmaId='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const comuns={empresaId:v.empresaId,tipo:v.tipo,modalidade:v.modalidade,data:v.data,cargaHoraria:v.cargaHoraria,cargaTeorica:v.cargaTeorica,cargaPratica:v.cargaPratica,validadeAte:v.validadeAte,local:v.local,conteudo:v.conteudo,equipamentos:base.equipamentos,instrutor:v.instrutor,instrutorForm:v.instrutorForm,respTecnico:v.respTecnico,respTecnicoForm:v.respTecnicoForm,respEmpresa:v.respEmpresa,situacao:'Emitido',turmaId};
+  const comuns={empresaId:v.empresaId,tipo:v.tipo,modalidade:v.modalidade,data:v.data,cargaHoraria:v.cargaHoraria,cargaTeorica:v.cargaTeorica,cargaPratica:v.cargaPratica,validadeAte:v.validadeAte,local:v.local,conteudo:v.conteudo,baseLegal:v.baseLegal,equipamentos:base.equipamentos,instrutor:v.instrutor,instrutorForm:v.instrutorForm,respTecnico:v.respTecnico,respTecnicoForm:v.respTecnicoForm,respEmpresa:v.respEmpresa,situacao:'Emitido',turmaId};
   sel.forEach(cid=>save('treinamentos',Object.assign({colabId:cid},clone(comuns))));
   toast(sel.length+' certificado(s) criado(s). Abra cada um para colher a assinatura do colaborador, ou use o botão de imprimir a turma inteira.',6000);
  }})
@@ -2416,6 +2419,7 @@ const DOC_CSS=`
 .cert-back-h{font:700 13pt Georgia,serif;color:#0B5560;letter-spacing:.12em;text-transform:uppercase;margin:0 0 2mm;padding-bottom:1.5mm;border-bottom:1.2pt solid;border-image:linear-gradient(90deg,#0B5560,#1E8E4F) 1;display:inline-block;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .cert-back-t{width:100%;border-collapse:collapse;font:9pt/1.35 Arial,sans-serif;margin:3mm 0;text-align:left}
 .cert-back-t td{padding:2.2pt 5pt;border:.6pt solid #BFDAC6;vertical-align:top}
+.cert-legal{font:8.5pt/1.3 Arial,sans-serif;color:#445;text-align:center;margin:4mm 0 0}
 .cert-back-t td.k{background:#E9F4EC;font-weight:700;width:15%;color:#0B5560}
 .cert-prog{font:10.5pt/1.55 Arial,sans-serif;text-align:justify;width:100%;margin:0}
 .cert-foot{font:7.5pt Arial,sans-serif;color:#777;margin-top:2mm}
@@ -2810,7 +2814,7 @@ const CERT_ICONS={
 };
 CERT_ICONS.nr10sep=CERT_ICONS.nr10b;
 CERT_ICONS.nr33_trab=CERT_ICONS.nr33;CERT_ICONS.nr33_sup=CERT_ICONS.nr33;
-CERT_ICONS.nr11_empilhadeira=CERT_ICONS.nr11;CERT_ICONS.nr11_carrinho=CERT_ICONS.nr11;
+CERT_ICONS.nr11_empilhadeira=CERT_ICONS.nr11;CERT_ICONS.nr11_carrinho=CERT_ICONS.nr11;CERT_ICONS.nr11_rebocador=CERT_ICONS.nr11;
 CERT_ICONS.nr35_plataforma=CERT_ICONS.nr35;
 function certFrame(nrTag,seal,tipo){
  const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#A87B00" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#A87B00" stroke-width=".45"/><circle cx="0" cy="0" r="1.6" fill="#C05600"/><circle cx="-7" cy="0" r=".9" fill="#0B5560"/><circle cx="7" cy="0" r=".9" fill="#1E8E4F"/></g>`;
@@ -2871,6 +2875,7 @@ function docCertificado(a){
   <p class="cert-prog">${a.conteudo?nl(a.conteudo):'<span class="blank l"></span>'}</p>
   ${a.obs?`<p class="cert-prog" style="margin-top:2mm"><b>Observações:</b> ${nl(a.obs)}</p>`:''}
   <div class="cert-sigs back">${certSig('Responsável técnico',a.respTecnico,a.respTecnicoForm,a,'respTecAssinaturaImg','respTecAssinaturaData')}${certSig('Responsável pela empresa',a.respEmpresa,'',a,'respEmpAssinaturaImg','respEmpAssinaturaData')}</div>
+  ${a.baseLegal?`<p class="cert-legal">${nl(a.baseLegal)}</p>`:''}
   <div class="cert-foot">Emitido em ${fd(new Date().toISOString().slice(0,10))}${cf.nome?' por '+esc(cf.nome):''}. Documento a ser arquivado pela empresa junto ao prontuário de treinamentos do colaborador.</div>
  </div></section>`;
  return front+back;
@@ -2886,6 +2891,7 @@ function docCertificado(a){
    operador de plataforma elevatória depende do uso de cinto/talabarte e sistema de ancoragem. */
 const NR26_CAT={
  nr11_empilhadeira:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
+ nr11_rebocador:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
  nr11_carrinho:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
  nr12:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
  nr18_pemt:{nome:'Laranja',desc:'máquinas e equipamentos',hex:'#F26B1D',texto:'#111'},
@@ -2904,7 +2910,7 @@ function chipCor(tipo){
 }
 /* Rótulo curto do equipamento/treinamento específico para a linha "Apto a operar" da carteirinha, usado só quando o
    registro não tem máquinas específicas nomeadas (campo "equipamentos" do treinamento) */
-const CARTEIRINHA_EQUIP={nr11_empilhadeira:'Empilhadeira',nr11_carrinho:'Carrinho rebocador',nr12:'Máquinas e equipamentos',nr18_pemt:'PEMT (canteiro de obras)',nr35_plataforma:'Plataforma elevatória'};
+const CARTEIRINHA_EQUIP={nr11_empilhadeira:'Empilhadeira',nr11_carrinho:'Carrinho rebocador',nr11_rebocador:'Rebocador / veículos industriais',nr12:'Máquinas e equipamentos',nr18_pemt:'PEMT (canteiro de obras)',nr35_plataforma:'Plataforma elevatória'};
 /* Nomes das máquinas/equipamentos específicos informados no registro de treinamento (campo "equipamentos", lista
    adicionada em initEquipeList) — vazio se o campo não foi preenchido. */
 function equipNomes(t){
@@ -2935,7 +2941,7 @@ function aptoOperar(c,atual){
    (até 60 dias) ou em dia — ver statusExame. */
 /* Nome curto (1 palavra, para caber no chip quadrado) de cada tipo de treinamento — usado embaixo do número da NR nos
    chips de vencimento da carteirinha. Sem entrada no mapa, cai no primeiro nome depois do "—" do catálogo. */
-const NR_CHIP_NOME={nr6:'EPI',nr10b:'Elétrica',nr10sep:'SEP',nr11:'Equipamento',nr11_empilhadeira:'Empilhadeira',nr11_carrinho:'Rebocador',nr12:'Máquinas',nr18:'Construção',nr18_pemt:'PEMT',nr20:'Inflamáveis',nr33_trab:'Confinado',nr33_sup:'Supervisor',nr34:'Naval',nr35:'Altura',nr35_plataforma:'Plataforma'};
+const NR_CHIP_NOME={nr6:'EPI',nr10b:'Elétrica',nr10sep:'SEP',nr11:'Equipamento',nr11_empilhadeira:'Empilhadeira',nr11_carrinho:'Rebocador',nr11_rebocador:'Rebocador',nr12:'Máquinas',nr18:'Construção',nr18_pemt:'PEMT',nr20:'Inflamáveis',nr33_trab:'Confinado',nr33_sup:'Supervisor',nr34:'Naval',nr35:'Altura',nr35_plataforma:'Plataforma'};
 function vencimentosColab(c){
  const m=examesDe(riscosDoColab(c));
  const aso=statusExame(c,'clinico',m);
@@ -3565,7 +3571,7 @@ treinTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoE
  const ch=$('#f_cargaHoraria');if(ch&&sugestao!=null)ch.value=sugestao;
  const ct=$('#f_cargaTeorica');if(ct&&tp.teorica!=null)ct.value=tp.teorica;
  const cp=$('#f_cargaPratica');if(cp&&tp.pratica!=null)cp.value=tp.pratica;
- const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;
+ const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;const bl=$('#f_baseLegal');if(bl&&!bl.value&&tn.baseLegal)bl.value=tn.baseLegal;
  const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
 /* Soma a carga horária total a partir da teórica + prática, quando ao menos uma das duas estiver preenchida (sem travar edição manual depois) */
 treinCarga(){const ct=$('#f_cargaTeorica'),cp=$('#f_cargaPratica'),ch=$('#f_cargaHoraria');if(!ct||!cp||!ch)return;
@@ -3579,7 +3585,7 @@ loteTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl
  const ch=$('#f_cargaHoraria');if(ch&&sugestao!=null)ch.value=sugestao;
  const ct=$('#f_cargaTeorica');if(ct&&tp.teorica!=null)ct.value=tp.teorica;
  const cp=$('#f_cargaPratica');if(cp&&tp.pratica!=null)cp.value=tp.pratica;
- const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;
+ const cj=$('#f_conteudo');if(cj&&!cj.value)cj.value=tn.conteudo;const bl=$('#f_baseLegal');if(bl&&!bl.value&&tn.baseLegal)bl.value=tn.baseLegal;
  const vl=$('#f_validadeAte'),dt=$('#f_data');if(vl&&tn.validadeMeses!=null&&dt&&dt.value){const d=new Date(dt.value+'T00:00:00');d.setMonth(d.getMonth()+tn.validadeMeses);vl.value=d.toISOString().slice(0,10)}},
 nvl(){nvlUpd()},
 novoUserRole(){novoUserRoleAtualizar()},

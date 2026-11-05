@@ -158,3 +158,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Senhas criadas ou trocadas pelo sistema precisam ter 10 caracteres ou mais, com letras e números. A redefinição por e-mail ("Esqueci minha senha") usa a página do próprio Firebase e aceita o mínimo dele (6 caracteres).
 - A verificação em duas etapas do Firebase exige o plano pago (Identity Platform); por isso não está ativada.
 - Dados de saúde são sensíveis pela LGPD: crie acessos só para quem precisa.
+- Novo treinamento no catálogo: "NR-11/12 — Operador de rebocador e veículos industriais" (conteúdo programático pronto, validade de 12 meses pelo cartão do operador, com carteirinha). Os treinamentos ganharam o campo opcional "Base legal do certificado", que aparece no rodapé do verso (nesse treinamento vem preenchido com LDB art. 39 §2º I e Decreto 5.154/2004 com a redação do Decreto 8.268/2014).
