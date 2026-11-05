@@ -393,7 +393,7 @@ const TREIN_NRS={
   'Autorização para operar: somente trabalhador capacitado e autorizado opera ou intervém na máquina; reciclagem quando houver modificação significativa da máquina, do processo ou da organização do trabalho que gere novos riscos. '+COMPORT_OPERADOR},
  nr18:{l:'NR-18 — Segurança e saúde no trabalho na indústria da construção',cargaH:null,validadeMeses:24,conteudo:'Condições e meio ambiente de trabalho na construção; riscos da atividade/função; uso de EPI/EPC; ordem e organização do canteiro; prevenção de quedas e outras ocorrências conforme a frente de trabalho.'},
  nr18_pemt:{l:'NR-11/12 · NR-18 — Operador de PEMT (Plataforma Elevatória Móvel de Trabalho, em canteiro de obras)',cargaFormacao:4,cargaReciclagem:4,validadeMeses:24,carteirinha:true,conteudo:'Capacitação específica do operador de PEMT (antes chamada de PTA), exigida pelo item 18.14 e pelo Quadro I do Anexo I da NR-18 para quem opera esse equipamento em canteiro de obras (indústria da construção): 4 horas de capacitação inicial e 4 horas de capacitação periódica a cada 2 anos, com conteúdo baseado na norma técnica nacional vigente (ABNT NBR 16858). Inclui inspeção pré-operacional, estabilidade, limites de carga e vento, zona de exclusão, uso do cinto de segurança com talabarte curto preso ao ponto de ancoragem da própria plataforma e procedimentos de resgate. Carga horária conferida em fontes setoriais que reproduzem o Quadro I do Anexo I (CBIC, Seconci-SP); confirme no texto oficial da NR-18 publicado no DOU antes de usar como base para auditoria. Fora de canteiro de obras (NR-18 não se aplica), use o treinamento "NR-35 — Operador de plataforma elevatória" abaixo. '+COMPORT_OPERADOR},
- nr20:{l:'NR-20 — Segurança e saúde no trabalho com inflamáveis e combustíveis',cargaH:null,validadeMeses:null,conteudo:'Classificação de áreas, riscos de incêndio e explosão, medidas de controle e resposta a emergência, conforme o nível de treinamento (básico, intermediário ou avançado) aplicável à função.'},
+ nr20:{l:'NR-20 — Segurança e saúde no trabalho com inflamáveis e combustíveis',cargaH:null,validadeMeses:null,conteudo:'Conteúdo conforme o nível de treinamento (básico, intermediário ou avançado) e a classe da instalação, aplicável à função. Propriedades e características dos inflamáveis e combustíveis; riscos de incêndio e explosão; fontes de ignição e eletricidade estática; classificação de áreas e prontuário da instalação; medidas de prevenção e controle (ventilação, aterramento, controle de vazamentos, bloqueio e etiquetagem); trabalhos a quente e permissão de trabalho; procedimentos operacionais, de segurança e de emergência; combate a princípio de incêndio; primeiros socorros; uso de EPI e EPC.'},
  nr33_trab:{l:'NR-33 — Trabalhador autorizado / vigia em espaço confinado',cargaFormacao:16,cargaReciclagem:8,validadeMeses:12,conteudo:'Reconhecimento e controle de riscos em espaços confinados; permissão de entrada e trabalho (PET); testes atmosféricos; equipamentos de proteção e resgate; funções do vigia e do trabalhador autorizado. '+COMPORT_OPERADOR},
  nr33_sup:{l:'NR-33 — Supervisor de entrada em espaço confinado',cargaFormacao:40,cargaReciclagem:8,validadeMeses:12,conteudo:'Conteúdo do trabalhador autorizado/vigia, acrescido de: legislação aplicável à autorização de entrada, emissão e gestão da Permissão de Entrada e Trabalho (PET), avaliação das condições para liberar a entrada e gestão do plano de emergência e resgate. '+COMPORT_OPERADOR},
  nr34:{l:'NR-34 — Condições e meio ambiente de trabalho na indústria da construção e reparação naval',cargaH:null,validadeMeses:null,conteudo:'Riscos da atividade naval/offshore ou de construção e reparo conforme a função exercida; uso de EPI/EPC; trabalho a quente, em altura e em espaço confinado quando aplicável.'},
@@ -1020,7 +1020,7 @@ function abrirEnt(kind,id,pre){
   if(fi)fi.onchange=()=>{
    const f=fi.files[0];if(!f)return;
    const r=new FileReader();
-   r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/im.width),cv=document.createElement('canvas');cv.width=im.width*k;cv.height=im.height*k;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);let u=cv.toDataURL('image/png');if(u.length>150000)u=cv.toDataURL('image/jpeg',.8);rec.logo=u;if(prev)prev.innerHTML=prevImg(u);toast('Logotipo carregado. Salve o formulário para confirmar.')};im.src=r.result};
+   r.onload=()=>{const im=new Image();im.onload=()=>{const u=logoPrepara(im);rec.logo=u;if(prev)prev.innerHTML=prevImg(u);toast('Logotipo carregado. Salve o formulário para confirmar.')};im.src=r.result};
    r.readAsDataURL(f);
   };
   if(del)del.onclick=()=>{rec.logo='';if(prev)prev.innerHTML=prevImg('')};
@@ -2416,8 +2416,8 @@ const DOC_CSS=`
 .cert-back-h{font:700 13pt Georgia,serif;color:#0B5560;letter-spacing:.12em;text-transform:uppercase;margin:0 0 2mm;padding-bottom:1.5mm;border-bottom:1.2pt solid;border-image:linear-gradient(90deg,#0B5560,#1E8E4F) 1;display:inline-block;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .cert-back-t{width:100%;border-collapse:collapse;font:9pt/1.35 Arial,sans-serif;margin:3mm 0;text-align:left}
 .cert-back-t td{padding:2.2pt 5pt;border:.6pt solid #BFDAC6;vertical-align:top}
-.cert-back-t td.k{background:#E9F4EC;font-weight:700;width:30%;color:#0B5560}
-.cert-prog{font:9.5pt/1.5 Arial,sans-serif;text-align:justify;width:100%;margin:0}
+.cert-back-t td.k{background:#E9F4EC;font-weight:700;width:15%;color:#0B5560}
+.cert-prog{font:10.5pt/1.55 Arial,sans-serif;text-align:justify;width:100%;margin:0}
 .cert-foot{font:7.5pt Arial,sans-serif;color:#777;margin-top:2mm}
 @media screen and (max-width:1250px){.cert-sheet{zoom:.78}}
 @media screen and (max-width:980px){.cert-sheet{zoom:.55}}
@@ -2830,17 +2830,18 @@ ${flourish(17,false)}${flourish(193,true)}
 ${seal?`<g transform="translate(148.5 172) scale(1.22)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
 </svg>`;
 }
+const nomeProprio=s=>String(s||'').split(/(\s+)/).map(w=>(/^[a-zà-ÿ]{2,}$/.test(w)&&!['da','de','do','das','dos','e','di','du','del','von','van'].includes(w))?w[0].toUpperCase()+w.slice(1):w).join('');
 function certSig(label,name,sub,a,imgKey,dataKey){
  const img=imgKey&&a[imgKey];
- return `<div class="cs"><div class="ln">${img?`<img src="${img}" alt="Assinatura">`:''}</div><b>${esc(name||label)}</b><span>${esc(label)}${sub?' — '+esc(sub):''}</span>${img&&a[dataKey]?`<span style="font-size:7.5pt">assinatura eletrônica simples em ${fd(a[dataKey])}</span>`:''}</div>`;
+ return `<div class="cs"><div class="ln">${img?`<img src="${img}" alt="Assinatura">`:''}</div><b>${esc(nomeProprio(name)||label)}</b><span>${esc(label)}${sub?' — '+esc(sub):''}</span>${img&&a[dataKey]?`<span style="font-size:7.5pt">assinatura eletrônica simples em ${fd(a[dataKey])}</span>`:''}</div>`;
 }
 function docCertificado(a){
- const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};
+ const c0=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{};const c=Object.assign({},c0,{nome:nomeProprio(c0.nome)});
  const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'—'};
  const cf=CFG();const logoEmp=e.logo||cf.logo;
  const nrTag=String(tn.l||'NR').split(/\s+[—-]\s+/)[0].trim();
  const nomeTrein=String(tn.l||'').replace(/^\s*NR[-\s]?[\w-]+\s+[—-]\s+/,'')||tn.l;
- const regNo=String(a.id||'').replace(/[^A-Za-z0-9]/g,'').slice(-6).toUpperCase();
+ const regNo=String(a.id||'').replace(/[^A-HJ-NP-Za-hj-np-z2-9]/g,'').slice(-6).toUpperCase();
  const logos=`${regNo?`<div class="cert-reg">Registro nº ${esc(regNo)}</div>`:''}${logoEmp?`<div class="cert-logo"><img src="${logoEmp}" alt=""></div>`:''}`;
  const apertado=(String(c.nome||'')+String(e.razao||'')+String(tn.l||'')+String(a.local||'')).length>125;
  const front=`<section class="cert-sheet front${apertado?' tight':''}${logoEmp?' withlogo':''}">${certFrame(nrTag,true,a.tipo)}<div class="cert-in">
@@ -2861,7 +2862,7 @@ function docCertificado(a){
   <table class="cert-back-t" style="margin-top:3mm">
    <tr><td class="k">Colaborador</td><td>${esc(c.nome||'—')}${c.cpf?' — CPF '+esc(c.cpf):''}</td><td class="k">Empresa</td><td>${esc(e.razao||'—')}${e.cnpj?' — '+esc(e.cnpj):''}</td></tr>
    <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}</td></tr>
-   <tr><td class="k">Válido até (reciclagem)</td><td>${a.validadeAte?fd(a.validadeAte):'—'}</td><td class="k">Instrutor</td><td>${esc(a.instrutor||'—')}${a.instrutorForm?' — '+esc(a.instrutorForm):''}</td></tr>
+   <tr><td class="k">Válido até (reciclagem)</td><td>${a.validadeAte?fd(a.validadeAte):'—'}</td><td class="k">Instrutor</td><td>${esc(nomeProprio(a.instrutor)||'—')}${a.instrutorForm?' — '+esc(a.instrutorForm):''}</td></tr>
    <tr><td class="k">Modalidade</td><td>${esc(a.modalidade||'—')}</td><td class="k">Aproveitamento</td><td>100% — treinamento teórico e prático${regNo?' · Registro nº '+esc(regNo):''}</td></tr>
   </table>
   <h3 style="font:700 10pt Arial,sans-serif;color:#0B5560;align-self:flex-start;margin:1mm 0 1mm">Conteúdo programático</h3>
@@ -3069,10 +3070,48 @@ function docResumoSemana(){
  return h;
 }
 
+/* Logotipo: recorta as margens vazias (transparentes ou quase brancas) para o desenho ocupar a área do certificado e guarda em resolução
+   maior (até 720 px) para sair nítido na impressão. Se o arquivo ficar grande, usa JPEG. */
+function logoCaixa(im){
+ const W0=im.naturalWidth||im.width,H0=im.naturalHeight||im.height,k0=Math.min(1,1400/Math.max(W0,H0));
+ const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(W0*k0));cv.height=Math.max(1,Math.round(H0*k0));
+ const g=cv.getContext('2d');g.drawImage(im,0,0,cv.width,cv.height);
+ let x0=cv.width,y0=cv.height,x1=-1,y1=-1;
+ try{const d=g.getImageData(0,0,cv.width,cv.height).data,w=cv.width;
+  for(let y=0;y<cv.height;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;if(d[i+3]>24&&(d[i]<238||d[i+1]<238||d[i+2]<238)){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+ }catch(e){return {cv,box:null}}
+ if(x1<x0||y1<y0)return {cv,box:null};
+ const px=Math.round((x1-x0)*.02)+2,py=Math.round((y1-y0)*.02)+2;
+ x0=Math.max(0,x0-px);y0=Math.max(0,y0-py);x1=Math.min(cv.width-1,x1+px);y1=Math.min(cv.height-1,y1+py);
+ if((x1-x0+1)>=cv.width*.97&&(y1-y0+1)>=cv.height*.97)return {cv,box:null};
+ return {cv,box:[x0,y0,x1-x0+1,y1-y0+1]};
+}
+function logoPrepara(im){
+ const {cv,box}=logoCaixa(im);
+ const sw=box?box[2]:cv.width,sh=box?box[3]:cv.height,k=Math.min(1,720/sw,360/sh);
+ const out=document.createElement('canvas');out.width=Math.max(1,Math.round(sw*k));out.height=Math.max(1,Math.round(sh*k));
+ const g=out.getContext('2d');
+ if(box)g.drawImage(cv,box[0],box[1],box[2],box[3],0,0,out.width,out.height);else g.drawImage(cv,0,0,out.width,out.height);
+ let u=out.toDataURL('image/png');
+ if(u.length>260000){g.globalCompositeOperation='destination-over';g.fillStyle='#fff';g.fillRect(0,0,out.width,out.height);u=out.toDataURL('image/jpeg',.85)}
+ return u;
+}
+const logoAparaCache={};
+/* Logotipos já salvos com margens grandes: recorta ao abrir o certificado (tela, impressão e arquivo baixado). */
+function logoAjustaNoDoc(){
+ const r=$('#doc-root');if(!r||!S.doc)return;
+ r.querySelectorAll('.cert-logo img').forEach(img=>{
+  const src=img.getAttribute('src');if(!src||src.length<200)return;
+  const aplicar=u=>{if(!u||u===src||!S.doc)return;img.src=u;S.doc.html=S.doc.html.split(src).join(u)};
+  if(logoAparaCache[src]!==undefined){aplicar(logoAparaCache[src]);return}
+  const im=new Image();im.onload=()=>{try{const {box}=logoCaixa(im);const u=box?logoPrepara(im):'';logoAparaCache[src]=u;aplicar(u)}catch(e){logoAparaCache[src]=''}};im.src=src;
+ });
+}
 function openDoc(d){
  S.doc=d;const r=$('#doc-root');
  r.innerHTML=`<div class="doc-bar"><b>${esc(d.title)}</b><button class="btn s p" data-a="dPrint">${ic('print')}Imprimir</button><button class="btn s" data-a="dSave">${ic('down')}Baixar</button><button class="btn s" data-a="dSend">${ic('send')}Enviar</button><button class="btn s" data-a="dClose">${ic('x')}Fechar</button></div><div class="doc-wrap"><div class="paper">${d.html}</div></div>`;
  r.classList.add('on');r.scrollTop=0;
+ if(r.querySelector('.cert-logo img'))logoAjustaNoDoc();
 }
 function closeDoc(){S.doc=null;const r=$('#doc-root');r.classList.remove('on');r.innerHTML=''}
 async function sendDoc(){
@@ -3596,7 +3635,7 @@ async asoF(t){
 },
 logoF(t){
  const f=t.files[0];if(!f)return;const r=new FileReader();
- r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/im.width),cv=document.createElement('canvas');cv.width=im.width*k;cv.height=im.height*k;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);let u=cv.toDataURL('image/png');if(u.length>150000)u=cv.toDataURL('image/jpeg',.8);save('config',Object.assign({},CFG(),{logo:u,id:CFG_ID()}));toast('Logotipo salvo.')};im.src=r.result};r.readAsDataURL(f);
+ r.onload=()=>{const im=new Image();im.onload=()=>{const u=logoPrepara(im);save('config',Object.assign({},CFG(),{logo:u,id:CFG_ID()}));toast('Logotipo salvo.')};im.src=r.result};r.readAsDataURL(f);
 },
 bkF(t){
  const f=t.files[0];if(!f)return;const r=new FileReader();
