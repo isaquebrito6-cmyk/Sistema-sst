@@ -536,12 +536,10 @@ function save(c,rec,quiet){rec=clone(rec);rec.id=rec.id||uid();rec.upd=Date.now(
  if(TENANT_COLS.includes(c)){if(ant&&ant.consultoriaId)rec.consultoriaId=ant.consultoriaId;else if(!rec.consultoriaId)rec.consultoriaId=CFG_ID()}
  if(c==='riscos'&&!rec.clinicaIds){const em=G('empresas',rec.empresaId);if(em&&em.clinicaIds&&em.clinicaIds.length)rec.clinicaIds=em.clinicaIds.slice()}
  DB.data[c][rec.id]=rec;
- if(c==='treinamentos'&&rec.vcod)verifSync(rec);
  if(AUD_COLS.includes(c))audit(ant?'alterar':'criar',c,rec.id,rec);
  if(DB.db){const r=clone(rec);enqueue(()=>DB.db.doc(c+'/'+r.id).set(r))}else persist();
  if(!quiet)render();return rec}
 function del(c,id,quiet){if(AUD_COLS.includes(c))audit('excluir',c,id,DB.data[c]&&DB.data[c][id]);
- if(c==='treinamentos'&&DB.db){const r=DB.data[c]&&DB.data[c][id];if(r&&r.vcod){const v=r.vcod;enqueue(()=>DB.db.doc('verificacoes/'+v).delete())}}
  delete DB.data[c][id];if(DB.db)enqueue(()=>DB.db.doc(c+'/'+id).delete());else persist();if(!quiet)render()}
 function delMany(c,fn){L(c).filter(fn).forEach(r=>del(c,r.id,true))}
 function stopListeners(){while(DB.unsubs.length){try{DB.unsubs.pop()()}catch(e){}}}
@@ -2440,13 +2438,9 @@ const DOC_CSS=`
 .cert-sheet.back.xl .cert-kicker{margin:.5mm 0}
 .paper h2.cert-back-h{color:var(--ca,#0B5560)}
 .cert-bottom{display:flex;gap:3.5mm;align-items:center;width:100%;margin-top:4mm;padding-top:2.5mm;border-top:.5pt solid var(--cl,#BFDAC6);text-align:left}
-.cert-bottom .qr{width:16mm;height:16mm;flex:none;border:.4pt solid var(--cl,#BFDAC6)}
 .cb-t{flex:1;min-width:0}
 .cb-t p{margin:0 0 .8mm}
 .cert-legal{font:7.6pt/1.3 Arial,sans-serif;color:#445}
-.cb-auth{font:7.2pt/1.3 Arial,sans-serif;color:#445}
-.cb-auth b{color:var(--ca,#0B5560)}
-.cb-auth span{word-break:break-all}
 .cb-emit{font:6.8pt Arial,sans-serif;color:#777}
 .cert-back-t td.k{background:var(--ct,#E9F4EC);font-weight:700;width:15%;color:var(--ca,#0B5560)}
 .cert-prog{font:10.5pt/1.55 Arial,sans-serif;text-align:justify;width:100%;margin:0}
@@ -2878,17 +2872,7 @@ function certPal(logoSrc,e,cf){const k=certPaletaChave(e,cf);
  return CERT_PAL[k]||CERT_PAL.padrao}
 const certEstilo=p=>'--ca:'+p.a+';--cb:'+p.b+';--cc:'+p.c+';--ct:'+p.t+';--cl:'+p.l;
 function certPinta(svg,p){if(!p||p===CERT_PAL.padrao)return svg;const m={'#0B5560':p.a,'#1E8E4F':p.b,'#A87B00':p.c,'#2AA868':p.s};return svg.replace(/#(0B5560|1E8E4F|A87B00|2AA868)/gi,x=>m[x.toUpperCase()]||x)}
-/* Código de verificação (QR): aleatório, sem caracteres confundíveis; é o id do documento público em "verificacoes". */
-function novoCodigoVerif(){const al='ABCDEFGHJKMNPQRSTUVWXYZ23456789',b=new Uint8Array(16);(window.crypto||{getRandomValues:a=>a.forEach((_,i)=>a[i]=Math.random()*256)}).getRandomValues(b);return Array.from(b,x=>al[x%al.length]).join('')}
-function nomeMasc(n){const p=String(n||'').trim().split(/\s+/).filter(Boolean),mi=['da','de','do','das','dos','e'];if(!p.length)return'';
- return p[0][0].toUpperCase()+p[0].slice(1).toLowerCase()+' '+p.slice(1).filter(w=>!mi.includes(w.toLowerCase())).map(w=>w[0].toUpperCase()+'.').join(' ')}
-/* Só o necessário para conferir o certificado — sem CPF, sem endereço, sem dados de saúde. */
-function verifPayload(a){const c=G('colaboradores',a.colabId)||{},e=G('empresas',a.empresaId)||{},tn=TREIN_NRS[a.tipo]||{l:a.tipo||''};
- return{consultoriaId:a.consultoriaId||CFG_ID(),empresaId:a.empresaId||'',trein:tn.l||'',nome:nomeMasc(c.nome),empresa:e.razao||'',data:a.data||'',validade:a.validadeAte||'',carga:a.cargaHoraria?String(a.cargaHoraria):'',num:a.numCert||'',emissor:CFG().nome||'',upd:Date.now()}}
-function verifSync(a){if(!DB.db||!a||!a.vcod)return;const p=verifPayload(a),id=a.vcod;enqueue(()=>DB.db.doc('verificacoes/'+id).set(p))}
-function certUrl(a){return location.origin+location.pathname.replace(/[^/]*$/,'')+'?v='+a.vcod}
-const certQrAtivo=a=>!!(DB.db&&a&&a.vcod&&/^https?:/.test(location.protocol));
-/* Antes de abrir um certificado: numera (por empresa e ano), cria o código do QR e, se a paleta for "do logotipo", lê a cor. */
+/* Antes de abrir um certificado: numera (por empresa e ano) e, se a paleta for "do logotipo", lê a cor. */
 async function certPrepara(lista){
  const cf=CFG(),out=[];
  for(const a0 of lista){
@@ -2899,64 +2883,13 @@ async function certPrepara(lista){
    const tn=TREIN_NRS[a.tipo]||{l:'NR'},tag=String(tn.l||'NR').split(/\s+[—-]\s+/)[0].trim();
    a=Object.assign({},a,{numSeq:seq,numAno:ano,numCert:tag+' · '+String(seq).padStart(3,'0')+'/'+ano});
   }
-  if(!a.vcod)a=Object.assign({},a,{vcod:novoCodigoVerif()});
-  if(a!==antes)a=save('treinamentos',a,true);else verifSync(a);
+  if(a!==antes)a=save('treinamentos',a,true);
   const e=G('empresas',a.empresaId)||{};
   if(certPaletaChave(e,cf)==='logo')await logoCorCalcula(certLogos(e,cf).A);
   out.push(a);
  }
  return out;
 }
-/* QR Code (modo byte, correção M, versões 1–9) — gerador mínimo embutido, sem biblioteca externa. */
-function qrMatriz(txt){
- const ECCB=[0,10,16,26,18,24,16,18,22,22],NBL=[0,1,1,1,2,2,4,4,4,5];
- const data=Array.from(new TextEncoder().encode(txt));
- const rawMods=v=>{let r=(16*v+128)*v+64;if(v>=2){const n=Math.floor(v/7)+2;r-=(25*n-10)*n-55;if(v>=7)r-=36}return r};
- const capDe=v=>Math.floor(rawMods(v)/8)-ECCB[v]*NBL[v];
- let ver=1;while(ver<=9&&12+data.length*8>capDe(ver)*8)ver++;
- if(ver>9)return null;
- const cap=capDe(ver),bits=[];const put=(v,n)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1)};
- put(4,4);put(data.length,8);data.forEach(b=>put(b,8));put(0,Math.min(4,cap*8-bits.length));
- while(bits.length%8)bits.push(0);
- for(let p=0xEC;bits.length<cap*8;p^=0xEC^0x11)put(p,8);
- const cw=[];for(let i=0;i<bits.length;i+=8){let b=0;for(let j=0;j<8;j++)b=b<<1|bits[i+j];cw.push(b)}
- const mul=(x,y)=>{let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);z^=((y>>>i)&1)*x}return z};
- const nb=NBL[ver],eb=ECCB[ver],raw=Math.floor(rawMods(ver)/8),ns=nb-raw%nb,sl=Math.floor(raw/nb);
- const div=[];for(let i=0;i<eb-1;i++)div.push(0);div.push(1);
- for(let i=0,root=1;i<eb;i++){for(let j=0;j<div.length;j++){div[j]=mul(div[j],root);if(j+1<div.length)div[j]^=div[j+1]}root=mul(root,2)}
- const blocks=[];
- for(let i=0,k=0;i<nb;i++){const len=sl-eb+(i<ns?0:1);const d=cw.slice(k,k+len);k+=len;
-  const r=div.map(()=>0);for(const b of d){const f=b^r.shift();r.push(0);div.forEach((c,x)=>r[x]^=mul(c,f))}
-  if(i<ns)d.push(0);blocks.push(d.concat(r))}
- const all=[];for(let i=0;i<blocks[0].length;i++)blocks.forEach((b,j)=>{if(i!==sl-eb||j>=ns)all.push(b[i])});
- const size=ver*4+17,M=[],F=[];for(let y=0;y<size;y++){M.push(new Array(size).fill(false));F.push(new Array(size).fill(false))}
- const setFn=(x,y,v)=>{if(x>=0&&y>=0&&x<size&&y<size){M[y][x]=!!v;F[y][x]=true}};
- for(let i=0;i<size;i++){setFn(6,i,i%2===0);setFn(i,6,i%2===0)}
- [[3,3],[size-4,3],[3,size-4]].forEach(([cx,cy])=>{for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const d=Math.max(Math.abs(dx),Math.abs(dy));setFn(cx+dx,cy+dy,d!==2&&d!==4)}});
- if(ver>1){const na=Math.floor(ver/7)+2,step=Math.ceil((ver*4+4)/(na*2-2))*2,pos=[6];for(let p=size-7;pos.length<na;p-=step)pos.splice(1,0,p);
-  pos.forEach((cx,i)=>pos.forEach((cy,j)=>{if((i===0&&j===0)||(i===0&&j===na-1)||(i===na-1&&j===0))return;for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)setFn(cx+dx,cy+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1)}))}
- const fmt=mask=>{const d=mask;let r=d;for(let i=0;i<10;i++)r=(r<<1)^((r>>>9)*0x537);const b=((d<<10)|r)^0x5412,g=i=>(b>>>i)&1;
-  for(let i=0;i<=5;i++)setFn(8,i,g(i));setFn(8,7,g(6));setFn(8,8,g(7));setFn(7,8,g(8));for(let i=9;i<15;i++)setFn(14-i,8,g(i));
-  for(let i=0;i<8;i++)setFn(size-1-i,8,g(i));for(let i=8;i<15;i++)setFn(8,size-15+i,g(i));setFn(8,size-8,true)};
- fmt(0);
- if(ver>=7){let r=ver;for(let i=0;i<12;i++)r=(r<<1)^((r>>>11)*0x1F25);const b=ver<<12|r;for(let i=0;i<18;i++){const v=(b>>>i)&1,a=size-11+i%3,c=Math.floor(i/3);setFn(a,c,v);setFn(c,a,v)}}
- let k=0;for(let right=size-1;right>=1;right-=2){if(right===6)right=5;for(let vert=0;vert<size;vert++)for(let j=0;j<2;j++){const x=right-j,up=((right+1)&2)===0,y=up?size-1-vert:vert;if(!F[y][x]&&k<all.length*8){M[y][x]=((all[k>>>3]>>>(7-(k&7)))&1)!==0;k++}}}
- const cond=[(x,y)=>(x+y)%2===0,(x,y)=>y%2===0,(x,y)=>x%3===0,(x,y)=>(x+y)%3===0,(x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2===0,(x,y)=>x*y%2+x*y%3===0,(x,y)=>(x*y%2+x*y%3)%2===0,(x,y)=>((x+y)%2+x*y%3)%2===0];
- const aplica=m=>{for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(!F[y][x]&&cond[m](x,y))M[y][x]=!M[y][x]};
- const penal=()=>{let p=0;
-  for(let t=0;t<2;t++){for(let a=0;a<size;a++){let run=1;for(let b=1;b<=size;b++){const cur=b<size?(t?M[b][a]:M[a][b]):null,prev=t?M[b-1][a]:M[a][b-1];if(b<size&&cur===prev)run++;else{if(run>=5)p+=3+run-5;run=1}}
-    const lin=[];for(let b=0;b<size;b++)lin.push(t?M[b][a]:M[a][b]);const s=lin.map(v=>v?1:0).join('');p+=40*((s.match(/(?=(10111010000|00001011101))/g)||[]).length)}}
-  for(let y=0;y<size-1;y++)for(let x=0;x<size-1;x++){const v=M[y][x];if(v===M[y][x+1]&&v===M[y+1][x]&&v===M[y+1][x+1])p+=3}
-  let dk=0;M.forEach(r=>r.forEach(v=>{if(v)dk++}));p+=(Math.ceil(Math.abs(dk*20-size*size*10)/(size*size))-1)*10;return p};
- let best=0,bp=1e9;for(let m=0;m<8;m++){aplica(m);fmt(m);const p=penal();if(p<bp){bp=p;best=m}aplica(m)}
- aplica(best);fmt(best);return M;
-}
-function qrSvg(txt,cls){
- const M=qrMatriz(txt);if(!M)return'';const n=M.length,q=3;let d='';
- for(let y=0;y<n;y++){let x=0;while(x<n){if(M[y][x]){let e=x;while(e<n&&M[y][e])e++;d+='M'+(x+q)+' '+(y+q)+'h'+(e-x)+'v1h-'+(e-x)+'z';x=e}else x++}}
- const t=n+q*2;return '<svg class="'+(cls||'qr')+'" viewBox="0 0 '+t+' '+t+'" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="QR code de verificação"><rect width="'+t+'" height="'+t+'" fill="#fff"/><path d="'+d+'" fill="#000"/></svg>';
-}
-
 function certFrame(nrTag,seal,tipo,pal){
  const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#A87B00" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#A87B00" stroke-width=".45"/><circle cx="0" cy="0" r="1.6" fill="#C05600"/><circle cx="-7" cy="0" r=".9" fill="#0B5560"/><circle cx="7" cy="0" r=".9" fill="#1E8E4F"/></g>`;
  const svg=`<svg class="cf" viewBox="0 0 297 210" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -2971,7 +2904,6 @@ function certFrame(nrTag,seal,tipo,pal){
 <rect x="6" y="6" width="285" height="198" fill="none" stroke="url(#certFrameGrad)" stroke-width="2.6"/>
 <rect x="9.4" y="9.4" width="278.2" height="191.2" fill="none" stroke="#A87B00" stroke-width=".7"/>
 <rect x="11.9" y="11.9" width="273.2" height="186.2" fill="none" stroke="#0B5560" stroke-width=".3" stroke-opacity=".5"/>
-${flourish(17,false)}${flourish(193,true)}
 ${seal?`<g transform="translate(148.5 172) scale(1.22)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
 </svg>`;
  return certPinta(svg,pal);
@@ -2988,7 +2920,6 @@ function docCertificado(a){
  const nrTag=String(tn.l||'NR').split(/\s+[—-]\s+/)[0].trim();
  const nomeTrein=String(tn.l||'').replace(/^\s*NR[-\s]?[\w-]+\s+[—-]\s+/,'')||tn.l;
  const {A:logoA,B:logoB}=certLogos(e,cf),pal=certPal(logoA,e,cf),estilo=certEstilo(pal);
- const qrOn=certQrAtivo(a),cod=String(a.vcod||'').replace(/(.{4})(?=.)/g,'$1-');
  const logos=logoA?`<div class="cert-logo"><img src="${logoA}" alt="">${logoB?`<img src="${logoB}" alt="">`:''}</div>`:'';
  const apertado=(String(c.nome||'')+String(e.razao||'')+String(tn.l||'')+String(a.local||'')).length>125;
  const front=`<section class="cert-sheet front${apertado?' tight':''}${logoA?' withlogo':''}" style="${estilo}">${certFrame(nrTag,true,a.tipo,pal)}<div class="cert-in">
@@ -3012,13 +2943,13 @@ function docCertificado(a){
    <tr><td class="k">Data / local</td><td>${fd(a.data)}${a.local?' — '+esc(a.local):''}</td><td class="k">Carga horária</td><td>${a.cargaHoraria?esc(String(a.cargaHoraria))+' hora(s)':'—'}</td></tr>
    <tr><td class="k">Válido até (reciclagem)</td><td>${a.validadeAte?fd(a.validadeAte):'—'}</td><td class="k">Instrutor</td><td>${esc(nomeProprio(a.instrutor)||'—')}${a.instrutorForm?' — '+esc(a.instrutorForm):''}</td></tr>
    <tr><td class="k">Modalidade</td><td>${esc(a.modalidade||'—')}</td><td class="k">Aproveitamento</td><td>100% — treinamento teórico e prático</td></tr>
-   <tr><td class="k">Certificado nº</td><td>${esc(a.numCert||'—')}</td><td class="k">Cód. verificação</td><td>${qrOn?esc(cod):'—'}</td></tr>
+   <tr><td class="k">Certificado nº</td><td colspan="3">${esc(a.numCert||'—')}</td></tr>
   </table>
   <h3 style="font:700 10pt Arial,sans-serif;color:var(--ca,#0B5560);align-self:flex-start;margin:1mm 0 1mm">Conteúdo programático</h3>
   <p class="cert-prog${String(a.conteudo||'').length>1100?' long':''}">${a.conteudo?nl(a.conteudo):'<span class="blank l"></span>'}</p>
   ${a.obs?`<p class="cert-prog" style="margin-top:2mm"><b>Observações:</b> ${nl(a.obs)}</p>`:''}
   <div class="cert-sigs back">${certSig('Responsável técnico',a.respTecnico,a.respTecnicoForm,a,'respTecAssinaturaImg','respTecAssinaturaData')}${certSig('Responsável pela empresa',a.respEmpresa,'',a,'respEmpAssinaturaImg','respEmpAssinaturaData')}</div>
-  <div class="cert-bottom">${qrOn?qrSvg(certUrl(a),'qr'):''}<div class="cb-t">${a.baseLegal?`<p class="cert-legal">${nl(a.baseLegal)}</p>`:''}${qrOn?`<p class="cb-auth"><b>Confira a autenticidade:</b> aponte a câmera para o QR code ou acesse <span>${esc(certUrl(a))}</span> (mostra só os dados do treinamento, sem CPF).</p>`:''}<p class="cb-emit">Emitido em ${fd(new Date().toISOString().slice(0,10))}${cf.nome?' por '+esc(cf.nome):''}. Documento a ser arquivado pela empresa junto ao prontuário de treinamentos do colaborador.</p></div></div>
+  <div class="cert-bottom"><div class="cb-t">${a.baseLegal?`<p class="cert-legal">${nl(a.baseLegal)}</p>`:''}<p class="cb-emit">Emitido em ${fd(new Date().toISOString().slice(0,10))}${cf.nome?' por '+esc(cf.nome):''}. Documento a ser arquivado pela empresa junto ao prontuário de treinamentos do colaborador.</p></div></div>
  </div></section>`;
  return front+back;
 }
@@ -3881,27 +3812,6 @@ function stopInactivityTimer(){if(_inactivityTimer){clearTimeout(_inactivityTime
 ['click','keydown','mousemove','touchstart','scroll'].forEach(ev=>document.addEventListener(ev,resetInactivityTimer,{passive:true}));
 
 /* ====================== INÍCIO ====================== */
-/* ---------- Página pública de verificação do certificado (QR code): sem login, só dados mínimos ---------- */
-async function paginaVerificacao(cod){
- document.title='Verificação de certificado';
- const css='<style>body{margin:0;background:#EEF4F0;color:#16302F;font:16px/1.5 system-ui,-apple-system,Segoe UI,Arial,sans-serif}.vf{max-width:540px;margin:0 auto;padding:28px 16px}.vc{background:#fff;border-radius:14px;padding:22px 20px;box-shadow:0 2px 14px rgba(0,0,0,.08)}.vc.ok{border-top:6px solid #1E9E4A}.vc.no{border-top:6px solid #D3211A}.vf h1{font-size:20px;margin:0 0 4px}.vf .sub{color:#5a6b69;font-size:14px;margin:0 0 16px}.vf dl{margin:0}.vf dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7a78;margin-top:12px}.vf dd{margin:2px 0 0;font-weight:600}.vf .nota{font-size:13px;color:#5a6b69;margin-top:18px}.vf .st{display:inline-block;padding:2px 10px;border-radius:99px;font-size:13px;font-weight:700}.vf .st.v{background:#DFF3E4;color:#14692F}.vf .st.x{background:#FBE3E1;color:#A3190F}</style>';
- const casca=h=>{document.body.innerHTML=css+'<div class="vf">'+h+'</div>'};
- casca('<div class="vc"><p>Consultando…</p></div>');
- let d=null,falha=false;
- try{const sn=await FB.db.doc('verificacoes/'+cod).get();d=sn.exists?sn.data():null}catch(e){falha=true}
- if(falha){casca('<div class="vc no"><h1>Não foi possível consultar agora</h1><p class="sub">Verifique a conexão e leia o QR code de novo.</p></div>');return}
- if(!d){casca('<div class="vc no"><h1>Certificado não encontrado</h1><p class="sub">O código <b>'+esc(cod)+'</b> não consta na base. O certificado pode ter sido cancelado ou o código está incorreto. Em caso de dúvida, procure quem emitiu o documento.</p></div>');return}
- const venc=d.validade&&d.validade<today();
- casca('<div class="vc ok"><h1>Certificado autêntico</h1><p class="sub">Emitido pelo sistema'+(d.emissor?' por <b>'+esc(d.emissor)+'</b>':'')+'.</p><dl>'
-  +'<dt>Treinamento</dt><dd>'+esc(d.trein||'—')+'</dd>'
-  +'<dt>Colaborador</dt><dd>'+esc(d.nome||'—')+'</dd>'
-  +'<dt>Empresa</dt><dd>'+esc(d.empresa||'—')+'</dd>'
-  +'<dt>Data de realização</dt><dd>'+fd(d.data)+'</dd>'
-  +(d.carga?'<dt>Carga horária</dt><dd>'+esc(d.carga)+' hora(s)</dd>':'')
-  +(d.validade?'<dt>Validade do treinamento</dt><dd>'+fd(d.validade)+' <span class="st '+(venc?'x':'v')+'">'+(venc?'vencido':'em vigor')+'</span></dd>':'')
-  +(d.num?'<dt>Certificado nº</dt><dd>'+esc(d.num)+'</dd>':'')
-  +'</dl><p class="nota">Por privacidade, o nome aparece abreviado e não há CPF nesta página. A validade do treinamento pode vencer sem que o certificado deixe de ser autêntico. Compare estes dados com o certificado em mãos.</p></div>');
-}
 async function iniciarSemAuth(){
  $('#app').innerHTML='<div class="content"><p class="muted">Carregando…</p></div>';
  S.cloud=await initData();
@@ -3929,9 +3839,7 @@ function iniciarComAuth(){
   render();
  });
 }
-const VCOD=(new URLSearchParams(location.search).get('v')||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
-if(VCOD&&window.__fbOk&&window.FB)paginaVerificacao(VCOD);
-else if(window.__fbOk&&window.FB)iniciarComAuth();else iniciarSemAuth();
+if(window.__fbOk&&window.FB)iniciarComAuth();else iniciarSemAuth();
 </script>
 </body>
 </html>
