@@ -2412,8 +2412,10 @@ const DOC_CSS=`
 .cert-sigs .cs{max-width:86mm;width:100%}
 .cert-sigs .cs:first-child{justify-self:start}
 .cert-sigs .cs:last-child{justify-self:end}
-.cert-sigs.back{display:grid;grid-template-columns:1fr 1fr;align-items:stretch;column-gap:24mm;padding:0 6mm;margin-top:auto}
+/* verso: cada assinatura fica inteira fora do círculo da marca d'água (r=74mm no centro da folha) */
+.cert-sigs.back{display:grid;grid-template-columns:54mm 1fr 54mm;align-items:stretch;column-gap:0;padding:0 2mm;margin-top:auto}
 .cert-sigs.back .cs{max-width:none;justify-self:stretch}
+.cert-sigs.back .cs:last-child{grid-column:3}
 .cs{flex:1;text-align:center;font:9pt/1.35 Arial,sans-serif;min-width:0}
 .cs .ln{height:16mm;display:flex;align-items:flex-end;justify-content:center;border-bottom:.8pt solid var(--ca,#0B5560)}
 .cs .ln img{max-height:15mm;max-width:70mm}
@@ -2911,13 +2913,13 @@ function certFrame(nrTag,seal,tipo,pal){
 <radialGradient id="certSealGrad" cx="32%" cy="28%" r="78%"><stop offset="0" stop-color="#2AA868"/><stop offset="1" stop-color="#0B5560"/></radialGradient>
 </defs>
 <rect width="297" height="210" fill="#FFFEF8"/>
-${seal?`<circle cx="148.5" cy="105" r="74" fill="none" stroke="#1E8E4F" stroke-opacity=".12" stroke-width="1.2"/><circle cx="148.5" cy="105" r="68" fill="none" stroke="#0B5560" stroke-opacity=".08" stroke-width=".6"/>`:''}
+<circle cx="148.5" cy="105" r="74" fill="none" stroke="#1E8E4F" stroke-opacity=".12" stroke-width="1.2"/><circle cx="148.5" cy="105" r="68" fill="none" stroke="#0B5560" stroke-opacity=".08" stroke-width=".6"/>
 <text x="148.5" y="122" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?46:62}" fill="#0B5560" fill-opacity=".055">${esc(nrTag)}</text>
 <rect x="6" y="6" width="285" height="198" fill="none" stroke="url(#certFrameGrad)" stroke-width="2.6"/>
 <rect x="9.4" y="9.4" width="278.2" height="191.2" fill="none" stroke="#A87B00" stroke-width=".7"/>
 <rect x="11.9" y="11.9" width="273.2" height="186.2" fill="none" stroke="#0B5560" stroke-width=".3" stroke-opacity=".5"/>
 ${flourish(19.5,false,pal&&pal.orn)}${flourish(190.5,true,pal&&pal.orn)}
-${seal?`<g transform="translate(148.5 164.5) scale(1.45)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
+${seal?`<g transform="translate(148.5 164.5) scale(1.45)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -3.600) scale(.7)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
 </svg>`;
  return certPinta(svg,pal);
 }
