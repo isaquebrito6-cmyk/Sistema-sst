@@ -2405,6 +2405,11 @@ const DOC_CSS=`
 .cert-sheet.tight .cert-name{font-size:21pt}
 .cert-sheet.tight .cert-nr{font-size:19pt;margin-top:2mm}
 .cert-sheet.tight .cert-sub{font-size:17pt;margin-bottom:2mm}
+.cert-sheet.long .cert-nr{font-size:16.5pt;line-height:1.2;margin-top:1.5mm}
+.cert-sheet.long .cert-txt{font-size:12pt;line-height:1.42}
+.cert-sheet.long .cert-sub{font-size:15pt;margin-bottom:1.5mm}
+.cert-sheet.long .cert-num{margin:.5mm 0 1mm}
+.cert-sheet.long .cert-name{font-size:20pt;margin-bottom:1.5mm}
 .cert-lead{font-size:13pt;letter-spacing:.04em;color:#555}
 .cert-name{font:italic 700 26pt/1.15 Georgia,'Times New Roman',serif;color:var(--ca,#0B5560);border-bottom:.9pt solid #C9A24A;padding:0 14mm 1.2mm;margin:1mm 0 2.5mm;max-width:230mm}
 .cert-reg{position:absolute;top:-4mm;right:0;font:600 8pt Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8A6300}
@@ -2919,7 +2924,7 @@ function certFrame(nrTag,seal,tipo,pal){
 <rect x="9.4" y="9.4" width="278.2" height="191.2" fill="none" stroke="#A87B00" stroke-width=".7"/>
 <rect x="11.9" y="11.9" width="273.2" height="186.2" fill="none" stroke="#0B5560" stroke-width=".3" stroke-opacity=".5"/>
 ${flourish(19.5,false,pal&&pal.orn)}${flourish(190.5,true,pal&&pal.orn)}
-${seal?`<g transform="translate(148.5 164.5) scale(1.45)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -3.600) scale(.7)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
+${seal?`<g transform="translate(148.5 166) scale(1.35)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -3.900) scale(.68)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
 </svg>`;
  return certPinta(svg,pal);
 }
@@ -2937,7 +2942,8 @@ function docCertificado(a){
  const {A:logoA,B:logoB}=certLogos(e,cf),pal=Object.assign({},certPal(logoA,e,cf),{orn:cf.ornCert||'zebrado',equip:equipNomes(a).join(' ')}),estilo=certEstilo(pal);
  const logos=logoA?`<div class="cert-logo"><img src="${logoA}" alt="">${logoB?`<img src="${logoB}" alt="">`:''}</div>`:'';
  const apertado=(String(c.nome||'')+String(e.razao||'')+String(tn.l||'')+String(a.local||'')).length>125;
- const front=`<section class="cert-sheet front${apertado?' tight':''}${logoA?' withlogo':''}" style="${estilo}">${certFrame(nrTag,true,a.tipo,pal)}<div class="cert-in">
+ const longo=String(tn.l||'').length>62;
+ const front=`<section class="cert-sheet front${apertado?' tight':''}${longo?' long':''}${logoA?' withlogo':''}" style="${estilo}">${certFrame(nrTag,true,a.tipo,pal)}<div class="cert-in">
   ${logos}
   <div class="cert-kicker">${esc(e.razao||cf.nome||'')}</div>
   <h1 class="cert-title">Certificado</h1>
