@@ -2871,7 +2871,7 @@ function certPal(logoSrc,e,cf){const k=certPaletaChave(e,cf);
  if(k==='logo'){const c=logoCorCache[logoSrc];return c?palDaLogo(c):CERT_PAL.grafite}
  return CERT_PAL[k]||CERT_PAL.padrao}
 const certEstilo=p=>'--ca:'+p.a+';--cb:'+p.b+';--cc:'+p.c+';--ct:'+p.t+';--cl:'+p.l;
-function certPinta(svg,p){if(!p||p===CERT_PAL.padrao)return svg;const m={'#0B5560':p.a,'#1E8E4F':p.b,'#A87B00':p.c,'#2AA868':p.s};return svg.replace(/#(0B5560|1E8E4F|A87B00|2AA868)/gi,x=>m[x.toUpperCase()]||x)}
+function certPinta(svg,p){if(!p||p.a==='#0B5560')return svg;const m={'#0B5560':p.a,'#1E8E4F':p.b,'#A87B00':p.c,'#2AA868':p.s};return svg.replace(/#(0B5560|1E8E4F|A87B00|2AA868)/gi,x=>m[x.toUpperCase()]||x)}
 /* Antes de abrir um certificado: numera (por empresa e ano) e, se a paleta for "do logotipo", lê a cor. */
 async function certPrepara(lista){
  const cf=CFG(),out=[];
@@ -2891,16 +2891,18 @@ async function certPrepara(lista){
  return out;
 }
 function certFrame(nrTag,seal,tipo,pal){
- const flourish=(y,flip)=>{
+ const flourish=(y,flip,orn)=>{
   const ic=flip
    ?`<path d="M0-4.3L4.3-2.7V1.1C4.3 3.4 2.2 4.7 0 5.6C-2.2 4.7-4.3 3.4-4.3 1.1V-2.7Z" fill="none" stroke="#A87B00" stroke-width=".7" stroke-linejoin="round"/><path d="M-2 .6L-.5 2.1L2.4-1.4" fill="none" stroke="#1E8E4F" stroke-width=".85" stroke-linecap="round" stroke-linejoin="round"/>`
    :`<path d="M-4.6 1.4A4.6 4.6 0 0 1 4.6 1.4Z" fill="#A87B00"/><rect x="-6" y="1.4" width="12" height="1.5" rx=".75" fill="#A87B00"/><rect x="-.9" y="-3.6" width="1.8" height="4.8" rx=".5" fill="#0B5560"/>`;
-  return `<g transform="translate(148.5 ${y})"><path d="M-62 0H-8M8 0H62" stroke="#A87B00" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#A87B00" stroke-width=".45"/><circle r="4.9" fill="#FFFEF8" stroke="#A87B00" stroke-width=".45"/><circle cx="-6.6" cy="0" r=".75" fill="#0B5560"/><circle cx="6.6" cy="0" r=".75" fill="#1E8E4F"/><g transform="translate(0 -.3) scale(.78)">${ic}</g></g>`;
+  const linhas=orn==='zebrado'?`<rect x="-62" y="-.85" width="54" height="1.7" rx=".85" fill="url(#certHazard)"/><rect x="8" y="-.85" width="54" height="1.7" rx=".85" fill="url(#certHazard)"/>`:`<path d="M-62 0H-8M8 0H62" stroke="#A87B00" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#A87B00" stroke-width=".45"/>`;
+  return `<g transform="translate(148.5 ${y})">${linhas}<circle r="4.9" fill="#FFFEF8" stroke="#A87B00" stroke-width=".45"/><circle cx="-6.6" cy="0" r=".75" fill="#0B5560"/><circle cx="6.6" cy="0" r=".75" fill="#1E8E4F"/><g transform="translate(0 -.3) scale(.78)">${ic}</g></g>`;
  };
  const svg=`<svg class="cf" viewBox="0 0 297 210" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <defs>
 <linearGradient id="certFrameGrad" x1="0" y1="0" x2="297" y2="210" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0B5560"/><stop offset="1" stop-color="#1E8E4F"/></linearGradient>
 <linearGradient id="certTitleGrad" x1="0" y1="0" x2="297" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0B5560"/><stop offset="1" stop-color="#1E8E4F"/></linearGradient>
+<pattern id="certHazard" width="3.4" height="3.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3.4" height="3.4" fill="#F5B800"/><rect width="1.7" height="3.4" fill="#1B1B1B"/></pattern>
 <radialGradient id="certSealGrad" cx="32%" cy="28%" r="78%"><stop offset="0" stop-color="#2AA868"/><stop offset="1" stop-color="#0B5560"/></radialGradient>
 </defs>
 <rect width="297" height="210" fill="#FFFEF8"/>
@@ -2909,7 +2911,7 @@ function certFrame(nrTag,seal,tipo,pal){
 <rect x="6" y="6" width="285" height="198" fill="none" stroke="url(#certFrameGrad)" stroke-width="2.6"/>
 <rect x="9.4" y="9.4" width="278.2" height="191.2" fill="none" stroke="#A87B00" stroke-width=".7"/>
 <rect x="11.9" y="11.9" width="273.2" height="186.2" fill="none" stroke="#0B5560" stroke-width=".3" stroke-opacity=".5"/>
-${flourish(19.5,false)}${flourish(190.5,true)}
+${flourish(19.5,false,pal&&pal.orn)}${flourish(190.5,true,pal&&pal.orn)}
 ${seal?`<g transform="translate(148.5 164.5) scale(1.45)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
 </svg>`;
  return certPinta(svg,pal);
@@ -2925,7 +2927,7 @@ function docCertificado(a){
  const cf=CFG();
  const nrTag=String(tn.l||'NR').split(/\s+[—-]\s+/)[0].trim();
  const nomeTrein=String(tn.l||'').replace(/^\s*NR[-\s]?[\w-]+\s+[—-]\s+/,'')||tn.l;
- const {A:logoA,B:logoB}=certLogos(e,cf),pal=certPal(logoA,e,cf),estilo=certEstilo(pal);
+ const {A:logoA,B:logoB}=certLogos(e,cf),pal=Object.assign({},certPal(logoA,e,cf),{orn:cf.ornCert||'zebrado'}),estilo=certEstilo(pal);
  const logos=logoA?`<div class="cert-logo"><img src="${logoA}" alt="">${logoB?`<img src="${logoB}" alt="">`:''}</div>`:'';
  const apertado=(String(c.nome||'')+String(e.razao||'')+String(tn.l||'')+String(a.local||'')).length>125;
  const front=`<section class="cert-sheet front${apertado?' tight':''}${logoA?' withlogo':''}" style="${estilo}">${certFrame(nrTag,true,a.tipo,pal)}<div class="cert-in">
@@ -3531,7 +3533,7 @@ blank(d){const aso=d.t==='aso';openDoc({title:aso?'ASO em branco':'Checklist psi
 dPrint(){let ok=false;const f=()=>{ok=true};window.addEventListener('beforeprint',f,{once:true});try{window.print()}catch(e){}setTimeout(()=>{window.removeEventListener('beforeprint',f);if(!ok)toast('A impressão não abriu aqui. Use Baixar e imprima o arquivo salvo.',5000)},1200)},
 async dSave(){const d=S.doc;if(d&&await saveAs(d.filename,standalone(d.title,d.html)))toast('Arquivo salvo.')},
 dSend(){sendDoc()},dClose(){closeDoc()},
-cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'},{k:'logosCert',l:'Logotipos no certificado de treinamento',t:'select',o:[['padrao','Padrão: logo da empresa (ou da consultoria, se a empresa não tiver)'],['ambas','As duas: logo da empresa à esquerda e da consultoria à direita'],['consultoria','Somente a logo da consultoria']],w:6,h:'Vale para todos os certificados novos e reimpressos.'},{k:'paletaCert',l:'Cores do certificado de treinamento',t:'select',o:[['padrao','Verde (padrão)'],['azul','Azul'],['vinho','Vinho'],['grafite','Grafite'],['logo','Cores tiradas do logotipo da empresa']],w:6,h:'Padrão de todas as empresas; cada empresa pode ter a sua própria em Empresas → editar.'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
+cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'},{k:'logosCert',l:'Logotipos no certificado de treinamento',t:'select',o:[['padrao','Padrão: logo da empresa (ou da consultoria, se a empresa não tiver)'],['ambas','As duas: logo da empresa à esquerda e da consultoria à direita'],['consultoria','Somente a logo da consultoria']],w:6,h:'Vale para todos os certificados novos e reimpressos.'},{k:'ornCert',l:'Ornamento do certificado',t:'select',o:[['zebrado','Faixa zebrada de segurança (NR-26)'],['dourado','Linhas douradas (clássico)']],w:6,h:'Estilo das linhas no alto e no rodapé do certificado.'},{k:'paletaCert',l:'Cores do certificado de treinamento',t:'select',o:[['padrao','Verde (padrão)'],['azul','Azul'],['vinho','Vinho'],['grafite','Grafite'],['logo','Cores tiradas do logotipo da empresa']],w:6,h:'Padrão de todas as empresas; cada empresa pode ter a sua própria em Empresas → editar.'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
 logo(){$('#logo-f').click()},
 logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:CFG_ID()}))},
 async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j)){setLastBackup();toast('Backup salvo.');render()}},

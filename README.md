@@ -165,3 +165,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Certificado: rodapé do verso compacto (base legal, QR, endereço e emissão num bloco só); conteúdo programático muito longo reduz a fonte para caber com as assinaturas; funções (Instrutor, Aluno etc.) alinhadas mesmo com nomes em duas linhas.
 - Certificado: sem QR code, sem código de verificação e sem os ornamentos das linhas (visual mais limpo).
 - Certificado: ornamentos de segurança voltaram nas linhas de cima (capacete) e de baixo (escudo com visto), dentro da moldura; selo da NR maior.
+- Certificado: ornamento com faixa zebrada de segurança (amarelo/preto, NR-26) saindo do capacete e do escudo, agora o padrão; em Dados da consultoria dá para voltar às linhas douradas ("Ornamento do certificado").
