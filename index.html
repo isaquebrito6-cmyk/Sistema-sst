@@ -1833,7 +1833,7 @@ function abrirTreinamento(id,pre){
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
-  {k:'baseLegal',l:'Base legal do certificado (opcional)',t:'textarea',rows:2,w:6,h:'Aparece no rodapé do verso de todos os certificados (texto padrão). Para omitir em um certificado, escreva apenas um hífen (-). Confirme com quem responde pela instituição emissora'},
+  {k:'baseLegal',l:'Base legal do certificado (opcional)',t:'textarea',rows:2,w:6,h:'O texto padrão (LDB/Decreto) sai sempre no rodapé do verso de todos os certificados; o que você escrever aqui é acrescentado depois dele'},
   {t:'html',w:6,html:'<label>Máquina(s)/equipamento(s) que o colaborador está apto a operar</label><div id="treinEquipList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar máquina/equipamento</button></div><small>Opcional. Útil quando o colaborador opera mais de uma máquina (ex.: duas empilhadeiras de modelos diferentes) — cada uma aparece na carteirinha de operador. Deixe em branco para usar só a categoria geral do treinamento.</small>'},
   {sec:'Responsáveis'},
   {k:'instrutor',l:'Instrutor',r:1,w:3},
@@ -1881,7 +1881,7 @@ function abrirTreinamentoLote(){
   {k:'validadeAte',l:'Válido até / reciclagem',t:'date',w:3,h:'Sugerido ao escolher o treinamento; ajuste conforme a periodicidade real'},
   {k:'local',l:'Local do treinamento',w:4},
   {k:'conteudo',l:'Conteúdo programático',t:'textarea',rows:3,w:6,h:'Preenchido automaticamente ao escolher o treinamento — ajuste conforme o que foi efetivamente ministrado'},
-  {k:'baseLegal',l:'Base legal do certificado (opcional)',t:'textarea',rows:2,w:6,h:'Aparece no rodapé do verso de todos os certificados (texto padrão). Para omitir em um certificado, escreva apenas um hífen (-). Confirme com quem responde pela instituição emissora'},
+  {k:'baseLegal',l:'Base legal do certificado (opcional)',t:'textarea',rows:2,w:6,h:'O texto padrão (LDB/Decreto) sai sempre no rodapé do verso de todos os certificados; o que você escrever aqui é acrescentado depois dele'},
   {t:'html',w:6,html:'<label>Máquina(s)/equipamento(s) que os colaboradores estão aptos a operar</label><div id="loteEquipList"><div class="listrows"></div><button type="button" class="btn s g listadd" style="margin-top:4px">'+ic('plus')+'Adicionar máquina/equipamento</button></div><small>Opcional, aplicado a todos os colaboradores desta turma. Deixe em branco para usar só a categoria geral do treinamento.</small>'},
   {sec:'Responsáveis'},
   {k:'instrutor',l:'Instrutor',r:1,w:3},
@@ -2960,7 +2960,7 @@ function docCertificado(a){
   <p class="cert-prog${String(a.conteudo||'').length>1100?' long':''}">${a.conteudo?nl(a.conteudo):'<span class="blank l"></span>'}</p>
   ${a.obs?`<p class="cert-prog" style="margin-top:2mm"><b>Observações:</b> ${nl(a.obs)}</p>`:''}
   <div class="cert-sigs back">${certSig('Responsável técnico',a.respTecnico,a.respTecnicoForm,a,'respTecAssinaturaImg','respTecAssinaturaData')}${certSig('Responsável pela empresa',a.respEmpresa,'',a,'respEmpAssinaturaImg','respEmpAssinaturaData')}</div>
-  <div class="cert-bottom"><div class="cb-t">${(()=>{const bl=(a.baseLegal||BASE_LEGAL_PADRAO).trim();return bl==='-'?'':`<p class="cert-legal">${nl(bl)}</p>`})()}<p class="cb-emit">Emitido em ${fd(new Date().toISOString().slice(0,10))}${cf.nome?' por '+esc(cf.nome):''}. Documento a ser arquivado pela empresa junto ao prontuário de treinamentos do colaborador.</p></div></div>
+  <div class="cert-bottom"><div class="cb-t">${(()=>{const x=(a.baseLegal||'').trim(),bl=(!x||x==='-'||x.includes(BASE_LEGAL_PADRAO))?(x.includes(BASE_LEGAL_PADRAO)?x:BASE_LEGAL_PADRAO):BASE_LEGAL_PADRAO+'\n'+x;return `<p class="cert-legal">${nl(bl)}</p>`})()}<p class="cb-emit">Emitido em ${fd(new Date().toISOString().slice(0,10))}${cf.nome?' por '+esc(cf.nome):''}. Documento a ser arquivado pela empresa junto ao prontuário de treinamentos do colaborador.</p></div></div>
  </div></section>`;
  return front+back;
 }
