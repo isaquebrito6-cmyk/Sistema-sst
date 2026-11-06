@@ -183,8 +183,8 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .sheet>footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 @media (max-width:640px){.overlay{align-items:flex-end;padding:0;padding-top:env(safe-area-inset-top,0px)}.sheet{max-width:none;border-radius:16px 16px 0 0;max-height:94%}}
 .fg{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
-.fld{grid-column:span 6}.fld.w3{grid-column:span 3}.fld.w2{grid-column:span 2}.fld.w4{grid-column:span 4}
-@media (max-width:640px){.fld.w3,.fld.w2,.fld.w4{grid-column:span 6}}
+.fld{grid-column:span 6}.fld.w1{grid-column:span 1}.fld.w3{grid-column:span 3}.fld.w2{grid-column:span 2}.fld.w4{grid-column:span 4}
+@media (max-width:640px){.fld.w1,.fld.w3,.fld.w2,.fld.w4{grid-column:span 6}}
 .fld label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
 .fld small{display:block;color:var(--ink2);font-size:12px;margin-top:3px}
 .pgr-wrap{max-width:920px;margin:0 auto}
@@ -936,6 +936,10 @@ colaborador:{col:'colaboradores',t:'colaborador',f:()=>[
  {k:'funcao',l:'Função / cargo',r:1,w:3},{k:'setor',l:'Setor / GHE',w:3},{k:'demissao',l:'Data de desligamento (se houver)',t:'date',w:2,h:'Usada no PPP como fim do período.'},{k:'afastDesde',l:'Afastado desde',t:'date',w:2,h:'Preencha se a situação for Afastado: gera o alerta de exame de retorno (NR-7 7.5.9).'},
  {k:'matricula',l:'Matrícula',w:2,h:'Opcional, usada no PPP.'},{k:'pis',l:'PIS/PASEP/NIT',w:2,h:'Opcional, usada no PPP.'},
  {k:'telefone',l:'Telefone',w:3,m:'tel',inp:'tel'},{k:'email',l:'E-mail',t:'email',w:3},
+  {sec:'Endereço'},
+  {k:'cep',l:'CEP',w:2,m:'cep',inp:'numeric',c:'cep',h:'Digite o CEP e rua, bairro, cidade e UF preenchem sozinhos'},{k:'endereco',l:'Rua / avenida',w:3},{k:'numero',l:'Número',w:1},
+  {k:'complemento',l:'Complemento',w:3},{k:'bairro',l:'Bairro',w:3},{k:'cidade',l:'Cidade',w:4},{k:'uf',l:'UF',t:'select',o:UFS,w:2,ph:'UF'},
+  {t:'html',w:6,html:`<button type="button" class="btn s g" data-a="colEndCopia">Copiar o endereço da empresa</button> <span class="sm muted">Para quando o colaborador usa o mesmo endereço. Confira depois.</span>`},
  {t:'html',w:3,html:`<label>Foto (identificação na lista e na carteirinha de operador)</label><div id="colFotoPrev"></div><div class="row" style="gap:8px;margin-top:6px"><button type="button" class="btn s g" id="colFotoBtn">Enviar arquivo</button><button type="button" class="btn s g" data-paste="colFotoFile">Colar imagem</button><button type="button" class="btn s g d" id="colFotoDel">Remover</button></div><input type="file" id="colFotoFile" accept="image/*" hidden><small>Dica: copie uma imagem (print, foto do WhatsApp Web etc.) e use Ctrl+V com este formulário aberto, ou o botão "Colar imagem". Opcional. Aparece ao lado do nome na lista de colaboradores e na carteirinha de operador (NR-12, NR-11, NR-35 etc). Sem foto, mostra as iniciais do nome na lista e um espaço reservado na carteirinha.</small>`}]},
 acao:{col:'acoes',t:'ação',f:()=>[
  {k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3},{k:'status',l:'Situação',t:'select',o:['Pendente','Em andamento','Concluída'],w:3},
@@ -1065,7 +1069,9 @@ const FICHA_ROTULOS={
   demissao:['data de desligamento','data de demissao','desligamento','demissao'],
   afastDesde:['afastado desde','data de afastamento','inicio do afastamento','afastamento'],status:['situacao','status'],
   funcao:['funcao cargo','cargo funcao','funcao','cargo','ocupacao'],setor:['setor ghe','setor','departamento','ghe','lotacao'],
-  matricula:['n matricula','matricula'],pis:['pis pasep nit','pis pasep','pis','pasep','nit'],
+  matricula:['numero da matricula','numero de matricula','n matricula','matricula','id do colaborador','id do funcionario','id do empregado','codigo do colaborador','codigo do funcionario','codigo','registro','id'],
+  cep:['cep'],endereco:['endereco','logradouro','rua','avenida'],numero:['numero','num'],complemento:['complemento','compl'],bairro:['bairro'],cidade:['cidade','municipio'],uf:['uf','estado'],
+  pis:['pis pasep nit','pis pasep','pis','pasep','nit'],
   telefone:['telefone','celular','whatsapp','fones','fone','tel'],email:['e-mail','emails','email'],
   empresaNome:['empresa terceira','razao social do empregador','razao social','empregador','empresa']},
  empresa:{
@@ -1101,6 +1107,7 @@ function fichaLimpa(k,v){
  if(k==='status')return colimpStatus(v);
  if(k==='porte'){const n=norm(v);return /\bmei\b|microempreendedor/.test(n)?'MEI':/\bepp\b|pequeno porte/.test(n)?'EPP':/\bme\b|microempresa|micro empresa/.test(n)?'ME':/demais|media|grande/.test(n)?'Demais':''}
  if(k==='sexo'){const n=norm(v);return /^f/.test(n)?'Feminino':/^m/.test(n)?'Masculino':''}
+ if(k==='numero'){const m=v.match(/^[0-9A-Za-z\-\/]{1,8}/);return m?m[0]:''}
  if(k==='grau'){const m=v.match(/[1-4]/);return m?m[0]:''}
  if(k==='funcionarios'){const m=v.match(/\d+/);return m?m[0]:''}
  if(k==='uf'){const u=v.toUpperCase().match(/\b[A-Z]{2}\b/);return u&&UFS.includes(u[0])?u[0]:''}
@@ -1157,9 +1164,10 @@ function fichaInterpretar(texto,kind){
  const T=String(texto||'');
  const ac=(k,rx,fn)=>{if(out[k])return;const m=T.match(rx);if(m){const c=fichaLimpa(k,fn?fn(m):m[0]);if(c)out[k]=c}};
  ac('email',T.includes('@')?/[\w.+-]+@[\w-]+(\.[\w-]+)+/:/[\w.+-]+\s*[Qq©]\s*[\w-]+(\.[\w-]+)+/);
- if(kind==='colaborador'){ac('cpf',/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/);ac('telefone',/\(\d{2}\)\s?9?\d{4}-?\d{4}/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
+ if(kind==='colaborador'){ac('cpf',/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/);ac('cep',/\b\d{5}-\d{3}\b/);ac('telefone',/\(\d{2}\)\s?9?\d{4}-?\d{4}/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
  else{ac('cnpj',/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);ac('cep',/\b\d{5}-?\d{3}\b/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
  // colaborador: vincular à empresa cadastrada pelo nome
+ if(kind==='colaborador'&&!(out.cep||out.endereco||out.cidade||out.bairro))delete out.uf; // "UF" solto costuma ser a do RG/CTPS, não do endereço
  if(kind==='colaborador'&&out.empresaNome){
   const EN=z=>norm(z).replace(/\s*-\s*\d+\s*$/,'').replace(/\b(s\s?a|sa|ltda|me|epp|eireli|mei)\b/g,' ').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
   const n=EN(out.empresaNome),e=empOpts().find(([id,r])=>{const x=EN(r);return x&&n&&(x===n||x.includes(n)||n.includes(x))});
@@ -1271,7 +1279,8 @@ const COLIMP_FIELDS=[
  {k:'setor',l:'Setor / GHE',req:1,al:['setor','departamento','ghe','setor/ghe','setor / ghe']},
  {k:'demissao',l:'Data de desligamento',al:['demissao','demissão','desligamento','data de desligamento','data de demissao']},
  {k:'afastDesde',l:'Afastado desde',al:['afastado desde','afastamento','data de afastamento','inicio do afastamento','início do afastamento']},
- {k:'matricula',l:'Matrícula',al:['matricula','matrícula','registro']},
+ {k:'matricula',l:'Matrícula / ID',al:['matricula','matrícula','registro','id','codigo','código','id do colaborador','cod']},
+ {k:'cep',l:'CEP',al:['cep']},{k:'endereco',l:'Endereço (rua)',al:['endereco','endereço','logradouro','rua','avenida']},{k:'numero',l:'Número (endereço)',al:['numero','número','num']},{k:'complemento',l:'Complemento',al:['complemento']},{k:'bairro',l:'Bairro',al:['bairro']},{k:'cidade',l:'Cidade',al:['cidade','municipio','município']},{k:'uf',l:'UF',al:['uf','estado']},
  {k:'pis',l:'PIS/PASEP/NIT',al:['pis','pasep','nit','pis/pasep/nit']},
  {k:'telefone',l:'Telefone',al:['telefone','celular','fone','tel']},
  {k:'email',l:'E-mail',al:['email','e-mail','mail']},
@@ -1361,7 +1370,7 @@ function abrirColaboradorImport(){
   if(!validas.length){toast('Nenhuma linha válida para importar. Confira o mapeamento das colunas.',4500);return}
   validas.forEach(r=>{
    const m=r.mapped;
-   save('colaboradores',{empresaId:S.role==='empresa'?S.rid:state.empresaId,status:m.status||'Ativo',nome:m.nome,cpf:m.cpf?mask.cpf(m.cpf):'',nasc:m.nasc||'',sexo:m.sexo||'',admissao:m.admissao||'',afastDesde:m.status==='Afastado'?(m.afastDesde||''):'',funcao:m.funcao,setor:m.setor,demissao:m.demissao||'',matricula:m.matricula||'',pis:m.pis||'',telefone:m.telefone?mask.tel(m.telefone):'',email:m.email||''},true);
+   save('colaboradores',{empresaId:S.role==='empresa'?S.rid:state.empresaId,status:m.status||'Ativo',nome:m.nome,cpf:m.cpf?mask.cpf(m.cpf):'',nasc:m.nasc||'',sexo:m.sexo||'',admissao:m.admissao||'',afastDesde:m.status==='Afastado'?(m.afastDesde||''):'',funcao:m.funcao,setor:m.setor,demissao:m.demissao||'',matricula:m.matricula||'',pis:m.pis||'',telefone:m.telefone?mask.tel(m.telefone):'',email:m.email||'',cep:m.cep?mask.cep(m.cep):'',endereco:m.endereco||'',numero:m.numero||'',complemento:m.complemento||'',bairro:m.bairro||'',cidade:m.cidade||'',uf:m.uf||''},true);
   });
   const skipped=rowsData.length-validas.length;
   closeForm();render();
@@ -2293,7 +2302,7 @@ function fichaTopicos(c,e,x){
  const bloco=(t,i,corpo)=>`<section class="ft-bl"><h4>${ic(i)}${t}</h4><div class="kv">${corpo}</div></section>`;
   return bloco('Dados pessoais','users',v('Nome completo',esc(c.nome))+v('CPF',esc(c.cpf||''))+v('Nascimento',c.nasc?fd(c.nasc)+(idade!==''?' · '+idade+' anos':''):'')+v('Sexo',esc(c.sexo||''))+v('PIS/PASEP/NIT',esc(c.pis||'')))
  +bloco('Vínculo e função','build',v('Empresa',esc(e.razao||''))+v('Função / cargo',esc(c.funcao||''))+v('Setor / GHE',esc(c.setor||''))+v('Matrícula',esc(c.matricula||''))+v('Admissão',c.admissao?fd(c.admissao)+(tmp?' · '+tmp+' de empresa':''):'')+v('Situação',esc(c.status||'Ativo')+(c.status==='Afastado'&&c.afastDesde?' desde '+fd(c.afastDesde):''))+(c.demissao?v('Desligamento',fd(c.demissao)):''))
- +bloco('Contato','send',v('Telefone',esc(c.telefone||''))+v('E-mail',esc(c.email||'')))
+ +bloco('Contato','send',v('Telefone',esc(c.telefone||''))+v('E-mail',esc(c.email||''))+v('Endereço',esc([[c.endereco,c.numero].filter(Boolean).join(', '),c.complemento,c.bairro,[c.cidade,c.uf].filter(Boolean).join('/'),c.cep].filter(Boolean).join(' — '))))
 ;
 }
 /* Ficha em abas + faixa de situação (semáforo) no topo. */
@@ -3511,6 +3520,14 @@ function docDe(s,kind){
  openDoc({title:m.t,html:m.h,filename:m.f,para:kind==='aso'?(e.email||''):(cl.email||''),assunto:m.t,corpo});
 }
 const A={
+colEndCopia(){
+ const sel=document.getElementById('f_empresaId'),e=G('empresas',sel&&sel.value);
+ if(!e){toast('Escolha a empresa primeiro.');return}
+ if(!e.endereco&&!e.cep&&!e.cidade){toast('A empresa não tem endereço cadastrado.');return}
+ const set=(k,v)=>{const el=document.getElementById('f_'+k);if(el)el.value=v||''};
+ set('cep',e.cep);set('endereco',e.endereco);set('numero','');set('complemento','');set('bairro','');set('cidade',e.cidade);set('uf',e.uf);
+ toast('Endereço da empresa copiado (rua, número e complemento vêm juntos no campo da rua). Confira e ajuste.',5000);
+},
 nav(){S.nav=!S.nav;render()},
 ftGo(d){const el=document.getElementById(d.id);if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})},
 busca(){abrirBusca()},
@@ -3737,7 +3754,7 @@ async cep(t){
   const r=await fetch('https://viacep.com.br/ws/'+digits+'/json/');
   const j=await r.json();
   if(j.erro){toast('CEP não encontrado.');return}
-  const end=g('endereco');if(end)end.value=[j.logradouro,j.bairro].filter(Boolean).join(', ');
+  const bai=g('bairro'),end=g('endereco');if(end)end.value=bai?(j.logradouro||end.value):[j.logradouro,j.bairro].filter(Boolean).join(', ');if(bai&&j.bairro)bai.value=j.bairro;const num=g('numero');if(bai&&num&&!num.value)num.focus();
   const cid=g('cidade');if(cid)cid.value=j.localidade||cid.value;
   const uf=g('uf');if(uf)uf.value=j.uf||uf.value;
   toast('Endereço preenchido a partir do CEP.');
