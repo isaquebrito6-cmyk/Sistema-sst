@@ -1060,21 +1060,21 @@ function abrirEnt(kind,id,pre){
 const FICHA_ROTULOS={
  colaborador:{
   nome:['nome completo','nome do colaborador','nome do funcionario','nome do trabalhador','nome do empregado','nome empregado','empregado','colaborador','funcionario','trabalhador','nome'],
-  cpf:['cpf'],nasc:['data de nascimento','data nascimento','nascimento','data nasc','dt nascimento','nasc'],
+  cpf:['cpf ou numero de passaporte','cpf'],nomeSocial:['nome social'],nasc:['data de nascimento','data nascimento','nascimento','data nasc','dt nascimento','nasc'],
   sexo:['sexo','genero'],admissao:['data de admissao','data admissao','dt admissao','admitido em','admissao'],
   demissao:['data de desligamento','data de demissao','desligamento','demissao'],
   afastDesde:['afastado desde','data de afastamento','inicio do afastamento','afastamento'],status:['situacao','status'],
   funcao:['funcao cargo','cargo funcao','funcao','cargo','ocupacao'],setor:['setor ghe','setor','departamento','ghe','lotacao'],
   matricula:['n matricula','matricula'],pis:['pis pasep nit','pis pasep','pis','pasep','nit'],
-  telefone:['telefone','celular','whatsapp','fone','tel'],email:['e-mail','email'],
-  empresaNome:['razao social do empregador','razao social','empregador','empresa']},
+  telefone:['telefone','celular','whatsapp','fones','fone','tel'],email:['e-mail','emails','email'],
+  empresaNome:['empresa terceira','razao social do empregador','razao social','empregador','empresa']},
  empresa:{
   razao:['razao social','nome empresarial','nome da empresa','empresa','razao'],fantasia:['nome fantasia','fantasia'],
   cnpj:['cnpj'],cnae:['cnae principal','cnae','atividade principal'],grau:['grau de risco','grau risco'],porte:['porte da empresa','porte'],
   funcionarios:['numero de funcionarios','numero de trabalhadores','total de funcionarios','quantidade de funcionarios','n de funcionarios','n de trabalhadores','qtd funcionarios','funcionarios','trabalhadores'],
   jornada:['jornada de trabalho','horario de trabalho','jornada','turnos'],cep:['cep'],
   endereco:['endereco','logradouro'],cidade:['cidade','municipio'],uf:['uf','estado'],
-  telefone:['telefone','celular','fone','tel'],email:['e-mail','email'],
+  telefone:['telefone','celular','fones','fone','tel'],email:['e-mail','emails','email'],
   resp_nome:['responsavel pela empresa','responsavel legal','representante legal','responsavel'],
   medico_nome:['medico coordenador do pcmso','medico coordenador','coordenador do pcmso','medico do trabalho','medico responsavel'],
   medico_crm:['crm'],
@@ -1094,7 +1094,7 @@ function fichaLimpa(k,v){
  if(k==='cpf'){const d=v.replace(/\D/g,'');return d.length===11?mask.cpf(d):''}
  if(k==='cnpj'){const d=v.replace(/\D/g,'');return d.length===14?mask.cnpj(d):''}
  if(k==='cep'){const d=v.replace(/\D/g,'');return d.length===8?mask.cep(d):''}
- if(k==='telefone'){const d=v.replace(/\D/g,'');return d.length>=10&&d.length<=11?mask.tel(d):''}
+ if(k==='telefone'){let d=v.replace(/\(\s*\+\s*\d{1,3}\s*\)/g,'').replace(/\D/g,'');if(d.length===13&&d.startsWith('55'))d=d.slice(2);return d.length>=10&&d.length<=11?mask.tel(d):''}
  if(k==='pis'){const d=v.replace(/\D/g,'');return d.length===11?d:''}
  if(k==='email'){if(!v.includes('@'))v=v.replace(/\s*[Qq©]\s*(?=[\w-]+\.[a-z]{2,})/,'@');const m=v.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/);return m?m[0].toLowerCase():''} // OCR costuma ler o @ como Q ou ©
  if(k==='nasc'||k==='admissao'||k==='demissao'||k==='afastDesde')return fichaData(v,k);
@@ -1126,29 +1126,43 @@ function fichaInterpretar(texto,kind){
   });
  });
  // 2ª passada: rótulo SEM dois-pontos (OCR costuma perdê-los; fichas em tabela). Só vale no início da linha ou depois de um espaço largo / tabulação / barra.
- const reSem=new RegExp('(?:^|[\\t|;]|\\s{2,})\\s*(?:\\d{1,2}\\s*[.)\\-]\\s*)?('+alts.map(a=>esc_(a[0]).replace(/ /g,'[ ./\\\\-]*')).join('|')+')(?![a-z0-9])\\s*[-–.]?\\s*','g');
+ const reSem=new RegExp('(?<=^|[\\t|;]|\\s\\s)\\s*(?:\\d{1,2}\\s*[.)\\-]\\s*)?('+alts.map(a=>esc_(a[0]).replace(/ /g,'[ ./\\\\-]*')).join('|')+')(?![a-z0-9])\\s*[-–.]?\\s*','g');
  const ehRotulo=l=>{const n=ficha_sem(l).replace(/[^a-z0-9\- ]/g,'').replace(/\s+/g,' ').trim();return !!n&&alts.some(a=>a[0]===n)};
  linhas.forEach((ln,i)=>{
-  const t=ficha_sem(ln);const ms=[...t.matchAll(reSem)];
+  const t=ficha_sem(ln);const ms=[...t.matchAll(reSem)].filter(m=>chaveDe(m[1]));if(!ms.length)return;
+  const pend=[];
   ms.forEach((m,j)=>{
-   const k=chaveDe(m[1]);if(!k||out[k])return;
-   const ini=m.index+m[0].length,fim=ms[j+1]?ms[j+1].index:ln.length;
-   let v=ln.slice(ini,fim);
-   if(!v.trim()){ // formulário "vertical": rótulo numa linha, valor na linha de baixo
-    for(let d=1;d<=2;d++){const prox=(linhas[i+d]||'').trim();if(!prox)continue;if(!ehRotulo(prox)&&prox.length<100&&!/[:：]\s*$/.test(prox)){v=prox}break}
-   }
-   const c=fichaLimpa(k,v);if(c)out[k]=c;
+   const k=chaveDe(m[1]),fim=ms[j+1]?ms[j+1].index:ln.length,ini=m.index+m[0].length;
+   const pos=m.index+(m[0].length-m[0].replace(/^\s+/,'').length);
+   if(out[k]||k==='nomeSocial')return;
+   const c=fichaLimpa(k,ln.slice(ini,fim));
+   if(c)out[k]=c;else pend.push({k,pos});
+  });
+  if(!pend.length)return;
+  // valor na linha de baixo: rótulo sozinho (vertical) ou linha de rótulos com os valores alinhados embaixo (formulário em grade)
+  let prox='';
+  for(let d=1;d<=2;d++){const p=linhas[i+d]||'';if(!p.trim())continue;if(!ehRotulo(p)&&p.trim().length<600&&!/[:：]\s*$/.test(p.trim()))prox=p;break}
+  if(!prox)return;
+  if(ms.length===1){const c=fichaLimpa(pend[0].k,prox.trim());if(c&&!out[pend[0].k])out[pend[0].k]=c;return}
+  const cel=[...prox.matchAll(/\S+(?: {1,2}\S+)*/g)].map(x=>({s:x[0].trim(),i:x.index})).filter(x=>x.s.length>1);
+  pend.forEach(pd=>{
+   let cl=null;
+   if(cel.length===ms.length)cl=cel[ms.findIndex(m=>chaveDe(m[1])===pd.k)];
+   else cl=cel.reduce((b,x)=>(!b||Math.abs(x.i-pd.pos)<Math.abs(b.i-pd.pos))?x:b,null);
+   if(cl){const c=fichaLimpa(pd.k,cl.s);if(c&&!out[pd.k])out[pd.k]=c}
   });
  });
+ delete out.nomeSocial;
  // reforço por formato, só para o que não veio com rótulo
  const T=String(texto||'');
  const ac=(k,rx,fn)=>{if(out[k])return;const m=T.match(rx);if(m){const c=fichaLimpa(k,fn?fn(m):m[0]);if(c)out[k]=c}};
  ac('email',T.includes('@')?/[\w.+-]+@[\w-]+(\.[\w-]+)+/:/[\w.+-]+\s*[Qq©]\s*[\w-]+(\.[\w-]+)+/);
- if(kind==='colaborador'){ac('cpf',/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
+ if(kind==='colaborador'){ac('cpf',/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/);ac('telefone',/\(\d{2}\)\s?9?\d{4}-?\d{4}/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
  else{ac('cnpj',/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);ac('cep',/\b\d{5}-?\d{3}\b/);ac('telefone',/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/)}
  // colaborador: vincular à empresa cadastrada pelo nome
  if(kind==='colaborador'&&out.empresaNome){
-  const n=norm(out.empresaNome),e=empOpts().find(([id,r])=>{const x=norm(r);return x&&(x===n||x.includes(n)||n.includes(x))});
+  const EN=z=>norm(z).replace(/\s*-\s*\d+\s*$/,'').replace(/\b(s\s?a|sa|ltda|me|epp|eireli|mei)\b/g,' ').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  const n=EN(out.empresaNome),e=empOpts().find(([id,r])=>{const x=EN(r);return x&&n&&(x===n||x.includes(n)||n.includes(x))});
   if(e)out.empresaId=e[0];delete out.empresaNome;
  }else delete out.empresaNome;
  // sem rótulo nenhum: nome = texto antes do CPF na mesma linha; razão social = linha com LTDA / S.A. / EIRELI…
