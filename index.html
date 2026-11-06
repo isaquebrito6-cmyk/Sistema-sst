@@ -2407,7 +2407,7 @@ const DOC_CSS=`
 .cert-lead{font-size:13pt;letter-spacing:.04em;color:#555}
 .cert-name{font:italic 700 26pt/1.15 Georgia,'Times New Roman',serif;color:var(--ca,#0B5560);border-bottom:.9pt solid #C9A24A;padding:0 14mm 1.2mm;margin:1mm 0 2.5mm;max-width:230mm}
 .cert-reg{position:absolute;top:-4mm;right:0;font:600 8pt Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8A6300}
-.cert-sigs{margin-top:auto;width:100%;display:grid;grid-template-columns:1fr 46mm 1fr;align-items:stretch;column-gap:4mm;padding:0 2mm}
+.cert-sigs{margin-top:auto;width:100%;display:grid;grid-template-columns:1fr 55mm 1fr;align-items:stretch;column-gap:4mm;padding:0 2mm}
 .cert-sigs .cs{max-width:86mm;width:100%}
 .cert-sigs .cs:first-child{justify-self:start}
 .cert-sigs .cs:last-child{justify-self:end}
@@ -2891,7 +2891,12 @@ async function certPrepara(lista){
  return out;
 }
 function certFrame(nrTag,seal,tipo,pal){
- const flourish=(y,flip)=>`<g transform="translate(148.5 ${y})${flip?' scale(1 -1)':''}"><path d="M-62 0H-9M9 0H62" stroke="#A87B00" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#A87B00" stroke-width=".45"/><circle cx="0" cy="0" r="1.6" fill="#C05600"/><circle cx="-7" cy="0" r=".9" fill="#0B5560"/><circle cx="7" cy="0" r=".9" fill="#1E8E4F"/></g>`;
+ const flourish=(y,flip)=>{
+  const ic=flip
+   ?`<path d="M0-4.3L4.3-2.7V1.1C4.3 3.4 2.2 4.7 0 5.6C-2.2 4.7-4.3 3.4-4.3 1.1V-2.7Z" fill="none" stroke="#A87B00" stroke-width=".7" stroke-linejoin="round"/><path d="M-2 .6L-.5 2.1L2.4-1.4" fill="none" stroke="#1E8E4F" stroke-width=".85" stroke-linecap="round" stroke-linejoin="round"/>`
+   :`<path d="M-4.6 1.4A4.6 4.6 0 0 1 4.6 1.4Z" fill="#A87B00"/><rect x="-6" y="1.4" width="12" height="1.5" rx=".75" fill="#A87B00"/><rect x="-.9" y="-3.6" width="1.8" height="4.8" rx=".5" fill="#0B5560"/>`;
+  return `<g transform="translate(148.5 ${y})"><path d="M-62 0H-8M8 0H62" stroke="#A87B00" stroke-width=".45"/><path d="M-62 0q4-3 8 0M62 0q-4-3-8 0" fill="none" stroke="#A87B00" stroke-width=".45"/><circle r="4.9" fill="#FFFEF8" stroke="#A87B00" stroke-width=".45"/><circle cx="-6.6" cy="0" r=".75" fill="#0B5560"/><circle cx="6.6" cy="0" r=".75" fill="#1E8E4F"/><g transform="translate(0 -.3) scale(.78)">${ic}</g></g>`;
+ };
  const svg=`<svg class="cf" viewBox="0 0 297 210" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <defs>
 <linearGradient id="certFrameGrad" x1="0" y1="0" x2="297" y2="210" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0B5560"/><stop offset="1" stop-color="#1E8E4F"/></linearGradient>
@@ -2904,7 +2909,8 @@ function certFrame(nrTag,seal,tipo,pal){
 <rect x="6" y="6" width="285" height="198" fill="none" stroke="url(#certFrameGrad)" stroke-width="2.6"/>
 <rect x="9.4" y="9.4" width="278.2" height="191.2" fill="none" stroke="#A87B00" stroke-width=".7"/>
 <rect x="11.9" y="11.9" width="273.2" height="186.2" fill="none" stroke="#0B5560" stroke-width=".3" stroke-opacity=".5"/>
-${seal?`<g transform="translate(148.5 172) scale(1.22)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
+${flourish(19.5,false)}${flourish(190.5,true)}
+${seal?`<g transform="translate(148.5 164.5) scale(1.45)"><circle r="13.4" fill="url(#certSealGrad)"/><circle r="13.4" fill="none" stroke="#A87B00" stroke-width=".55"/><circle r="11" fill="#FFFEF8" stroke="#0B5560" stroke-width=".8"/><circle r="9.300" fill="none" stroke="#A87B00" stroke-width=".5" stroke-dasharray=".9 .9"/><g transform="translate(0 -2.300) scale(.78)">${CERT_ICONS[tipo]||CERT_ICONS.nr6}</g><text y="5.800" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${nrTag.length>6?3:3.800}" fill="#0B5560">${esc(nrTag)}</text></g>`:''}
 </svg>`;
  return certPinta(svg,pal);
 }
