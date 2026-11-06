@@ -2008,13 +2008,121 @@ function abrirPt(id,pre){
  },30)
 }
 /* ASO (clínica) */
-function abrirAso(id){
+/* ====================== LEITURA AUTOMÁTICA DO ASO (foto ou PDF) ======================
+   Lê o arquivo no próprio navegador (sem backend, sem custo): PDF com texto via pdf.js; foto ou PDF escaneado via OCR (Tesseract.js,
+   o mesmo da importação de fichas). Reconhece data do exame, conclusão (apto/inapto), médico, CRM, próximo exame e tipo.
+   Nada é gravado sem o usuário conferir: os campos reconhecidos só pré-preenchem o formulário do ASO. */
+const PDFJS_URL='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',PDFJS_WORKER='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+async function asoLoadPdfJs(){
+ if(window.pdfjsLib&&pdfjsLib.GlobalWorkerOptions.workerSrc)return;
+ if(!window.pdfjsLib)await new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=PDFJS_URL;sc.onload=res;sc.onerror=()=>rej(new Error('Não foi possível carregar o leitor de PDF.'));document.head.appendChild(sc)});
+ const t=await (await fetch(PDFJS_WORKER)).text();
+ pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([t],{type:'text/javascript'}));
+}
+async function ocrCanvas(cv,st){
+ await fichaLoadOCR();
+ const w=await Tesseract.createWorker('por',1,{logger:m=>{if(st&&m.status==='recognizing text')st('Lendo o ASO… '+Math.round((m.progress||0)*100)+'%')}});
+ try{await w.setParameters({preserve_interword_spaces:'1'})}catch(_){}
+ const r=await w.recognize(cv);await w.terminate();return r.data.text||'';
+}
+async function asoTextoDoArquivo(file,st){
+ st=st||(()=>{});
+ if(/pdf/i.test(file.type||'')||/\.pdf$/i.test(file.name||'')){
+  st('Abrindo o PDF…');await asoLoadPdfJs();
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  let txt='';
+  for(let p=1;p<=Math.min(pdf.numPages,3);p++){
+   const tc=await (await pdf.getPage(p)).getTextContent(),lin={};
+   tc.items.forEach(it=>{const y=Math.round(it.transform[5]/3);(lin[y]=lin[y]||[]).push(it)});
+   Object.keys(lin).map(Number).sort((a,b)=>b-a).forEach(y=>{txt+=lin[y].sort((a,b)=>a.transform[4]-b.transform[4]).map(i=>i.str).join('  ')+'\n'});
+  }
+  if(txt.replace(/\s/g,'').length>80)return txt;
+  let out='';  // PDF escaneado (só imagem): desenha a página e lê por OCR
+  for(let p=1;p<=Math.min(pdf.numPages,2);p++){
+   const pg=await pdf.getPage(p),vp=pg.getViewport({scale:2}),cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+   await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;out+=await ocrCanvas(cv,st)+'\n';
+  }
+  return out;
+ }
+ st('Preparando a imagem…');return ocrCanvas(await fichaPrepImg(file),st);
+}
+function asoInterpretar(texto){
+ const T=String(texto||'').replace(/\r/g,''),t=ficha_sem(T),out={},hoje=today();
+ const datas=[...t.matchAll(/(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{4}|\d{2})\b/g)].map(m=>({iso:fichaData(m[0]),ctx:t.slice(Math.max(0,m.index-45),m.index)})).filter(d=>d.iso);
+ const sem=/nasc|admiss|proxim|validade|vencim|retorno|periodic|impress/;
+ const cand=datas.filter(d=>!sem.test(d.ctx.slice(-28)));
+ const pref=cand.find(d=>/(exame|avalia|consulta|emiss|realiz|aso)[^\d]{0,30}$/.test(d.ctx));
+ const dt=pref||cand.filter(d=>d.iso<=addM(hoje,0)).sort((a,b)=>b.iso.localeCompare(a.iso))[0];
+ if(dt)out.data=dt.iso;
+ const px=datas.find(d=>/(proxim|validade|vencim|periodic|retorno)[^\d]{0,40}$/.test(d.ctx)&&(!dt||d.iso>dt.iso));
+ if(px)out.proximo=px.iso;
+ const marc='(?:\\[\\s*[x✓✔]\\s*\\]|\\(\\s*[x✓✔]\\s*\\)|[☒☑✔✓])\\s*';
+ let m=t.match(new RegExp(marc+'(inapto|apto)'));
+ if(m)out.resultado=m[1]==='apto'?'Apto':'Inapto';
+ else{const ina=/inapto/.test(t),ap=/\bapto\b/.test(t.replace(/inapto/g,''));if(ina&&!ap)out.resultado='Inapto';else if(ap&&!ina)out.resultado='Apto'}
+ const tp=[['Admissional',/admission/],['Demissional',/demission/],['Retorno ao trabalho',/retorno ao trabalho/],['Mudança de risco ocupacional',/mudanca (?:de )?(?:risco|funcao)/],['Periódico',/periodic/]];
+ const achados=tp.filter(([,r])=>r.test(t));
+ if(achados.length===1)out.tipo=achados[0][0];
+ else if(achados.length>1){const mk=tp.find(([,r])=>new RegExp(marc+r.source).test(t));if(mk)out.tipo=mk[0]}
+ m=t.match(/crm[\s.\-\/:n°º]*([a-z]{2})?[\s.\-\/:]*(\d{3,7})(?:\s*[\/\-\s]\s*([a-z]{2})\b)?/);
+ if(m){const uf=(m[1]||m[3]||'').toUpperCase();out.medico_crm=m[2]+(UFS.includes(uf)?'/'+uf:'')}
+ const mn=T.match(/(?:\b[Dd]ra?\b\.?|\b[Mm][eé]dic[oa](?:\s+(?:examinador[a]?|coordenador[a]?|respons[aá]vel))?)\s*[:\-]?\s*((?:[Dd]ra?\.?\s+)?[A-ZÀ-Ý][A-Za-zÀ-ÿ'.]+(?:\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'.]+){1,5})/);
+ if(mn){const nm=mn[1].replace(/^(?:dra?\.?\s+)/i,'').replace(/\s+(CRM|CPF|RQE|Assinatura).*$/i,'').trim();if(nm.split(/\s+/).length>=2)out.medico_nome=nm}
+ return out;
+}
+/* lê o arquivo e pré-preenche; devolve os campos reconhecidos */
+async function asoLerArquivo(file,st){const r=asoInterpretar(await asoTextoDoArquivo(file,st));return r}
+
+/* ASO que já existe (feito antes de usar o sistema, ou em outra clínica): registra direto, sem passar pelo pedido de exame */
+function abrirAsoExistente(colabId){
+ const colOpts=L('colaboradores').filter(c=>c.status!=='Desligado'||c.id===colabId).sort(byN).map(c=>[c.id,c.nome+' — '+((G('empresas',c.empresaId)||{}).razao||'')]);
+ const meses=cid=>{const c=G('colaboradores',cid);return c?(examesDe(riscosDoColab(c)).clinico||12):12};
+ const clinReq=S.role==='empresa';
+ let arq=null;
+ openForm({title:'Registrar ASO já realizado',btn:'Salvar ASO',val:{colabId:colabId||'',tipo:'Periódico',data:'',resultado:'',proximo:'',medico_nome:'',medico_crm:'',clinicaId:'',obs:''},
+  fields:[
+   {t:'html',w:6,html:`<div class="card" style="background:var(--sf2)"><b class="sm" style="color:var(--brand)">Tem o arquivo do ASO?</b><p class="sm muted" style="margin:4px 0 8px">Anexe o PDF ou a foto: o sistema lê a data, a conclusão, o médico e o próximo exame e preenche os campos abaixo para você conferir. Sem arquivo, é só digitar a data.</p><div class="row" style="gap:8px;align-items:center"><button type="button" class="btn s" id="asoEx_btn">${ic('up')}Anexar e ler o ASO</button><button type="button" class="btn s g" data-paste="asoEx_file">Colar imagem</button><input type="file" id="asoEx_file" accept="application/pdf,image/*" hidden><span id="asoEx_st" class="sm muted"></span></div></div>`},
+   {k:'colabId',l:'Colaborador',t:'select',r:1,o:colOpts,w:6,ph:'Selecione'},
+   {k:'tipo',l:'Tipo do exame',t:'select',o:TIPOS,w:3},{k:'data',l:'Data do exame clínico',t:'date',r:1,w:3},
+   {k:'resultado',l:'Conclusão',t:'select',r:1,o:['Apto','Inapto'],ph:'Selecione',w:3},{k:'proximo',l:'Próximo exame periódico',t:'date',w:3,h:'Calculado pela data do exame e pela periodicidade do PGR; você pode alterar.'},
+   {k:'medico_nome',l:'Médico examinador',w:3},{k:'medico_crm',l:'CRM',w:3},
+   {k:'clinicaId',l:'Clínica'+(clinReq?'':' (opcional)'),t:'select',r:clinReq?1:0,o:()=>L('clinicas').sort(byN).map(c=>[c.id,c.nome]),w:6,ph:clinReq?'Selecione':'Não informar'},
+   {k:'obs',l:'Observações',t:'textarea',rows:2}],
+  save:v=>{
+   const c=G('colaboradores',v.colabId);if(!c){toast('Escolha o colaborador.');return false}
+   const rec={empresaId:c.empresaId,colabId:c.id,clinicaId:v.clinicaId||'',tipo:v.tipo,dataSolic:v.data,dataAgend:v.data,exames:['clinico'],status:'Realizado',
+    aso:{data:v.data,hora:'',horas:{},medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:'',obs:v.obs,exames:{},aptoAltura:'',aptoConfinado:'',aptoMaquinas:''},obs:'ASO já realizado, registrado no sistema.'};
+   (async()=>{try{if(arq)rec.arquivo=await putFile(arq,{empresaId:rec.empresaId,clinicaId:rec.clinicaId,colabId:rec.colabId});save('solicitacoes',rec);toast('ASO registrado'+(rec.arquivo?' com o arquivo anexado':'')+'. O vencimento do colaborador já foi atualizado.',5000)}catch(e){toast(e.message||'Falha ao salvar o ASO.',5000)}})();
+  }});
+ setTimeout(()=>{
+  const btn=$('#asoEx_btn'),fi=$('#asoEx_file'),st=$('#asoEx_st'),dEl=$('#f_data'),pEl=$('#f_proximo'),cEl=$('#f_colabId');
+  let manual=false;
+  const calc=()=>{if(!manual&&dEl&&pEl)pEl.value=dEl.value?addM(dEl.value,meses(cEl&&cEl.value)):''};
+  if(pEl)pEl.addEventListener('input',()=>{manual=true});
+  if(dEl){dEl.addEventListener('input',calc);dEl.addEventListener('change',calc)}
+  if(cEl)cEl.addEventListener('change',calc);
+  if(btn&&fi)btn.onclick=()=>fi.click();
+  if(fi)fi.onchange=async()=>{
+   const f=fi.files[0];if(!f)return;arq=f;
+   try{
+    const r=await asoLerArquivo(f,m=>{st.textContent=m});
+    const set=(k,v)=>{const el=document.getElementById('f_'+k);if(el&&v&&!el.value){el.value=v;return 1}return 0};
+    let n=0;['data','resultado','medico_nome','medico_crm','tipo'].forEach(k=>{if(k==='tipo'){const el=$('#f_tipo');if(r.tipo&&el){el.value=r.tipo;n++}}else n+=set(k,r[k])});
+    if(r.proximo&&pEl&&!pEl.value){pEl.value=r.proximo;manual=true;n++}else calc();
+    st.textContent=n?'Li '+n+' campo(s) do ASO. Confira os dados antes de salvar.':'Arquivo anexado, mas não consegui ler os dados. Preencha à mão.';
+   }catch(e){st.textContent='Arquivo anexado. Leitura automática indisponível agora ('+(e.message||'erro')+'); preencha à mão.'}
+   fi.value='';
+  };
+ },40);
+}
+function abrirAso(id,pre){
  const s=G('solicitacoes',id),c=G('colaboradores',s.colabId)||{},e=G('empresas',s.empresaId)||{},cl=G('clinicas',s.clinicaId)||{};
  const a=clone(s.aso||{});
  const rs=riscosDoColab(c);
  const val={data:a.data||s.dataAgend||today(),hora:a.hora||'',medico_nome:a.medico_nome||cl.medico_nome||'',medico_crm:a.medico_crm||cl.medico_crm||'',resultado:a.resultado||'',
   riscos:a.riscos!=null?a.riscos:(rs.map(r=>r.perigo).join('; ')||'Ausência de riscos específicos'),obs:a.obs||'',proximo:a.proximo||'',
   aptoAltura:a.aptoAltura||'',aptoConfinado:a.aptoConfinado||'',aptoMaquinas:a.aptoMaquinas||''};
+ if(pre){if(pre.data&&!a.data)val.data=pre.data;['resultado','medico_nome','medico_crm','proximo'].forEach(k=>{if(pre[k]&&!a[k]&&!(k==='medico_nome'||k==='medico_crm')||pre[k]&&!a[k])val[k]=pre[k]})}
  const fs=[{sec:'Exame clínico'},
   {k:'data',l:'Data do exame clínico',t:'date',r:1,w:2},{k:'hora',l:'Hora',t:'time',w:1},{k:'medico_nome',l:'Médico examinador',r:1,w:2},{k:'medico_crm',l:'CRM',r:1,w:2},
   {k:'resultado',l:'Conclusão',t:'select',r:1,o:['Apto','Inapto'],ph:'Selecione',w:3},{k:'proximo',l:'Próximo exame periódico',t:'date',w:3,h:'Preenchido automaticamente a partir da data do exame clínico e da periodicidade do PGR; você pode alterar.'},
@@ -2038,7 +2146,7 @@ function abrirAso(id){
  {const dEl=document.getElementById('f_data'),pEl=document.getElementById('f_proximo'),meses=examesDe(rs).clinico||12;
   if(dEl&&pEl){
    const calc=()=>dEl.value?addM(dEl.value,meses):'';
-   let manual=!!a.proximo&&a.proximo!==(a.data?addM(a.data,meses):'');
+   let manual=(!!a.proximo&&a.proximo!==(a.data?addM(a.data,meses):''))||!!(pre&&pre.proximo&&!a.proximo);
    if(!manual)pEl.value=calc();
    pEl.addEventListener('input',()=>{manual=true});
    dEl.addEventListener('input',()=>{if(!manual)pEl.value=calc()});
@@ -2235,7 +2343,7 @@ VIEWS.solicitacoes=()=>{
  if(S.sst!=='Todas')l=l.filter(s=>s.status===S.sst);
  l=l.filter(s=>!q||norm(nCol(s.colabId)+' '+nEmp(s.empresaId)).includes(q)).sort((a,b)=>(b.dataSolic||'').localeCompare(a.dataSolic||''));
  const cnt=t=>solScope().filter(s=>t==='Todas'||s.status===t).length;
- return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar colaborador ou empresa" value="${esc(S.q)}" data-c="q">${S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:''}</div>
+ return `<div class="bar"><input id="q" class="grow" type="search" placeholder="Buscar colaborador ou empresa" value="${esc(S.q)}" data-c="q">${S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button><button class="btn" data-a="asoExistente">${ic('check')}ASO já realizado</button>`:''}</div>
  <div class="row" style="margin-bottom:14px;gap:6px">${tabs.map(t=>`<button class="btn s ${S.sst===t?'p':''}" data-a="stf" data-v="${t}">${t} (${cnt(t)})</button>`).join('')}</div>`+
  (l.length?tbl([{h:'Colaborador',f:s=>`<b>${esc(nCol(s.colabId))}</b>`},{h:'Empresa',f:s=>esc(nEmp(s.empresaId))},{h:'Exame',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Agenda',f:s=>fd(s.dataAgend)},{h:'Situação',f:s=>`<span class="chip ${s.status==='Realizado'?'low':s.status==='Cancelado'?'gray':''}">${s.status}</span>${s.arquivo?' <span class="chip low">ASO anexado</span>':''}`}],l,s=>`class="click" data-a="det" data-id="${s.id}"`)
  :emptyBox('Nenhuma solicitação','Quando a empresa solicita um exame, a guia, o ASO e o checklist saem daqui.',S.role!=='clinica'?`<button class="btn p" data-a="newSol">${ic('plus')}Nova solicitação</button>`:'','clip'));
@@ -2285,7 +2393,7 @@ function renderDetalhe(){
  ${st(true,1,'Encaminhamento à clínica',`<p class="sm muted" style="margin:0 0 8px">Ficha clínica (cadastro completo da empresa e da clínica), guia com dados da empresa, riscos e exames, o formulário do ASO e o checklist psicossocial em um único arquivo.</p><div class="row"><button class="btn s p" data-a="docPacote" data-id="${s.id}">Gerar pacote completo</button><button class="btn s" data-a="docFichaClinica" data-id="${s.id}">Ficha clínica</button><button class="btn s" data-a="docGuia" data-id="${s.id}">Só a guia</button></div>`)}
  ${st(!!psicoData(s),2,'Checklist psicossocial do colaborador',`<p class="sm muted" style="margin:0 0 8px">${psicoData(s)?'Respondido em '+fd(psicoData(s))+'.':'O colaborador responde no sistema ou em papel.'}${podeVerPsico()?'':' As respostas são sigilosas: a empresa vê apenas se foi respondido.'}</p><div class="row">${podeVerPsico()?`<button class="btn s" data-a="psico" data-id="${s.id}">${psicoDe(s)?'Ver / editar respostas':'Preencher agora'}</button>`:''}<button class="btn s" data-a="docPsico" data-id="${s.id}">Imprimir${podeVerPsico()?'':' em branco'}</button></div>${psicoDe(s)?`<div class="row" style="gap:5px;margin-top:8px">${psicoResumo(psicoDe(s)).map(r=>`<span class="chip ${r.k}">${r.d}: ${r.t}</span>`).join('')}</div>`:''}`)}
  ${st(!!a.data,3,'Dados do ASO (clínica)',`<p class="sm muted" style="margin:0 0 8px">${a.data?'Exame em '+fd(a.data)+' · '+esc(a.resultado||'')+' · '+esc(a.medico_nome||''):'A clínica edita os campos do ASO e imprime.'}</p><div class="row">${canCl?`<button class="btn s ${a.data?'':'p'}" data-a="aso" data-id="${s.id}">${a.data?'Editar dados':'Preencher ASO'}</button>`:''}<button class="btn s" data-a="docAso" data-id="${s.id}">${ic('print')}${a.data?'Imprimir ASO':'ASO em branco'}</button></div>`)}
- ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF até 3 MB, ou foto, que o sistema reduz sozinho) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
+ ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF até 3 MB, ou foto, que o sistema reduz sozinho) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${s.arquivo&&canCl?`<button class="btn s" data-a="asoLer" data-id="${s.id}">Ler dados do arquivo</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
  </div></div><footer>
  ${canCl?`<select data-c="solSt" data-id="${s.id}" aria-label="Situação" style="width:auto">${opts(STATUS,s.status)}</select>`:''}
  ${canEm?`<button class="btn s" data-a="editSol" data-id="${s.id}">${ic('edit')}Editar</button><button class="btn s d" data-a="delSol" data-id="${s.id}">${ic('trash')}Excluir</button>`:''}
@@ -2378,7 +2486,7 @@ ${canReq?` <h3 id="ft-cat" style="font-size:15px;margin:18px 0 8px">Acidentes de
  </div>
  <div class="ft-pane${tab==='docs'?' on':''}" data-p="docs">
  <p class="muted sm" style="margin:0 0 8px">Documentos prontos para imprimir, baixar ou enviar.</p>
- <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn s" data-a="docOSA" data-id="${c.id}">${ic('file')}Ordem de serviço (NR-1)</button><button class="btn s" data-a="docPPPA" data-id="${c.id}">${ic('file')}Emitir PPP (minuta)</button><a class="btn s ext" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a>`:''}${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
+ <div class="row" style="margin:6px 0 16px">${canReq?`<button class="btn p" data-a="fichaSol" data-id="${c.id}">${ic('send')}Enviar pedido de exame à clínica</button><button class="btn" data-a="asoExistente" data-id="${c.id}">${ic('check')}ASO já realizado</button>`:''}<button class="btn" data-a="docFicha" data-id="${c.id}">${ic('print')}Imprimir ficha</button>${canReq?`<button class="btn s" data-a="docOSA" data-id="${c.id}">${ic('file')}Ordem de serviço (NR-1)</button><button class="btn s" data-a="docPPPA" data-id="${c.id}">${ic('file')}Emitir PPP (minuta)</button><a class="btn s ext" href="https://www.gov.br/esocial/pt-br" target="_blank" rel="noopener">${ic('send')}Abrir eSocial (oficial)</a>`:''}${canReq?`<button class="btn g" data-a="edit" data-e="colaborador" data-id="${c.id}">${ic('edit')}Editar cadastro</button>`:''}</div>
 
  ${canReq?'<p class="muted sm" style="margin:0 0 16px">O PPP com validade legal é o emitido pelo próprio eSocial, a partir dos eventos já transmitidos (S-2240). A minuta deste sistema serve para conferir os dados antes de transmitir.</p>':''}
 
@@ -3789,9 +3897,12 @@ async cnpj(t){
 modelo(t){aplicarModelo(t.value)},
 async asoF(t){
  const f=t.files[0];if(!f)return;const id=t.dataset.id;
- try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{empresaId:s0.empresaId,clinicaId:s0.clinicaId,colabId:s0.colabId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.')}
+ try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{empresaId:s0.empresaId,clinicaId:s0.clinicaId,colabId:s0.colabId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.');
+  if(!(s.aso&&s.aso.data)&&S.role!=='empresa'){try{const r=await asoLerArquivo(f,m=>toast(m,2500));if(Object.keys(r).length){abrirAso(id,r);toast('Li os dados do ASO. Confira e salve.',5000)}else toast('ASO anexado. Não consegui ler os dados automaticamente; preencha à mão.',5000)}catch(e){console.warn(e)}}}
  catch(e){toast(e.message||'Falha ao enviar o arquivo.',5000)}
 },
+asoLer(d){(async()=>{try{const s=G('solicitacoes',d.id);toast('Lendo o ASO anexado…',2500);const r=await asoLerArquivo(await getFile(s.arquivo),m=>toast(m,2500));if(Object.keys(r).length){abrirAso(d.id,r);toast('Li os dados do ASO. Confira e salve.',5000)}else toast('Não consegui ler os dados deste arquivo. Preencha à mão.',5000)}catch(e){toast(e.message||'Falha na leitura do ASO.',5000)}})()},
+asoExistente(d){abrirAsoExistente(d&&d.id)},
 logoF(t){
  const f=t.files[0];if(!f)return;const r=new FileReader();
  r.onload=()=>{const im=new Image();im.onload=()=>{const u=logoPrepara(im);save('config',Object.assign({},CFG(),{logo:u,id:CFG_ID()}));toast('Logotipo salvo.')};im.src=r.result};r.readAsDataURL(f);
