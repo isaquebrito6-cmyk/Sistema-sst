@@ -644,6 +644,9 @@ function liberarClinica(s){
 const b64enc=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
 const b64dec=b=>{const s=atob(b);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
 const ASO_MAX=3*1024*1024;
+/* O arquivo do ASO só fica disponível para a EMPRESA depois que a clínica o envia (ou que a consultoria libera). Registros antigos (sem a marca) continuam liberados. */
+const arqLiberado=s=>!!s&&s.arquivoLiberado!==false;
+const subidaLibera=()=>S.role==='clinica'||S.role==='empresa';
 /* Fotos grandes (celular) são reduzidas aqui antes de enviar; PDF não dá para reduzir no navegador. */
 async function comprimirImagem(file){
  if(!/^image\//.test(file.type||'')||file.size<=1.5*1024*1024)return file;
@@ -729,7 +732,7 @@ async function putFile(file,ctx){
  file=await comprimirImagem(file);
  if(file.size>ASO_MAX)throw new Error(/pdf/i.test(file.type||'')?'O PDF tem mais de 3 MB. Reduza o arquivo (por exemplo, escaneie em qualidade menor) ou envie uma foto.':'Não foi possível reduzir esta imagem para menos de 3 MB. Envie em JPG (ou em PDF) e tente de novo.');
  const b64=b64enc(await file.arrayBuffer()),fid=uid();
- const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||'',colabId:(ctx&&ctx.colabId)||'',consultoriaId:CFG_ID()};
+ const dono={empresaId:(ctx&&ctx.empresaId)||'',clinicaId:(ctx&&ctx.clinicaId)||'',colabId:(ctx&&ctx.colabId)||'',consultoriaId:CFG_ID(),liberado:!(ctx&&ctx.liberado===false)};
  if(DB.db){const CH=180000,n=Math.max(1,Math.ceil(b64.length/CH));
   for(let i=0;i<n;i++)await DB.db.doc('arquivos/'+fid+'_'+i).set(Object.assign({fid,n:i,total:n,data:b64.slice(i*CH,(i+1)*CH)},dono));
   return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n}}
@@ -739,7 +742,8 @@ async function putFile(file,ctx){
 async function getFile(m){
  if(m&&m.local)return pastaLe(m);
  let b64='';
- if(DB.db){let qr=DB.db.collection('arquivos').where('fid','==',m.fid);
+ if(DB.db&&m.n){const ps=[];for(let i=0;i<m.n;i++){const d=await DB.db.doc('arquivos/'+m.fid+'_'+i).get();if(!d.exists)throw new Error('Arquivo não encontrado ou ainda não liberado para o seu perfil.');ps.push(d.data().data)}b64=ps.join('')}
+ else if(DB.db){let qr=DB.db.collection('arquivos').where('fid','==',m.fid);
   if(S.authLocked&&S.role==='empresa')qr=qr.where('empresaId','==',S.rid);
   if(S.authLocked&&S.role==='clinica')qr=qr.where('clinicaId','==',S.rid);
   if(S.authLocked&&S.role==='colaborador')qr=qr.where('colabId','==',S.rid);
@@ -2156,7 +2160,7 @@ function abrirAsoExistente(colabId){
    const c=G('colaboradores',v.colabId);if(!c){toast('Escolha o colaborador.');return false}
    const rec={empresaId:c.empresaId,colabId:c.id,clinicaId:v.clinicaId||'',tipo:v.tipo,dataSolic:v.data,dataAgend:v.data,exames:['clinico'],status:'Realizado',
     aso:{data:v.data,hora:'',horas:{},medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:'',obs:v.obs,exames:{},aptoAltura:'',aptoConfinado:'',aptoMaquinas:''},obs:'ASO já realizado, registrado no sistema.'};
-   (async()=>{try{if(arq)rec.arquivo=await putFile(arq,{empresaId:rec.empresaId,clinicaId:rec.clinicaId,colabId:rec.colabId,pasta:pastaInfo(rec)});save('solicitacoes',rec);toast('ASO registrado'+(rec.arquivo?' com o arquivo anexado':'')+'. O vencimento do colaborador já foi atualizado.',5000)}catch(e){toast(e.message||'Falha ao salvar o ASO.',5000)}})();
+   (async()=>{try{if(arq)rec.arquivo=await putFile(arq,{empresaId:rec.empresaId,clinicaId:rec.clinicaId,colabId:rec.colabId,pasta:pastaInfo(rec),liberado:subidaLibera()});rec.arquivoLiberado=subidaLibera();if(rec.arquivoLiberado)rec.arquivoEnviadoEm=today();save('solicitacoes',rec);toast('ASO registrado'+(rec.arquivo?' com o arquivo anexado':'')+'. O vencimento do colaborador já foi atualizado.',5000)}catch(e){toast(e.message||'Falha ao salvar o ASO.',5000)}})();
   }});
  setTimeout(()=>{
   const btn=$('#asoEx_btn'),fi=$('#asoEx_file'),st=$('#asoEx_st'),dEl=$('#f_data'),pEl=$('#f_proximo'),cEl=$('#f_colabId');
@@ -2298,7 +2302,7 @@ VIEWS.meuportal=()=>{
  return `<div class="card" style="margin-bottom:16px"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0">${esc(e.razao||'')} · ${esc(c.funcao||'—')} · ${esc(c.setor||'—')}</p></div>
  ${pendPsico?`<div class="card" style="margin-bottom:16px;border-color:var(--acc)"><b>Você tem um checklist psicossocial pendente</b><p class="sm muted" style="margin:4px 0 10px">Responda antes do seu exame na clínica.</p><button class="btn p" data-a="psico" data-id="${pendPsico.id}">Responder agora</button></div>`:''}
  <div class="card" style="margin-bottom:16px"><h3>Meus exames (PCMSO)</h3>${tbl([{h:'Exame',f:k=>esc(EXAMES[k].n)},{h:'Último',f:k=>fd(statusExame(c,k,m).last)},{h:'Vence em',f:k=>fd(statusExame(c,k,m).due)},{h:'Situação',f:k=>{const s=statusExame(c,k,m);return `<span class="chip ${s.k==='gray'?'gray':s.k}">${s.t}</span>`}}],ks)}</div>
- <div class="card"><h3>Meu histórico</h3>${sols.length?tbl([{h:'Data',f:s=>fd(s.aso&&s.aso.data||s.dataSolic)},{h:'Tipo',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Resultado',f:s=>esc(s.aso&&s.aso.resultado||s.status)},{h:'',a:1,f:s=>s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}],sols):'<p class="muted sm">Nenhum exame registrado ainda.</p>'}</div>`;
+ <div class="card"><h3>Meu histórico</h3>${sols.length?tbl([{h:'Data',f:s=>fd(s.aso&&s.aso.data||s.dataSolic)},{h:'Tipo',f:s=>esc(s.tipo)},{h:'Clínica',f:s=>esc(nCli(s.clinicaId))},{h:'Resultado',f:s=>esc(s.aso&&s.aso.resultado||s.status)},{h:'',a:1,f:s=>s.arquivo?((S.role==='empresa'&&!arqLiberado(s))?'<span class="sm muted">Aguardando envio da clínica</span>':`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`):''}],sols):'<p class="muted sm">Nenhum exame registrado ainda.</p>'}</div>`;
 };
 
 VIEWS.painel=()=>{
@@ -2458,7 +2462,7 @@ function renderDetalhe(){
  ${st(true,1,'Encaminhamento à clínica',`<p class="sm muted" style="margin:0 0 8px">Ficha clínica (cadastro completo da empresa e da clínica), guia com dados da empresa, riscos e exames, o formulário do ASO e o checklist psicossocial em um único arquivo.</p><div class="row"><button class="btn s p" data-a="docPacote" data-id="${s.id}">Gerar pacote completo</button><button class="btn s" data-a="docFichaClinica" data-id="${s.id}">Ficha clínica</button><button class="btn s" data-a="docGuia" data-id="${s.id}">Só a guia</button></div>`)}
  ${st(!!psicoData(s),2,'Checklist psicossocial do colaborador',`<p class="sm muted" style="margin:0 0 8px">${psicoData(s)?'Respondido em '+fd(psicoData(s))+'.':'O colaborador responde no sistema ou em papel.'}${podeVerPsico()?'':' As respostas são sigilosas: a empresa vê apenas se foi respondido.'}</p><div class="row">${podeVerPsico()?`<button class="btn s" data-a="psico" data-id="${s.id}">${psicoDe(s)?'Ver / editar respostas':'Preencher agora'}</button>`:''}<button class="btn s" data-a="docPsico" data-id="${s.id}">Imprimir${podeVerPsico()?'':' em branco'}</button></div>${psicoDe(s)?`<div class="row" style="gap:5px;margin-top:8px">${psicoResumo(psicoDe(s)).map(r=>`<span class="chip ${r.k}">${r.d}: ${r.t}</span>`).join('')}</div>`:''}`)}
  ${st(!!a.data,3,'Dados do ASO (clínica)',`<p class="sm muted" style="margin:0 0 8px">${a.data?'Exame em '+fd(a.data)+' · '+esc(a.resultado||'')+' · '+esc(a.medico_nome||''):'A clínica edita os campos do ASO e imprime.'}</p><div class="row">${canCl?`<button class="btn s ${a.data?'':'p'}" data-a="aso" data-id="${s.id}">${a.data?'Editar dados':'Preencher ASO'}</button>`:''}<button class="btn s" data-a="docAso" data-id="${s.id}">${ic('print')}${a.data?'Imprimir ASO':'ASO em branco'}</button></div>`)}
- ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF até 3 MB, ou foto, que o sistema reduz sozinho) e a empresa passa a ter acesso.'}</p><div class="row">${s.arquivo?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${s.arquivo&&canCl?`<button class="btn s" data-a="asoLer" data-id="${s.id}">Ler dados do arquivo</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
+ ${st(!!s.arquivo,4,'Arquivo do ASO assinado',`<p class="sm muted" style="margin:0 0 8px">${s.arquivo?esc(s.arquivo.nome)+' · '+Math.round(s.arquivo.size/1024)+' KB':'A clínica anexa o ASO assinado (PDF até 3 MB, ou foto, que o sistema reduz sozinho) e a empresa passa a ter acesso.'}${s.arquivo&&!s.arquivo.local?` <span class="chip ${arqLiberado(s)?'low':'med'}">${arqLiberado(s)?'Enviado à empresa'+(s.arquivoEnviadoEm?' em '+fd(s.arquivoEnviadoEm):''):'Ainda não enviado à empresa'}</span>`:''}</p><div class="row">${s.arquivo&&(S.role!=='empresa'||arqLiberado(s))?`<button class="btn s p" data-a="getAso" data-id="${s.id}">${ic('down')}Baixar ASO</button>`:''}${s.arquivo&&S.role==='consultoria'&&!s.arquivo.local?`<button class="btn s" data-a="asoLiberar" data-id="${s.id}">${arqLiberado(s)?'Retirar acesso da empresa':'Liberar para a empresa'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s" data-a="asoLer" data-id="${s.id}">Ler dados do arquivo</button>`:''}${canCl?`<button class="btn s" data-a="pickAso">${ic('up')}${s.arquivo?'Substituir arquivo':'Anexar ASO'}</button>`:''}${s.arquivo&&canCl?`<button class="btn s g d" data-a="rmAso" data-id="${s.id}">Remover</button>`:''}</div><input type="file" id="aso-f" accept="application/pdf,image/*" hidden data-c="asoF" data-id="${s.id}">`)}
  </div></div><footer>
  ${canCl?`<select data-c="solSt" data-id="${s.id}" aria-label="Situação" style="width:auto">${opts(STATUS,s.status)}</select>`:''}
  ${canEm?`<button class="btn s" data-a="editSol" data-id="${s.id}">${ic('edit')}Editar</button><button class="btn s d" data-a="delSol" data-id="${s.id}">${ic('trash')}Excluir</button>`:''}
@@ -3693,6 +3697,9 @@ function docDe(s,kind){
  openDoc({title:m.t,html:m.h,filename:m.f,para:kind==='aso'?(e.email||''):(cl.email||''),assunto:m.t,corpo});
 }
 const A={
+asoLiberar(d){(async()=>{try{const s=clone(G('solicitacoes',d.id));if(!s||!s.arquivo||s.arquivo.local)return;const nv=!arqLiberado(s);
+ if(DB.db&&s.arquivo.fid){for(let i=0;i<(s.arquivo.n||1);i++)await DB.db.doc('arquivos/'+s.arquivo.fid+'_'+i).update({liberado:nv})}
+ s.arquivoLiberado=nv;s.arquivoEnviadoEm=nv?today():'';audit(nv?'liberar':'retirar','solicitacoes',s.id,s,'acesso da empresa ao ASO');save('solicitacoes',s);toast(nv?'ASO liberado para a empresa.':'Acesso da empresa ao ASO retirado.',4000)}catch(e){toast(e.message||'Falha ao alterar o acesso.',5000)}})()},
 async pastaEscolher(){try{const h=await showDirectoryPicker({mode:'readwrite',id:'sst-aso'});await pastaGuarda(h);toast('Pasta escolhida: '+h.name,4000);pastaAtualiza()}catch(e){if(e&&e.name!=='AbortError')toast('Não foi possível ligar a pasta: '+(e.message||e),5000)}},
 async pastaReconectar(){const h=await pastaHandle();if(!h){toast('Escolha a pasta primeiro.');return}toast(await pastaPermissao(h,true)?'Acesso liberado.':'Acesso não liberado.',3000);pastaAtualiza()},
 pastaCopiar(){pastaExportar(false)},
@@ -3967,7 +3974,7 @@ async cnpj(t){
 modelo(t){aplicarModelo(t.value)},
 async asoF(t){
  const f=t.files[0];if(!f)return;const id=t.dataset.id;
- try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{pasta:pastaInfo(s0),empresaId:s0.empresaId,clinicaId:s0.clinicaId,colabId:s0.colabId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.');
+ try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{liberado:subidaLibera(),pasta:pastaInfo(s0),empresaId:s0.empresaId,clinicaId:s0.clinicaId,colabId:s0.colabId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;s.arquivoLiberado=subidaLibera();s.arquivoEnviadoEm=s.arquivoLiberado?today():'';if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast(s.arquivoLiberado?'ASO enviado. A empresa já pode baixar.':'ASO anexado. A empresa só poderá baixar quando a clínica enviar ou você liberar.',5000);
   if(!(s.aso&&s.aso.data)&&S.role!=='empresa'){try{const r=await asoLerArquivo(f,m=>toast(m,2500));if(Object.keys(r).length){abrirAso(id,r);toast('Li os dados do ASO. Confira e salve.',5000)}else toast('ASO anexado. Não consegui ler os dados automaticamente; preencha à mão.',5000)}catch(e){console.warn(e)}}}
  catch(e){toast(e.message||'Falha ao enviar o arquivo.',5000)}
 },

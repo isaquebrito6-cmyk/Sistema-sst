@@ -287,8 +287,11 @@ service cloud.firestore {
 
     // ---------- arquivos de ASO (PDF/foto em pedaços) ----------
     match /arquivos/{id} {
+      // a empresa só lê o ASO depois que a clínica o envia (liberado == true); pedaços antigos, sem a marca, continuam liberados.
+      // Por isso o app lê pedaço a pedaço (get), não por consulta com filtro.
       allow get, list: if podeAdmin(resource.data)
-        || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId)
+        || (temPerfil() && perfil().role == 'empresa' && perfil().empresaId == resource.data.empresaId
+            && resource.data.get('liberado', true) == true)
         || (temPerfil() && perfil().role == 'clinica' && perfil().clinicaId == resource.data.clinicaId)
         || ehColaborador(resource.data.colabId);
       allow create: if podeAdmin(request.resource.data)
