@@ -761,6 +761,20 @@ async function getFile(m){
  return new Blob([b64dec(b64)],{type:m.mime})
 }
 async function delFile(m){if(!m||m.local)return;try{if(DB.db){for(let i=0;i<(m.n||1);i++)await DB.db.doc('arquivos/'+m.fid+'_'+i).delete()}else{delete DB.mem[m.fid];localStorage.removeItem('sst.f.'+m.fid)}}catch(e){}}
+/* Restaura os arquivos de ASO de um backup completo (v2): regrava os pedaços no Firestore com o mesmo fid e os donos da solicitação. */
+async function restauraArquivos(j){
+ const fs=j&&j.files;if(!fs)return;let ok=0,falha=0;
+ for(const x of Object.values((j.data||{}).solicitacoes||{})){
+  const m=x.arquivo,f=m&&m.fid&&fs[m.fid];if(!f)continue;
+  try{
+   if(DB.db){const CH=180000,n=Math.max(1,Math.ceil(f.b64.length/CH));
+    const dono={empresaId:x.empresaId||'',clinicaId:x.clinicaId||'',colabId:x.colabId||'',consultoriaId:CFG_ID(),liberado:arqLiberado(x)};
+    for(let i=0;i<n;i++)await DB.db.doc('arquivos/'+m.fid+'_'+i).set(Object.assign({fid:m.fid,n:i,total:n,data:f.b64.slice(i*CH,(i+1)*CH)},dono))}
+   else{DB.mem[m.fid]=f.b64;try{localStorage.setItem('sst.f.'+m.fid,f.b64)}catch(e){}}
+   ok++}catch(e){console.warn(e);falha++}
+ }
+ toast('Arquivos de ASO restaurados: '+ok+(falha?' · com falha: '+falha:'')+'.',7000);
+}
 async function saveAs(filename,data){
  try{if(DB.dl){await DB.dl.save({filename,data});return true}}catch(e){if(e&&e.code==='declined')return false;console.warn(e)}
  try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);return true}catch(e){toast('Não foi possível baixar o arquivo neste ambiente.');return false}
@@ -2466,7 +2480,7 @@ VIEWS.config=()=>{
  const c=CFG();
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
  ${pastaCard()}
- <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p>${backupAviso()}<div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
+ <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p>${backupAviso()}<div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="backupCompleto" title="Inclui também os arquivos dos ASOs guardados no sistema (pode ficar grande)">${ic('down')}Backup completo (com ASOs)</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa <b>fictícia</b> completa (não é um cliente real) para você testar a geração dos documentos. Fica junto com os seus dados até você excluir.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
  ${planoCard()}
  <div class="card"><h3>Suporte</h3><p class="sm muted" style="margin:0 0 10px">${isSuper()?'Você é quem administra a plataforma.':'Dúvidas, problemas ou mudança de plano: fale com quem administra o seu acesso à plataforma.'}</p>${isSuper()?'':`<a class="btn s" href="mailto:${esc(SUPORTE_EMAIL)}?subject=${encodeURIComponent('Suporte — SST Gestão')}">${ic('send')}Falar com o suporte</a>`}</div>
@@ -3816,6 +3830,15 @@ dSend(){sendDoc()},dClose(){closeDoc()},
 cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'},{k:'logosCert',l:'Logotipos no certificado de treinamento',t:'select',o:[['padrao','Padrão: logo da empresa (ou da consultoria, se a empresa não tiver)'],['ambas','As duas: logo da empresa à esquerda e da consultoria à direita'],['consultoria','Somente a logo da consultoria']],w:6,h:'Vale para todos os certificados novos e reimpressos.'},{k:'ornCert',l:'Ornamento do certificado',t:'select',o:[['zebrado','Faixa zebrada de segurança (NR-26)'],['dourado','Linhas douradas (clássico)']],w:6,h:'Estilo das linhas no alto e no rodapé do certificado.'},{k:'paletaCert',l:'Cores do certificado de treinamento',t:'select',o:[['padrao','Verde (padrão)'],['azul','Azul'],['vinho','Vinho'],['grafite','Grafite'],['logo','Cores tiradas do logotipo da empresa']],w:6,h:'Padrão de todas as empresas; cada empresa pode ter a sua própria em Empresas → editar.'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
 logo(){$('#logo-f').click()},
 logoDel(){save('config',Object.assign({},CFG(),{logo:'',id:CFG_ID()}))},
+async backupCompleto(){
+ try{
+  const sols=L('solicitacoes').filter(x=>x.arquivo&&x.arquivo.fid&&!x.arquivo.local),files={};let falha=0,i=0;
+  for(const x of sols){i++;toast('Lendo arquivos dos ASOs '+i+' de '+sols.length+'…',1800);
+   try{const b=await getFile(x.arquivo);files[x.arquivo.fid]={mime:x.arquivo.mime,b64:b64enc(await b.arrayBuffer())}}catch(e){console.warn(e);falha++}}
+  const j=JSON.stringify({v:2,em:today(),data:DB.data,files});
+  if(await saveAs('sst-backup-completo-'+today()+'.json',j)){setLastBackup();toast('Backup completo salvo ('+Object.keys(files).length+' arquivo(s) de ASO'+(falha?'; '+falha+' não puderam ser lidos':'')+'). ASOs guardados na pasta do computador não entram: já estão na pasta.',9000);render()}
+ }catch(e){console.warn(e);toast('Não foi possível gerar o backup completo: '+(e&&e.message||e),7000)}
+},
 async backup(){const j=JSON.stringify({v:1,em:today(),data:DB.data});if(await saveAs('sst-backup-'+today()+'.json',j)){setLastBackup();toast('Backup salvo.');render()}},
 restore(){$('#bk-f').click()},
 async migrarAcessos(){
@@ -4012,7 +4035,7 @@ logoF(t){
 },
 bkF(t){
  const f=t.files[0];if(!f)return;const r=new FileReader();
- r.onload=()=>{try{const j=JSON.parse(r.result);let n=0;audit('restaurar','sistema','',{},'backup');audOff++;try{COLS.forEach(c=>Object.values((j.data||{})[c]||{}).forEach(x=>{save(c,x,true);n++}))}finally{audOff--}render();toast(n+' registros restaurados.')}catch(e){toast('Arquivo de backup inválido.')}};r.readAsText(f);
+ r.onload=()=>{try{const j=JSON.parse(r.result);let n=0;audit('restaurar','sistema','',{},'backup');audOff++;try{COLS.forEach(c=>Object.values((j.data||{})[c]||{}).forEach(x=>{save(c,x,true);n++}))}finally{audOff--}render();toast(n+' registros restaurados.');restauraArquivos(j)}catch(e){toast('Arquivo de backup inválido.')}};r.readAsText(f);
 }
 };
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t||t.tagName==='OPTION')return;const f=A[t.dataset.a];if(f){if(t.closest('.scrim')&&e.target!==t)return;f(t.dataset,t,e)}});
