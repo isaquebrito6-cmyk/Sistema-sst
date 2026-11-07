@@ -662,7 +662,70 @@ async function comprimirImagem(file){
  }catch(e){console.warn('compressão',e)}
  return file;
 }
+/* ====================== PASTA DO COMPUTADOR PARA OS ASOs ======================
+   Chrome/Edge no computador (File System Access API). A pasta fica ligada a ESTE navegador (o "handle" é guardado no IndexedDB);
+   outros aparelhos e as empresas/clínicas não enxergam esses arquivos. Em modo "pasta" o ASO é gravado no original, sem limite de 3 MB
+   e sem ocupar o banco gratuito; no registro fica só o caminho. Se a pasta não estiver acessível, o ASO cai no sistema, nunca se perde. */
+const PASTA_OK=typeof window!=='undefined'&&'showDirectoryPicker' in window;
+const pastaModo=()=>{try{return localStorage.getItem('sst.aso.modo')==='pasta'}catch(e){return false}};
+const pastaSetModo=on=>{try{localStorage.setItem('sst.aso.modo',on?'pasta':'sistema')}catch(e){}};
+function pastaIdb(){return new Promise((res,rej)=>{const r=indexedDB.open('sst-pasta',1);r.onupgradeneeded=()=>r.result.createObjectStore('h');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function pastaHandle(){try{const d=await pastaIdb();return await new Promise(res=>{const q=d.transaction('h').objectStore('h').get('dir');q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)})}catch(e){return null}}
+async function pastaGuarda(h){const d=await pastaIdb();return new Promise((res,rej)=>{const t=d.transaction('h','readwrite');t.objectStore('h').put(h,'dir');t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+async function pastaPermissao(h,pedir){if(!h)return false;const o={mode:'readwrite'};try{if((await h.queryPermission(o))==='granted')return true;if(pedir&&(await h.requestPermission(o))==='granted')return true}catch(e){}return false}
+const nomeSeguro=x=>String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w\- .]+/g,' ').replace(/\s+/g,' ').trim().slice(0,60)||'sem-nome';
+async function pastaGrava(file,info){
+ const h=await pastaHandle();if(!h||!(await pastaPermissao(h,true)))throw new Error('pasta indisponível');
+ const ex=(String(file.name||'').match(/\.[A-Za-z0-9]{2,5}$/)||[file.type==='application/pdf'?'.pdf':'.jpg'])[0].toLowerCase();
+ const dirs=[nomeSeguro(info.empresa),nomeSeguro(info.colab)];let d=h;for(const p of dirs)d=await d.getDirectoryHandle(p,{create:true});
+ const base='ASO '+(info.data||today())+(info.tipo?' '+nomeSeguro(info.tipo):'');let nome=base+ex,n=1;
+ for(;;){try{await d.getFileHandle(nome);n++;nome=base+' ('+n+')'+ex}catch(e){break}}
+ const w=await (await d.getFileHandle(nome,{create:true})).createWritable();await w.write(file);await w.close();
+ return{local:true,pasta:h.name,caminho:[...dirs,nome],nome,mime:file.type||'application/pdf',size:file.size};
+}
+async function pastaLe(m){
+ const h=await pastaHandle();
+ if(!h)throw new Error('Este ASO está guardado na pasta "'+m.pasta+'" de um computador. Abra o sistema nesse computador (Chrome ou Edge) para baixá-lo.');
+ if(!(await pastaPermissao(h,true)))throw new Error('Permita o acesso à pasta "'+h.name+'" para abrir este ASO (Configurações → Pasta do computador para os ASOs → Reconectar).');
+ try{let d=h;for(const p of m.caminho.slice(0,-1))d=await d.getDirectoryHandle(p);const f=await (await d.getFileHandle(m.caminho[m.caminho.length-1])).getFile();return new Blob([f],{type:m.mime})}
+ catch(e){throw new Error('Não achei o arquivo na pasta "'+h.name+'". Ele foi movido ou apagado?')}
+}
+const pastaInfo=s=>({empresa:(G('empresas',s.empresaId)||{}).razao,colab:(G('colaboradores',s.colabId)||{}).nome,data:(s.aso&&s.aso.data)||s.dataAgend||today(),tipo:s.tipo});
+async function pastaAtualiza(){
+ const el=document.getElementById('pastaSt');if(!el)return;
+ const h=await pastaHandle();
+ if(!h){el.innerHTML='Nenhuma pasta escolhida neste computador.';return}
+ const ok=await pastaPermissao(h,false);
+ el.innerHTML='Pasta: <b>'+esc(h.name)+'</b> · '+(ok?'<span class="chip low">acesso liberado</span>':'<span class="chip med">pede permissão — clique em Reconectar</span>');
+}
+function pastaCard(){
+ if(S.role!=='consultoria'&&S.role!=='admin'&&!isSuper())return '';
+ setTimeout(pastaAtualiza,0);
+ if(!PASTA_OK)return `<div class="card"><h3>Pasta do computador para os ASOs</h3><p class="sm muted">Este navegador não permite ligar uma pasta. Use o Chrome ou o Edge no computador.</p></div>`;
+ return `<div class="card"><h3>Pasta do computador para os ASOs</h3>
+ <p class="sm" style="margin:0 0 8px">Guarda os ASOs numa pasta do <b>seu computador</b> (organizada por empresa e colaborador), no arquivo original, sem ocupar o espaço gratuito do sistema.</p>
+ <p class="sm" id="pastaSt" style="margin:0 0 8px"></p>
+ <div class="row" style="gap:8px;margin-bottom:8px"><button class="btn s" data-a="pastaEscolher">Escolher / trocar pasta</button><button class="btn s" data-a="pastaReconectar">Reconectar</button></div>
+ <label class="sm" style="display:block;margin-bottom:4px"><b>Onde guardar os novos ASOs neste computador</b></label>
+ <select data-c="pastaModo" style="max-width:360px"><option value="sistema" ${pastaModo()?'':'selected'}>No sistema (empresa e clínica conseguem baixar)</option><option value="pasta" ${pastaModo()?'selected':''}>Somente na pasta deste computador</option></select>
+ <p class="sm muted" style="margin:8px 0">Atenção: no modo "somente na pasta", empresa e clínica <b>não</b> conseguem baixar o ASO e só este computador e navegador o abrem. Se o computador ou a pasta se perder, o ASO se perde (a NR-7 exige guardar por 20 anos): mantenha cópia da pasta em HD externo ou na nuvem.</p>
+ <div class="row" style="gap:8px"><button class="btn s" data-a="pastaCopiar">Copiar para a pasta os ASOs que estão no sistema</button><button class="btn s d" data-a="pastaMover">Mover para a pasta (libera espaço no sistema)</button></div></div>`;
+}
+async function pastaExportar(mover){
+ const h=await pastaHandle();if(!h||!(await pastaPermissao(h,true))){toast('Escolha a pasta (e permita o acesso) primeiro.',5000);return}
+ const lista=L('solicitacoes').filter(s=>s.arquivo&&!s.arquivo.local);
+ if(!lista.length){toast('Não há ASOs no sistema para copiar.');return}
+ let ok=0,falha=0;
+ for(const s of lista){
+  try{toast((mover?'Movendo ':'Copiando ')+(ok+falha+1)+' de '+lista.length+'…',1500);
+   const b=await getFile(s.arquivo),meta=await pastaGrava(new File([b],s.arquivo.nome||'aso.pdf',{type:s.arquivo.mime}),pastaInfo(s));
+   if(mover){const n=clone(s);const velho=n.arquivo;n.arquivo=meta;save('solicitacoes',n);await delFile(velho)}
+   ok++}catch(e){console.warn(e);falha++}
+ }
+ toast((mover?'Movidos: ':'Copiados: ')+ok+(falha?' · com falha: '+falha:'')+'.',7000);
+}
 async function putFile(file,ctx){
+ if(ctx&&ctx.pasta&&pastaModo()){try{return await pastaGrava(file,ctx.pasta)}catch(e){console.warn(e);toast('Não consegui gravar na pasta do computador; o ASO foi guardado no sistema.',6000)}}
  file=await comprimirImagem(file);
  if(file.size>ASO_MAX)throw new Error(/pdf/i.test(file.type||'')?'O PDF tem mais de 3 MB. Reduza o arquivo (por exemplo, escaneie em qualidade menor) ou envie uma foto.':'Não foi possível reduzir esta imagem para menos de 3 MB. Envie em JPG (ou em PDF) e tente de novo.');
  const b64=b64enc(await file.arrayBuffer()),fid=uid();
@@ -674,6 +737,7 @@ async function putFile(file,ctx){
  return{fid,nome:file.name,mime:file.type||'application/pdf',size:file.size,n:1}
 }
 async function getFile(m){
+ if(m&&m.local)return pastaLe(m);
  let b64='';
  if(DB.db){let qr=DB.db.collection('arquivos').where('fid','==',m.fid);
   if(S.authLocked&&S.role==='empresa')qr=qr.where('empresaId','==',S.rid);
@@ -684,7 +748,7 @@ async function getFile(m){
  if(!b64)throw new Error('Arquivo não encontrado.');
  return new Blob([b64dec(b64)],{type:m.mime})
 }
-async function delFile(m){if(!m)return;try{if(DB.db){for(let i=0;i<(m.n||1);i++)await DB.db.doc('arquivos/'+m.fid+'_'+i).delete()}else{delete DB.mem[m.fid];localStorage.removeItem('sst.f.'+m.fid)}}catch(e){}}
+async function delFile(m){if(!m||m.local)return;try{if(DB.db){for(let i=0;i<(m.n||1);i++)await DB.db.doc('arquivos/'+m.fid+'_'+i).delete()}else{delete DB.mem[m.fid];localStorage.removeItem('sst.f.'+m.fid)}}catch(e){}}
 async function saveAs(filename,data){
  try{if(DB.dl){await DB.dl.save({filename,data});return true}}catch(e){if(e&&e.code==='declined')return false;console.warn(e)}
  try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);return true}catch(e){toast('Não foi possível baixar o arquivo neste ambiente.');return false}
@@ -2092,7 +2156,7 @@ function abrirAsoExistente(colabId){
    const c=G('colaboradores',v.colabId);if(!c){toast('Escolha o colaborador.');return false}
    const rec={empresaId:c.empresaId,colabId:c.id,clinicaId:v.clinicaId||'',tipo:v.tipo,dataSolic:v.data,dataAgend:v.data,exames:['clinico'],status:'Realizado',
     aso:{data:v.data,hora:'',horas:{},medico_nome:v.medico_nome,medico_crm:v.medico_crm,resultado:v.resultado,proximo:v.proximo,riscos:'',obs:v.obs,exames:{},aptoAltura:'',aptoConfinado:'',aptoMaquinas:''},obs:'ASO já realizado, registrado no sistema.'};
-   (async()=>{try{if(arq)rec.arquivo=await putFile(arq,{empresaId:rec.empresaId,clinicaId:rec.clinicaId,colabId:rec.colabId});save('solicitacoes',rec);toast('ASO registrado'+(rec.arquivo?' com o arquivo anexado':'')+'. O vencimento do colaborador já foi atualizado.',5000)}catch(e){toast(e.message||'Falha ao salvar o ASO.',5000)}})();
+   (async()=>{try{if(arq)rec.arquivo=await putFile(arq,{empresaId:rec.empresaId,clinicaId:rec.clinicaId,colabId:rec.colabId,pasta:pastaInfo(rec)});save('solicitacoes',rec);toast('ASO registrado'+(rec.arquivo?' com o arquivo anexado':'')+'. O vencimento do colaborador já foi atualizado.',5000)}catch(e){toast(e.message||'Falha ao salvar o ASO.',5000)}})();
   }});
  setTimeout(()=>{
   const btn=$('#asoEx_btn'),fi=$('#asoEx_file'),st=$('#asoEx_st'),dEl=$('#f_data'),pEl=$('#f_proximo'),cEl=$('#f_colabId');
@@ -2371,6 +2435,7 @@ VIEWS.documentos=()=>{
 VIEWS.config=()=>{
  const c=CFG();
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
+ ${pastaCard()}
  <div class="card"><h3>Armazenamento</h3><p class="sm">${DB.db?'<b>Banco de dados online (Firestore).</b> Cada pessoa vê apenas o que o seu perfil permite, conforme as regras de segurança publicadas no Firebase.':'<b>Neste navegador.</b> Os dados ficam apenas neste aparelho e não são compartilhados com clínicas ou empresas.'}</p>${backupAviso()}<div class="row"><button class="btn s" data-a="backup">${ic('down')}Exportar backup</button><button class="btn s" data-a="restore">${ic('up')}Restaurar backup</button></div><input type="file" id="bk-f" accept=".json,application/json" hidden data-c="bkF"></div>
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa <b>fictícia</b> completa (não é um cliente real) para você testar a geração dos documentos. Fica junto com os seus dados até você excluir.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
  ${planoCard()}
@@ -3628,6 +3693,10 @@ function docDe(s,kind){
  openDoc({title:m.t,html:m.h,filename:m.f,para:kind==='aso'?(e.email||''):(cl.email||''),assunto:m.t,corpo});
 }
 const A={
+async pastaEscolher(){try{const h=await showDirectoryPicker({mode:'readwrite',id:'sst-aso'});await pastaGuarda(h);toast('Pasta escolhida: '+h.name,4000);pastaAtualiza()}catch(e){if(e&&e.name!=='AbortError')toast('Não foi possível ligar a pasta: '+(e.message||e),5000)}},
+async pastaReconectar(){const h=await pastaHandle();if(!h){toast('Escolha a pasta primeiro.');return}toast(await pastaPermissao(h,true)?'Acesso liberado.':'Acesso não liberado.',3000);pastaAtualiza()},
+pastaCopiar(){pastaExportar(false)},
+pastaMover(){ask('Mover todos os ASOs do sistema para a pasta deste computador? Depois disso, empresa e clínica não poderão mais baixá-los, e só este computador os abre. Faça uma cópia da pasta antes.','Mover',()=>pastaExportar(true))},
 colEndCopia(){
  const sel=document.getElementById('f_empresaId'),e=G('empresas',sel&&sel.value);
  if(!e){toast('Escolha a empresa primeiro.');return}
@@ -3810,6 +3879,7 @@ demo(){
 }
 };
 const C={
+async pastaModo(t){if(t.value==='pasta'){const h=await pastaHandle();if(!h||!(await pastaPermissao(h,true))){toast('Escolha a pasta (e permita o acesso) antes de usar este modo.',5000);t.value='sistema';pastaSetModo(false);return}}pastaSetModo(t.value==='pasta');toast(t.value==='pasta'?'Novos ASOs deste computador serão guardados só na pasta.':'Novos ASOs voltam a ser guardados no sistema.',4000)},
 role(t){setRole(t.value);render()},
 rid(t){S.rid=t.value;S.det=null;render()},
 q(t){S.q=t.value;render()},
@@ -3897,7 +3967,7 @@ async cnpj(t){
 modelo(t){aplicarModelo(t.value)},
 async asoF(t){
  const f=t.files[0];if(!f)return;const id=t.dataset.id;
- try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{empresaId:s0.empresaId,clinicaId:s0.clinicaId,colabId:s0.colabId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.');
+ try{toast('Enviando arquivo…',2000);const s0=G('solicitacoes',id)||{};const meta=await putFile(f,{pasta:pastaInfo(s0),empresaId:s0.empresaId,clinicaId:s0.clinicaId,colabId:s0.colabId});const s=clone(G('solicitacoes',id));if(s.arquivo)await delFile(s.arquivo);s.arquivo=meta;if(s.status!=='Cancelado')s.status='Realizado';save('solicitacoes',s);toast('ASO anexado. A empresa já pode baixar.');
   if(!(s.aso&&s.aso.data)&&S.role!=='empresa'){try{const r=await asoLerArquivo(f,m=>toast(m,2500));if(Object.keys(r).length){abrirAso(id,r);toast('Li os dados do ASO. Confira e salve.',5000)}else toast('ASO anexado. Não consegui ler os dados automaticamente; preencha à mão.',5000)}catch(e){console.warn(e)}}}
  catch(e){toast(e.message||'Falha ao enviar o arquivo.',5000)}
 },
