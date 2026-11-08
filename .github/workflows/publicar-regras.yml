@@ -22,6 +22,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
+          set -o pipefail
           if [ -z "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ]; then
             echo "Secret FIREBASE_SERVICE_ACCOUNT não configurado."; exit 1
           fi
