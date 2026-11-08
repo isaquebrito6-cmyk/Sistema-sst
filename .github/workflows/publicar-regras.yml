@@ -1,0 +1,31 @@
+name: Publicar regras do Firestore
+
+# Publica o firestore.rules no Firebase sempre que ele mudar na main.
+# Requer o secret FIREBASE_SERVICE_ACCOUNT (conteúdo do .json da conta de serviço).
+on:
+  push:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - firebase.json
+  workflow_dispatch:
+
+jobs:
+  regras:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Publicar regras
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ]; then
+            echo "Secret FIREBASE_SERVICE_ACCOUNT não configurado."; exit 1
+          fi
+          printf '%s' "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@13 deploy --only firestore:rules --project sst-gestao-cl --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
