@@ -26,6 +26,7 @@ jobs:
             echo "Secret FIREBASE_SERVICE_ACCOUNT não configurado."; exit 1
           fi
           printf '%s' "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$RUNNER_TEMP/sa.json"
+          node -e "try{const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log('JSON da chave OK. Campos:',['type','project_id','private_key','client_email'].map(k=>k+':'+(j[k]?'sim':'NAO')).join(' '),'| projeto:',j.project_id,'| conta:',j.client_email)}catch(e){console.log('JSON da chave INVALIDO:',e.message);process.exit(1)}" "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           npx --yes firebase-tools@13 deploy --only firestore:rules --project sst-gestao-cl --non-interactive
           rm -f "$RUNNER_TEMP/sa.json"
