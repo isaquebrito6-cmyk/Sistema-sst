@@ -179,3 +179,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - **Vencimentos no Painel:** faixa destacada (como a de aniversários) com ASO, treinamentos NR, EPI e revisão do PGR vencidos ou nos próximos 30 dias; clique abre a ficha do colaborador.
 - **Backup completo (com ASOs):** em Configurações, gera um arquivo que inclui os arquivos dos ASOs guardados no sistema; ao restaurar, eles voltam junto.
 - **Publicação automática das regras:** `.github/workflows/publicar-regras.yml` publica o `firestore.rules` no Firebase (projeto `sst-gestao-cl`) a cada mudança na main; exige o secret `FIREBASE_SERVICE_ACCOUNT` no GitHub.
+- **Carteirinha:** moldura da foto com a cor NR-26 e faixa colorida embaixo dela; texto completo "Cor de segurança (NR-26) / cor — descrição" sob a foto.
