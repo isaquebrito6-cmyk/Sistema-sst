@@ -2742,7 +2742,12 @@ const DOC_CSS=`
 .idcard .ic-head-right span{display:block;font-size:4.8pt;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34mm}
 .idcard .ic-stripe{height:1.5mm;background:repeating-linear-gradient(135deg,#171208 0,#171208 2.1mm,#F2C200 2.1mm,#F2C200 4.2mm);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-body{position:absolute;inset:10.7mm 0 0;display:flex;flex-direction:column;gap:.9mm;padding:1.6mm 2.4mm 1.8mm}
-.idcard .ic-row{display:flex;gap:2mm;flex:1;min-height:0}
+.idcard .ic-row{display:grid;grid-template-columns:22mm minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:2mm;row-gap:1mm;flex:1;min-height:0}
+.idcard .ic-row>.ic-photo,.idcard .ic-row>.ic-right{display:contents}
+.idcard .ic-top{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:1mm;min-width:0}
+.idcard .ic-photo .ic-frame{grid-column:1;grid-row:1}
+.idcard .ic-photo .ic-swatch{grid-column:1;grid-row:2;align-self:start}
+.idcard .ic-right .ic-chips{grid-column:2;grid-row:2;align-self:start}
 .idcard .ic-photo{width:22mm;flex:none;display:flex;flex-direction:column;gap:.3mm}
 .idcard .ic-photo .ph{width:22mm;height:31mm;border:.7pt solid #B9C6C8;border-radius:1mm;background:#EEF3F3;display:flex;align-items:center;justify-content:center;font-size:6.4pt;color:#889;text-align:center}
 .idcard .ic-photo .ph.foto{object-fit:cover;display:block}
@@ -2751,7 +2756,7 @@ const DOC_CSS=`
 .idcard .ic-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:1mm}
 .idcard .ic-apto{border-radius:1.2mm;padding:.9mm 1mm;text-align:center;background:#1E8E4F;color:#fff;font-size:5.7pt;font-weight:800;letter-spacing:.02em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-apto.inapto{background:#C62828}
-.idcard .ic-frame{position:relative;height:max-content;width:22mm;border:.7pt solid;border-radius:1mm;overflow:hidden;flex:none;box-sizing:border-box}.idcard .ic-frame .ph{border:0;border-radius:0;width:100%;padding:0;margin:0;box-sizing:border-box}.idcard .ic-band{position:absolute;left:0;right:0;bottom:0;height:1.8mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.idcard .ic-frame{position:relative;align-self:stretch;min-height:28mm;width:22mm;border:.7pt solid;border-radius:1mm;overflow:hidden;flex:none;box-sizing:border-box}.idcard .ic-frame .ph{border:0;border-radius:0;position:absolute;left:0;top:0;width:100%;height:100%;padding:0;margin:0;box-sizing:border-box}.idcard .ic-band{position:absolute;left:0;right:0;bottom:0;height:1.8mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-swatch{display:flex;align-items:flex-start;gap:1mm;min-width:0;margin-top:.8mm}
 .idcard .ic-swatch i{width:2.6mm;height:2.6mm;border-radius:.6mm;flex:none;margin-top:.2mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .idcard .ic-swatch div{font-size:4.5pt;line-height:1.15;color:#556;min-width:0}
@@ -3346,7 +3351,7 @@ function docCarteirinha(a){
      <div class="ic-swatch"><i style="background:${cat.hex}"></i><div><b>Cor de segurança (NR-26)</b>${esc(cat.nome)} — ${esc(cat.desc)}</div></div>
     </div>
     <div class="ic-right">
-     <div class="ic-fields">
+     <div class="ic-top"><div class="ic-fields">
       <span class="lbl">Nome</span><div class="nome">${esc(c.nome||'—')}</div>
       <div class="fn">Função: ${esc((c.funcao||'—').toUpperCase())}</div>
       <span class="lbl">Treinamento</span><div class="trn">${esc(nrTag)}</div>
@@ -3357,7 +3362,7 @@ function docCarteirinha(a){
        <div><span class="lbl">Validade ASO</span><b>${asoItem.due?fd(asoItem.due):'—'}</b></div>
       </div>
      </div>
-     <div class="ic-apto${apto?'':' inapto'}">${apto?'✓ APTO PARA ATIVIDADE':'⚠ VERIFICAR PENDÊNCIAS'}</div>
+     <div class="ic-apto${apto?'':' inapto'}">${apto?'✓ APTO PARA ATIVIDADE':'⚠ VERIFICAR PENDÊNCIAS'}</div></div>
      <div class="ic-chips">${venc.map(v=>{const num=v.tipo==='aso'?'':((TREIN_NRS[v.tipo]||{}).carteirinha?'11/12':String(v.label||'').replace(/^NR-?/,''));return `<div class="ic-chip${v.tipo===a.tipo?' active':''}" style="background:${chipCor(v.tipo)}"><b>${v.tipo==='aso'?'':'NR'}</b><span${num.length>3?' style="font-size:5pt"':''}>${esc(v.tipo==='aso'?'ASO':num)}</span></div>`}).join('')}</div>
     </div>
    </div>
