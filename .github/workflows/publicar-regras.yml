@@ -29,5 +29,6 @@ jobs:
           node -e "try{const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log('JSON da chave OK. Campos:',['type','project_id','private_key','client_email'].map(k=>k+':'+(j[k]?'sim':'NAO')).join(' '),'| projeto:',j.project_id,'| conta:',j.client_email)}catch(e){console.log('JSON da chave INVALIDO:',e.message);process.exit(1)}" "$RUNNER_TEMP/sa.json"
           node -e "const f=process.argv[1],fs=require('fs'),j=JSON.parse(fs.readFileSync(f,'utf8'));if(!j.type){j.type='service_account';fs.writeFileSync(f,JSON.stringify(j));console.log('Campo type adicionado.')}" "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          npx --yes firebase-tools@13 deploy --only firestore:rules --project sst-gestao-cl --non-interactive
+          node -e "const j=require(process.argv[1]);const k=j.private_key||'';console.log('private_key: comeca com BEGIN:',k.startsWith('-----BEGIN PRIVATE KEY-----'),'| termina com END:',k.trim().endsWith('-----END PRIVATE KEY-----'),'| quebras de linha:',(k.match(/\\n/g)||[]).length,'| tamanho:',k.length)" "$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@13 deploy --only firestore:rules --project sst-gestao-cl --non-interactive --debug 2>&1 | grep -i -v "^\[debug\] \[.*\] > \[" | tail -40
           rm -f "$RUNNER_TEMP/sa.json"
