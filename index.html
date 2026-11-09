@@ -227,6 +227,7 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .doc-bar{position:sticky;top:0;z-index:2;background:#11262B;color:#fff;display:flex;gap:8px;padding:10px 14px;align-items:center;flex-wrap:wrap}
 .doc-bar b{flex:1;min-width:140px;font-size:14px}
 .doc-bar .btn{background:#1E3A40;border-color:#2F5058;color:#fff}
+.doc-bar .doc-fmt{background:#1E3A40;border:1px solid #2F5058;color:#fff;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;min-height:36px}
 .doc-bar .btn.p{background:var(--acc);border-color:var(--acc);color:#11262B}
 .doc-wrap{padding:18px 10px 40px;overflow-x:auto}
 </style>
@@ -3542,28 +3543,51 @@ async function docPdfBlob(d){
   return pdf.output('blob');
  }finally{host.remove()}
 }
+/* Formatos de saída do documento aberto: PDF (certificados/carteirinhas), página web, Word (.doc) e Excel (.xlsx, a partir das tabelas do documento). */
+const docTemTabela=d=>/<table/i.test((d&&d.html)||'');
+function docFormatos(d){
+ const f=docPdfOk(d)?[['pdf','PDF'],['word','Word (.doc)']]:[['html','Página web (.html)'],['word','Word (.doc)']];
+ if(docTemTabela(d)&&!docPdfOk(d))f.push(['excel','Excel (.xlsx)']);
+ return f}
+function docFmtSel(d){const f=docFormatos(d);if(!d.fmt||!f.some(x=>x[0]===d.fmt))d.fmt=f[0][0];
+ return `<select class="doc-fmt" data-c="docFmt" aria-label="Formato do arquivo">${f.map(x=>`<option value="${x[0]}"${x[0]===d.fmt?' selected':''}>${x[1]}</option>`).join('')}</select>`}
+async function docArquivo(d,fmt){
+ const base=String(d.filename||'documento').replace(/\.[a-z0-9]+$/i,'');
+ if(fmt==='pdf')return{nome:base+'.pdf',tipo:'application/pdf',dados:await docPdfBlob(d)};
+ if(fmt==='word'){
+  const h=standalone(d.title,d.html).replace('<html lang="pt-BR">','<html lang="pt-BR" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">').replace('<style>','<style>@page{size:A4;margin:14mm}');
+  return{nome:base+'.doc',tipo:'application/msword',dados:h}}
+ if(fmt==='excel'){
+  await colimpLoadXLSX();
+  const tmp=document.createElement('div');tmp.innerHTML=d.html;
+  const tabs=[...tmp.querySelectorAll('table')];if(!tabs.length)throw new Error('Documento sem tabelas');
+  const wb=XLSX.utils.book_new(),usados=new Set();
+  tabs.forEach((t,i)=>{
+   let nome=((t.querySelector('caption')||{}).textContent||('Tabela '+(i+1))).replace(/[\\\/?*\[\]:]/g,' ').trim().slice(0,28)||('Tabela '+(i+1));
+   while(usados.has(nome.toLowerCase()))nome=nome.slice(0,24)+' '+(i+1);usados.add(nome.toLowerCase());
+   XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(t,{raw:true}),nome)});
+  const arr=XLSX.write(wb,{type:'array',bookType:'xlsx'});
+  return{nome:base+'.xlsx',tipo:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',dados:new Blob([arr],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}}
+ return{nome:d.filename,tipo:'text/html',dados:standalone(d.title,d.html)}
+}
 const pdfNome=d=>String(d.filename||'documento').replace(/\.html?$/i,'')+'.pdf';
 function openDoc(d){
  S.doc=d;const r=$('#doc-root');
- r.innerHTML=`<div class="doc-bar"><b>${esc(d.title)}</b><button class="btn s p" data-a="dPrint">${ic('print')}Imprimir</button><button class="btn s" data-a="dSave">${ic('down')}${docPdfOk(d)?'Baixar PDF':'Baixar'}</button><button class="btn s" data-a="dSend">${ic('send')}${docPdfOk(d)?'Enviar PDF':'Enviar'}</button><button class="btn s" data-a="dClose">${ic('x')}Fechar</button></div><div class="doc-wrap"><div class="paper">${d.html}</div></div>`;
+ r.innerHTML=`<div class="doc-bar"><b>${esc(d.title)}</b><button class="btn s p" data-a="dPrint">${ic('print')}Imprimir</button>${docFmtSel(d)}<button class="btn s" data-a="dSave">${ic('down')}Baixar</button><button class="btn s" data-a="dSend">${ic('send')}Enviar</button><button class="btn s" data-a="dClose">${ic('x')}Fechar</button></div><div class="doc-wrap"><div class="paper">${d.html}</div></div>`;
  r.classList.add('on');r.scrollTop=0;
  if(r.querySelector('.cert-logo img'))logoAjustaNoDoc();
 }
 function closeDoc(){S.doc=null;const r=$('#doc-root');r.classList.remove('on');r.innerHTML=''}
 async function sendDoc(){
- const d=S.doc;if(!d)return;
- if(docPdfOk(d)){
-  try{const tg=toast('Gerando PDF…',60000);const b=await docPdfBlob(d);tg.remove();const f=new File([b],pdfNome(d),{type:'application/pdf'});
-   try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:d.title,text:d.corpo});return}}catch(e){if(e&&e.name==='AbortError')return}
-   const ok=await saveAs(pdfNome(d),b);const a=document.createElement('a');a.href='mailto:'+(d.para||'')+'?subject='+encodeURIComponent(d.assunto||d.title)+'&body='+encodeURIComponent(d.corpo||'');a.target='_blank';document.body.appendChild(a);a.click();a.remove();
-   if(ok)toast('PDF salvo. Anexe-o ao e-mail que foi aberto.',5000)
-  }catch(e){console.warn(e);document.querySelectorAll('.toast').forEach(x=>{if(/Gerando PDF/.test(x.textContent))x.remove()});toast('Não foi possível gerar o PDF (precisa de internet para carregar o gerador). Use Imprimir → Salvar como PDF.',8000)}
-  return}
- const html=standalone(d.title,d.html);
- try{const f=new File([html],d.filename,{type:'text/html'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:d.title,text:d.corpo});return}}catch(e){if(e&&e.name==='AbortError')return}
- const ok=await saveAs(d.filename,html);
- const a=document.createElement('a');a.href='mailto:'+(d.para||'')+'?subject='+encodeURIComponent(d.assunto||d.title)+'&body='+encodeURIComponent(d.corpo||'');a.target='_blank';document.body.appendChild(a);a.click();a.remove();
- if(ok)toast('Arquivo salvo. Anexe-o ao e-mail que foi aberto.',5000);
+ const d=S.doc;if(!d)return;const fmt=d.fmt||'html';let tg;
+ try{
+  if(fmt!=='html')tg=toast('Preparando arquivo…',60000);
+  const a=await docArquivo(d,fmt);if(tg)tg.remove();
+  try{const f=new File([a.dados],a.nome,{type:a.tipo});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:d.title,text:d.corpo});return}}catch(e){if(e&&e.name==='AbortError')return}
+  const ok=await saveAs(a.nome,a.dados);
+  const l=document.createElement('a');l.href='mailto:'+(d.para||'')+'?subject='+encodeURIComponent(d.assunto||d.title)+'&body='+encodeURIComponent(d.corpo||'');l.target='_blank';document.body.appendChild(l);l.click();l.remove();
+  if(ok)toast('Arquivo salvo. Anexe-o ao e-mail que foi aberto.',5000);
+ }catch(e){console.warn(e);if(tg)tg.remove();toast('Não foi possível gerar o arquivo (precisa de internet para carregar o gerador).',8000)}
 }
 const slug=t=>norm(t).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
 function exportColaboradores(empId){
@@ -3901,9 +3925,10 @@ emitDoc(d){const e=empAtual();const m=docMeta(e,d.t);m.rascunho=false;save('docu
 reabrirDoc(d){const x=G('documentos',d.id);abrirDocEmpresa(x.tipo,{rev:x.rev,emissao:x.emissao},G('empresas',x.empresaId))},
 blank(d){const aso=d.t==='aso';openDoc({title:aso?'ASO em branco':'Checklist psicossocial em branco',html:aso?docAso(null):docPsico(null),filename:(aso?'aso':'checklist-psicossocial')+'-em-branco.html',assunto:aso?'Modelo de ASO':'Checklist psicossocial',corpo:'Segue o modelo em anexo.'})},
 dPrint(){let ok=false;const f=()=>{ok=true};window.addEventListener('beforeprint',f,{once:true});try{window.print()}catch(e){}setTimeout(()=>{window.removeEventListener('beforeprint',f);if(!ok)toast('A impressão não abriu aqui. Use Baixar e imprima o arquivo salvo.',5000)},1200)},
-async dSave(){const d=S.doc;if(!d)return;
- if(docPdfOk(d)){try{const tg=toast('Gerando PDF…',60000);const b=await docPdfBlob(d);tg.remove();if(await saveAs(pdfNome(d),b))toast('PDF salvo.')}catch(e){console.warn(e);document.querySelectorAll('.toast').forEach(x=>{if(/Gerando PDF/.test(x.textContent))x.remove()});toast('Não foi possível gerar o PDF (precisa de internet para carregar o gerador). Use Imprimir → Salvar como PDF.',8000)}return}
- if(await saveAs(d.filename,standalone(d.title,d.html)))toast('Arquivo salvo.')},
+async dSave(){const d=S.doc;if(!d)return;const fmt=d.fmt||'html';let tg;
+ try{if(fmt!=='html')tg=toast('Preparando arquivo…',60000);const a=await docArquivo(d,fmt);if(tg)tg.remove();
+  if(await saveAs(a.nome,a.dados))toast(fmt==='word'&&docPdfOk(d)?'Arquivo salvo. No Word o desenho do certificado pode mudar; para imprimir use o PDF.':'Arquivo salvo.',fmt==='word'&&docPdfOk(d)?7000:3200)
+ }catch(e){console.warn(e);if(tg)tg.remove();toast(fmt==='pdf'||fmt==='excel'?'Não foi possível gerar o arquivo (precisa de internet para carregar o gerador). '+(fmt==='pdf'?'Use Imprimir → Salvar como PDF.':''):'Não foi possível gerar o arquivo.',8000)}},
 dSend(){sendDoc()},dClose(){closeDoc()},
 cfgForm(){const c=CFG();openForm({title:'Dados da consultoria',val:c,fields:[{k:'nome',l:'Nome / razão social',r:1,w:4},{k:'cnpj',l:'CNPJ',w:2,m:'cnpj',c:'cnpj',h:'Preenche o nome sozinho'},{k:'resp',l:'Responsável técnico',w:3},{k:'reg',l:'Registro profissional',w:3,h:'Ex.: CREA/PR 000000'},{k:'email',l:'E-mail',t:'email',w:3},{k:'tel',l:'Telefone',w:3,m:'tel'},{k:'logosCert',l:'Logotipos no certificado de treinamento',t:'select',o:[['padrao','Padrão: logo da empresa (ou da consultoria, se a empresa não tiver)'],['ambas','As duas: logo da empresa à esquerda e da consultoria à direita'],['consultoria','Somente a logo da consultoria']],w:6,h:'Vale para todos os certificados novos e reimpressos.'},{k:'ornCert',l:'Ornamento do certificado',t:'select',o:[['zebrado','Faixa zebrada de segurança (NR-26)'],['dourado','Linhas douradas (clássico)']],w:6,h:'Estilo das linhas no alto e no rodapé do certificado.'},{k:'paletaCert',l:'Cores do certificado de treinamento',t:'select',o:[['padrao','Verde (padrão)'],['azul','Azul'],['vinho','Vinho'],['grafite','Grafite'],['logo','Cores tiradas do logotipo da empresa']],w:6,h:'Padrão de todas as empresas; cada empresa pode ter a sua própria em Empresas → editar.'}],save:v=>{save('config',Object.assign({},c,v,{id:CFG_ID()}))}})},
 logo(){$('#logo-f').click()},
@@ -4013,6 +4038,7 @@ demo(){
 }
 };
 const C={
+docFmt(t){if(S.doc)S.doc.fmt=t.value},
 async pastaModo(t){if(t.value==='pasta'){const h=await pastaHandle();if(!h||!(await pastaPermissao(h,true))){toast('Escolha a pasta (e permita o acesso) antes de usar este modo.',5000);t.value='sistema';pastaSetModo(false);return}}pastaSetModo(t.value==='pasta');toast(t.value==='pasta'?'Novos ASOs deste computador serão guardados só na pasta.':'Novos ASOs voltam a ser guardados no sistema.',4000)},
 role(t){setRole(t.value);render()},
 rid(t){S.rid=t.value;S.det=null;render()},

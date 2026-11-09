@@ -182,3 +182,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - **Carteirinha:** moldura da foto com a cor NR-26 e faixa colorida embaixo dela; texto completo "Cor de segurança (NR-26) / cor — descrição" sob a foto.
 - **Assinatura:** além de desenhar na tela, dá para **colar imagem** (Ctrl+V ou botão) ou **enviar arquivo** da assinatura; o fundo claro vira transparente.
 - **PDF:** certificados e carteirinhas agora têm **Baixar PDF** e **Enviar PDF** (arquivo PDF de verdade, gerado no navegador; precisa de internet para carregar o gerador).
+- **Formatos de arquivo:** na barra do documento há um seletor de formato para Baixar/Enviar: PDF (certificados e carteirinhas), Word (.doc), Excel (.xlsx, a partir das tabelas do documento) e página web. **Certificado NR-32** (limpeza e higienização em serviços de saúde) incluído no catálogo.
