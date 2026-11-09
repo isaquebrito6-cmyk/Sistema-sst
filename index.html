@@ -3547,7 +3547,8 @@ async function docPdfBlob(d){
 const docTemTabela=d=>/<table/i.test((d&&d.html)||'');
 function docFormatos(d){
  const f=docPdfOk(d)?[['pdf','PDF'],['word','Word (.doc)']]:[['html','Página web (.html)'],['word','Word (.doc)']];
- if(docTemTabela(d)&&!docPdfOk(d))f.push(['excel','Excel (.xlsx)']);
+ if(docTemTabela(d))f.push(['excel','Excel (.xlsx)'+(docPdfOk(d)?' — dados do verso':'')]);
+ if(docPdfOk(d))f.push(['html','Página web (.html)']);
  return f}
 function docFmtSel(d){const f=docFormatos(d);if(!d.fmt||!f.some(x=>x[0]===d.fmt))d.fmt=f[0][0];
  return `<select class="doc-fmt" data-c="docFmt" aria-label="Formato do arquivo">${f.map(x=>`<option value="${x[0]}"${x[0]===d.fmt?' selected':''}>${x[1]}</option>`).join('')}</select>`}
