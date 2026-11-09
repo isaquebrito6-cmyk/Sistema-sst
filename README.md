@@ -181,3 +181,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - **Publicação automática das regras:** `.github/workflows/publicar-regras.yml` publica o `firestore.rules` no Firebase (projeto `sst-gestao-cl`) a cada mudança na main; exige o secret `FIREBASE_SERVICE_ACCOUNT` no GitHub.
 - **Carteirinha:** moldura da foto com a cor NR-26 e faixa colorida embaixo dela; texto completo "Cor de segurança (NR-26) / cor — descrição" sob a foto.
 - **Assinatura:** além de desenhar na tela, dá para **colar imagem** (Ctrl+V ou botão) ou **enviar arquivo** da assinatura; o fundo claro vira transparente.
+- **PDF:** certificados e carteirinhas agora têm **Baixar PDF** e **Enviar PDF** (arquivo PDF de verdade, gerado no navegador; precisa de internet para carregar o gerador).
