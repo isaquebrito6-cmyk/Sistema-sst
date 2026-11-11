@@ -506,10 +506,10 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos','cipas'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
-const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos'];
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos','cipas'];
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
@@ -578,7 +578,7 @@ async function initData(){
    if(S.role==='consultoria')await garantirPsicoMigrado(col,ref,CFG_ID());
    if(S.role==='empresa'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
-    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis','pts','treinamentos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
+    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis','pts','treinamentos','cipas'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
     /* respostas do checklist psicossocial: a empresa não recebe */
    }else if(S.role==='clinica'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('clinicas',ref('clinicas',rid),1);
@@ -904,9 +904,9 @@ function initEpiList(wrapId,rec){
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['cipa','CIPA (NR-5)','users'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
-empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['documentos','Documentos','file']],
+empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['cipa','CIPA (NR-5)','users'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
 const isC=()=>S.role==='consultoria';
 /* super admin da plataforma: dono fixo do sistema, ou o próprio modo sem login real (demo local) */
@@ -2466,6 +2466,167 @@ VIEWS.epis=()=>{
  (l.length?tbl([{h:'Colaborador',f:a=>esc(nCol(a.colabId))},{h:'Empresa',f:a=>esc(nEmp(a.empresaId))},{h:'Data',f:a=>fd(a.data)},{h:'EPI(s)',f:a=>esc(epiTxt(a))},{h:'Validade',f:a=>a.validade?fd(a.validade):'—'},{h:'Recibo assinado',f:a=>a.assinaturaImg?'<span class="chip low">Sim (eletrônica)</span>':a.assinado==='Sim'?'<span class="chip low">Sim</span>':'<span class="chip gray">Não</span>'},{h:'',a:1,f:a=>`<button class="btn s g" data-a="docEpi" data-id="${a.id}" aria-label="Imprimir recibo">${ic('print')}</button><button class="btn s g" data-a="editEpi" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delEpi" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
  :emptyBox('Nenhuma entrega registrada','Registre aqui cada entrega ou troca de EPI por colaborador.',`<button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button>`,'check'));
 };
+/* ====================== CIPA — NR-5 (dimensionamento pela NR-4: grau de risco) ====================== */
+/* Quadro I da NR-5 (Portaria MTP 422/2021). ATENÇÃO: o mapeamento das colunas foi inferido do texto da norma — conferir com o Quadro I oficial. */
+const CIPA_FAIXAS=[[20,29],[30,50],[51,80],[81,100],[101,120],[121,140],[141,300],[301,500],[501,1000],[1001,2500],[2501,5000],[5001,10000]];
+const CIPA_Q={
+ 1:{ef:[1,1,1,1,2,4,5,6,8],su:[1,1,1,1,2,3,4,5,6],ini:3,inc:[1,1]},
+ 2:{ef:[1,1,2,2,3,4,5,6,8,10],su:[1,1,1,1,2,3,4,5,6,8],ini:2,inc:[1,1]},
+ 3:{ef:[1,1,2,2,2,3,4,5,6,8,10,12],su:[1,1,1,1,1,2,2,4,4,6,8,8],ini:0,inc:[2,2]},
+ 4:{ef:[1,2,3,3,4,4,4,5,6,9,11,13],su:[1,1,2,2,2,2,3,4,5,7,8,10],ini:0,inc:[2,2]}};
+const CIPA_HORAS={1:8,2:12,3:16,4:20};
+/* devolve {tipo:'cipa'|'designado', ef, su, faixa} */
+function cipaDim(grau,n){
+ grau=Math.min(4,Math.max(1,parseInt(grau,10)||2));n=parseInt(n,10)||0;const q=CIPA_Q[grau];
+ if(n<20)return {tipo:'designado',ef:0,su:0,faixa:'até 19 empregados',grau,n};
+ let ef,su,faixa;
+ if(n>10000){const k=Math.ceil((n-10000)/2500);ef=q.ef[q.ef.length-1]+k*q.inc[0];su=q.su[q.su.length-1]+k*q.inc[1];faixa='acima de 10.000 (+'+k+' grupo(s) de 2.500)'}
+ else{const i=CIPA_FAIXAS.findIndex(f=>n>=f[0]&&n<=f[1]);const j=i-q.ini;
+  if(j<0)return {tipo:'designado',ef:0,su:0,faixa:CIPA_FAIXAS[i][0]+' a '+CIPA_FAIXAS[i][1]+' empregados (abaixo do mínimo do Quadro I para o grau '+grau+')',grau,n};
+  ef=q.ef[j];su=q.su[j];faixa=CIPA_FAIXAS[i][0]+' a '+CIPA_FAIXAS[i][1]+' empregados'}
+ return {tipo:'cipa',ef,su,faixa,grau,n};
+}
+const addD=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const diaUtilApos=iso=>{let d=addD(iso,1);for(;;){const w=new Date(d+'T12:00:00').getDay();if(w!==0&&w!==6)return d;d=addD(d,1)}};
+const diaUtilOuAntes=iso=>{let d=iso;for(;;){const w=new Date(d+'T12:00:00').getDay();if(w!==0&&w!==6)return d;d=addD(d,-1)}};
+const cipaFimPadrao=ini=>ini?addD(addM(ini,12),-1):'';
+const linhas=s=>String(s||'').split('\n').map(x=>x.trim()).filter(Boolean);
+/* cronograma do processo eleitoral que elege a gestão c (o mandato anterior termina um dia antes da posse) */
+function cipaPrazos(c){
+ const fimAnt=c.mandatoIni?addD(c.mandatoIni,-1):'';if(!fimAnt)return {};
+ const edital=c.dataEdital||diaUtilOuAntes(addD(fimAnt,-60));
+ return {fimAnt,edital,inscrIni:edital,inscrFim:addD(edital,15),eleicao:c.dataEleicao||diaUtilOuAntes(addD(fimAnt,-30)),posse:c.mandatoIni,
+  treino:c.treinoData||''};
+}
+function cipaMembros(c){const t=n=>linhas(c[n]);return {empTit:t('empTit'),empSup:t('empSup'),trabTit:t('trabTit'),trabSup:t('trabSup')}}
+function cipaDimDe(c){const e=G('empresas',c.empresaId)||{};return cipaDim(e.grau,e.funcionarios)}
+function cipaDimHtml(e){
+ if(!e)return '<small>Selecione a empresa para ver o dimensionamento.</small>';
+ const r=cipaDim(e.grau,e.funcionarios);
+ const base=`<b>Dimensionamento (NR-5, Quadro I) — Grau de risco ${esc(String(r.grau))} (NR-4) · ${esc(String(r.n))} empregados</b><br>`;
+ const aviso='<br><small style="color:#8a5a00">Valores do Quadro I conferidos por inferência do texto da norma: confirme no Quadro I oficial da NR-5 antes de emitir o edital. Para empresas com mais de uma unidade, o número de empregados é por estabelecimento.</small>';
+ if(r.tipo==='designado')return `<div class="note">${base}${esc(r.faixa)}: <b>não há CIPA</b>; o empregador deve <b>designar um representante</b> da organização para cumprir as atribuições da comissão (NR-5, itens 5.4.13 e 5.4.14), com treinamento.${aviso}</div>`;
+ return `<div class="note">${base}Faixa: ${esc(r.faixa)}.<br>Representantes do <b>empregador</b>: <b>${r.ef}</b> titular(es) e <b>${r.su}</b> suplente(s). Representantes dos <b>empregados</b> (eleitos): <b>${r.ef}</b> titular(es) e <b>${r.su}</b> suplente(s).<br>Treinamento mínimo: <b>${CIPA_HORAS[r.grau]} horas</b> (antes da posse; na primeira gestão, até 30 dias após a posse).${aviso}</div>`;
+}
+function cipaStatus(c){
+ const r=cipaDimDe(c),m=cipaMembros(c),out=[];
+ const fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);
+ if(r.tipo==='designado'){return {fim,itens:[['gray','Representante designado'+(c.designado?': '+c.designado:' — informar o nome')]],vigente:!fim||fim>=today()}}
+ const f=(a,b,t)=>{out.push([a===b?'low':'med',t+' '+a+'/'+b])};
+ f(m.empTit.length,r.ef,'Empregador titulares');f(m.empSup.length,r.su,'Empregador suplentes');f(m.trabTit.length,r.ef,'Empregados titulares');f(m.trabSup.length,r.su,'Empregados suplentes');
+ return {fim,itens:out,vigente:!fim||fim>=today()};
+}
+function cipaProxima(c){ /* prazo para convocar a próxima eleição */
+ const fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);if(!fim)return null;
+ const ed=diaUtilOuAntes(addD(fim,-60));return {fim,edital:ed,dias:dias(ed)};
+}
+function abrirCipa(id,pre){
+ const rec=id?clone(G('cipas',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.fEmp||''),mandatoIni:'',localEleicao:'',horarioVotacao:'08:00 às 17:00'},pre||{});
+ window._cipaRec=rec;
+ openForm({title:id?'Editar gestão da CIPA':'Nova gestão da CIPA',btn:'Salvar',val:rec,
+ fields:[
+  {k:'empresaId',l:'Empresa (estabelecimento)',t:'select',r:1,o:empOpts,w:4,c:'cipaEmp',ph:'Selecione'},
+  {k:'gestao',l:'Gestão',w:2,h:'Ex.: 2026/2027 (se vazio, é gerada)'},
+  {t:'html',w:6,html:'<div id="cipaDim">'+cipaDimHtml(G('empresas',rec.empresaId))+'</div>'},
+  {sec:'Mandato'},
+  {k:'mandatoIni',l:'Início do mandato (posse)',t:'date',r:1,w:3,h:'Duração: 1 ano; permitida uma reeleição'},
+  {k:'mandatoFim',l:'Fim do mandato',t:'date',w:3,h:'Em branco = 1 ano após a posse'},
+  {sec:'Processo eleitoral (prazos NR-5: edital ≥ 60 dias antes do fim do mandato anterior; inscrições ≥ 15 dias; votação até 30 dias antes do fim)'},
+  {k:'dataEdital',l:'Data do edital de convocação',t:'date',w:3,h:'Em branco = calculada pela regra dos 60 dias'},
+  {k:'dataEleicao',l:'Data da votação',t:'date',w:3,h:'Em branco = calculada (30 dias antes do fim)'},
+  {k:'localEleicao',l:'Local da votação',w:3},{k:'horarioVotacao',l:'Horário da votação',w:3},
+  {k:'sindicato',l:'Sindicato da categoria (para comunicação)',w:4},
+  {k:'comissaoEleitoral',l:'Comissão eleitoral (um nome por linha)',t:'textarea',rows:3,w:6,h:'Organizada pelo empregador com participação dos empregados'},
+  {k:'inscritos',l:'Candidatos inscritos (um por linha: Nome — Função)',t:'textarea',rows:4,w:6},
+  {k:'apuracao',l:'Apuração (um por linha: Nome — votos)',t:'textarea',rows:4,w:6,h:'Os mais votados são os titulares; os demais, suplentes, por ordem de votos'},
+  {k:'votantes',l:'Total de votantes',w:2,inp:'numeric'},{k:'brancos',l:'Votos em branco',w:2,inp:'numeric'},{k:'nulos',l:'Votos nulos',w:2,inp:'numeric'},
+  {sec:'Composição da comissão (um nome por linha)'},
+  {k:'empTit',l:'Empregador — titulares (designados)',t:'textarea',rows:3,w:3},
+  {k:'empSup',l:'Empregador — suplentes (designados)',t:'textarea',rows:3,w:3},
+  {k:'trabTit',l:'Empregados — titulares (eleitos)',t:'textarea',rows:3,w:3},
+  {k:'trabSup',l:'Empregados — suplentes (eleitos)',t:'textarea',rows:3,w:3},
+  {k:'presidente',l:'Presidente (indicado pelo empregador)',w:2},{k:'vice',l:'Vice-presidente (escolhido pelos empregados)',w:2},{k:'secretario',l:'Secretário (escolhido pela comissão)',w:2},
+  {k:'designado',l:'Representante designado (só quando não há CIPA)',w:6,h:'Empresas abaixo do mínimo do Quadro I: o empregador designa um representante (NR-5, 5.4.13)'},
+  {sec:'Treinamento dos membros'},
+  {k:'treinoData',l:'Data do treinamento',t:'date',w:2},{k:'treinoCarga',l:'Carga horária',w:2,h:'Mínimo por grau: 1→8h, 2→12h, 3→16h, 4→20h'},{k:'treinoLocal',l:'Local',w:2},{k:'treinoInstrutor',l:'Instrutor / entidade',w:6},
+  {sec:'Reuniões'},
+  {k:'reunioes',l:'Reuniões realizadas (uma por linha: data — assunto)',t:'textarea',rows:3,w:6,h:'Reunião ordinária mensal; guarde as atas por, no mínimo, 5 anos'},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{Object.assign(rec,v);if(!rec.gestao&&rec.mandatoIni)rec.gestao=rec.mandatoIni.slice(0,4)+'/'+(parseInt(rec.mandatoIni.slice(0,4),10)+1);
+  if(!rec.mandatoFim&&rec.mandatoIni)rec.mandatoFim=cipaFimPadrao(rec.mandatoIni);
+  save('cipas',rec);toast('Gestão da CIPA salva.');return true}});
+}
+const CIPA_DOCS=[['cronograma','Cronograma do processo eleitoral'],['edital','Edital de convocação'],['sindicato','Comunicação ao sindicato'],['comissao','Nomeação da comissão eleitoral'],['inscritos','Lista de inscritos'],['cedula','Cédula e lista de votantes'],['apuracao','Ata de apuração'],['posse','Ata de eleição e posse'],['designacao','Designação dos representantes do empregador'],['reuniao','Ata de reunião ordinária (modelo)'],['calendario','Calendário anual de reuniões'],['presenca','Lista de presença'],['designado','Designação de representante (sem CIPA)']];
+VIEWS.cipa=()=>{
+ let l=L('cipas');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
+ l=l.sort((a,b)=>(b.mandatoIni||'').localeCompare(a.mandatoIni||''));
+ const cards=l.map(c=>{
+  const st=cipaStatus(c),px=(st.vigente&&cipaMembros(c)&&cipaProxima(c))||null,r=cipaDimDe(c);
+  const aviso=px&&px.dias<=45?`<div class="note" style="margin:8px 0">${px.dias<0?'<b>Prazo vencido:</b>':'<b>Atenção:</b>'} a eleição da próxima gestão deve ser convocada até <b>${fd(px.edital)}</b> (60 dias antes do fim do mandato, ${fd(px.fim)}). <button class="btn s p" data-a="proxCipa" data-id="${c.id}">Preparar próxima gestão</button></div>`:'';
+  return `<div class="card" style="margin-bottom:12px"><div class="row sb"><h3 style="margin:0">${esc(nEmp(c.empresaId))} — gestão ${esc(c.gestao||'—')}</h3><span class="chip ${st.vigente?'low':'gray'}">${st.vigente?'Vigente':'Encerrada'}</span></div>
+  <p class="muted sm" style="margin:4px 0 8px">Mandato: ${fd(c.mandatoIni)} a ${fd(st.fim)} · ${r.tipo==='cipa'?`Dimensionamento: ${r.ef} titular(es) + ${r.su} suplente(s) de cada lado (grau ${r.grau}, ${r.n} empregados)`:'Sem CIPA: representante designado (NR-5)'}</p>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${st.itens.map(i=>`<span class="chip ${i[0]}">${esc(i[1])}</span>`).join('')}${r.tipo==='cipa'?`<span class="chip ${c.treinoData?'low':'med'}">Treinamento ${c.treinoData?fd(c.treinoData):'pendente'}</span>`:''}</div>${aviso}
+  <div class="row" style="gap:6px;flex-wrap:wrap"><select id="cd_${c.id}" aria-label="Documento">${opts(CIPA_DOCS.filter(d=>r.tipo==='cipa'?d[0]!=='designado':['designado','reuniao','presenca','calendario'].includes(d[0])),'', 'Escolha o documento…')}</select><button class="btn s p" data-a="docCipa" data-id="${c.id}">${ic('print')}Gerar documento</button><div class="grow"></div><button class="btn s g" data-a="editCipa" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delCipa" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('');
+ return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newCipa">${ic('plus')}Nova gestão</button></div>
+ <p class="sm muted" style="margin:0 0 14px">Processo da CIPA conforme a NR-5, com o dimensionamento pelo grau de risco (NR-4) e número de empregados cadastrados na empresa: calcula titulares/suplentes, controla o mandato e os prazos eleitorais e emite edital, atas, cédula, designações e calendário de reuniões. Guarde os documentos por, no mínimo, 5 anos.</p>`+
+ (l.length?cards:emptyBox('Nenhuma gestão da CIPA cadastrada','Cadastre a gestão para calcular o dimensionamento, acompanhar os prazos da eleição e emitir os documentos.',`<button class="btn p" data-a="newCipa">${ic('plus')}Nova gestão</button>`,'users'));
+};
+function cipaDoc(c,k){
+ const e=G('empresas',c.empresaId)||{},r=cipaDimDe(c),m=cipaMembros(c),p=cipaPrazos(c),fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);
+ const cab=(t,sub)=>dHead(t,sub||fd(today()),e.logo)+`<h1 style="font-size:17pt">${t}</h1>`;
+ const idEmp=`<p class="small">${esc(e.razao||'')}${e.cnpj?' — CNPJ '+esc(e.cnpj):''} · CIPA — gestão ${esc(c.gestao||'—')}</p>`;
+ const rod=(a,b)=>`<div class="sig"><div>${esc(a||'Empregador / representante legal')}<span>Nome, cargo e assinatura</span></div>${b===false?'':`<div>${esc(b||'Responsável pela SST')}<span>Nome e assinatura</span></div>`}</div>`;
+ const local=esc(e.cidade||'')+(e.cidade?', ':'')+fd(today());
+ const lst=a=>a.length?`<ol style="margin:4pt 0 0 18pt">${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:'<p><span class="blank l"></span></p>';
+ const quadro=()=>`<h2>Composição</h2>${kv([['Representantes do empregador (titulares)',r.ef||'—'],['Representantes do empregador (suplentes)',r.su||'—'],['Representantes dos empregados (titulares)',r.ef||'—'],['Representantes dos empregados (suplentes)',r.su||'—']])}`;
+ let h='';
+ if(k==='cronograma'){
+  h=cab('Cronograma do processo eleitoral da CIPA')+idEmp;
+  h+=kv([['Fim do mandato anterior',fd(p.fimAnt)],['Convocação — edital e comissão eleitoral (≥ 60 dias antes do fim do mandato)',fd(p.edital)],['Comunicação ao sindicato','na data do edital'],['Período de inscrição (≥ 15 dias)',fd(p.inscrIni)+' a '+fd(p.inscrFim)],['Votação (até 30 dias antes do fim do mandato; em horário de expediente, com voto secreto)',fd(p.eleicao)],['Apuração e ata','logo após a votação'],['Posse dos eleitos (1º dia útil após o término do mandato anterior)',fd(p.posse)],['Treinamento dos membros ('+(CIPA_HORAS[r.grau]||'—')+' h)','antes da posse; na 1ª gestão, até 30 dias após a posse'],['Reuniões ordinárias','mensais, em horário de expediente']]);
+  h+=`<div class="note">Prazos calculados a partir do fim do mandato anterior (NR-5). Confirme-os com o texto vigente da norma e com eventual acordo ou convenção coletiva da categoria.</div>`+rod('Empregador / representante legal',false);
+ }else if(k==='edital'){
+  h=cab('Edital de convocação para eleição da CIPA')+idEmp;
+  h+=`<p>A empresa <b>${esc(e.razao||'')}</b> convoca todos os seus empregados para a eleição dos representantes dos empregados na Comissão Interna de Prevenção de Acidentes (CIPA), gestão <b>${esc(c.gestao||'—')}</b>, conforme a Norma Regulamentadora nº 5.</p>`;
+  h+=kv([['Vagas a preencher (representantes dos empregados)',(r.ef||'—')+' titular(es) e '+(r.su||'—')+' suplente(s)'],['Inscrição de candidatos',fd(p.inscrIni)+' a '+fd(p.inscrFim)],['Votação',fd(p.eleicao)+' — '+esc(c.horarioVotacao||'')+(c.localEleicao?' — '+esc(c.localEleicao):'')],['Posse',fd(p.posse)]]);
+  h+=`<p>Poderão se candidatar todos os empregados do estabelecimento, independentemente de sindicalização, respeitadas as vedações da NR-5. O voto é secreto, e a votação ocorrerá em horário de expediente, com participação de, no mínimo, metade mais um dos empregados. Os candidatos mais votados serão os titulares; os demais, suplentes, em ordem de votos.</p><p style="margin-top:14pt">${local}</p>`+rod();
+ }else if(k==='sindicato'){
+  h=cab('Comunicação da eleição da CIPA ao sindicato')+idEmp;
+  h+=`<p>Ao <b>${esc(c.sindicato||'Sindicato da categoria profissional')}</b></p><p>Comunicamos que a empresa <b>${esc(e.razao||'')}</b> convocou, por edital de <b>${fd(p.edital)}</b>, a eleição dos representantes dos empregados na CIPA, gestão <b>${esc(c.gestao||'—')}</b>, com votação prevista para <b>${fd(p.eleicao)}</b>, nos termos da NR-5.</p><p>Permanecemos à disposição para esclarecimentos.</p><p style="margin-top:14pt">${local}</p>`+rod('Empregador / representante legal',false);
+ }else if(k==='comissao'){
+  h=cab('Nomeação da comissão eleitoral')+idEmp;
+  h+=`<p>O empregador nomeia a comissão eleitoral responsável pela condução do processo eleitoral da CIPA (gestão ${esc(c.gestao||'—')}): divulgação do edital, inscrições, fiscalização da votação, apuração e elaboração das atas.</p><h2>Integrantes</h2>${lst(linhas(c.comissaoEleitoral))}<p style="margin-top:14pt">${local}</p>`+rod();
+ }else if(k==='inscritos'){
+  h=cab('Lista de candidatos inscritos')+idEmp;
+  const li=linhas(c.inscritos);h+=`<p>Período de inscrição: ${fd(p.inscrIni)} a ${fd(p.inscrFim)}.</p><table class="tbl2"><tr><th>Nº</th><th>Candidato — função</th><th>Assinatura / data</th></tr>${(li.length?li:Array(10).fill('')).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td></td></tr>`).join('')}</table>`+rod('Comissão eleitoral',false);
+ }else if(k==='cedula'){
+  const li=linhas(c.inscritos);
+  h=cab('Cédula de votação — CIPA')+idEmp+`<p>Votação em ${fd(p.eleicao)}, ${esc(c.horarioVotacao||'')}. Marque um "X" em até <b>${r.ef||'__'}</b> candidato(s).</p><table class="tbl2"><tr><th style="width:30pt">Voto</th><th>Candidato — função</th></tr>${(li.length?li:Array(10).fill('')).map(x=>`<tr><td></td><td>${esc(x)}</td></tr>`).join('')}</table><p class="small">Cédula sem rasuras; voto secreto.</p>`;
+  h+=`<div class="pb"></div>`+cab('Lista de votantes')+idEmp+`<table class="tbl2"><tr><th>Nº</th><th>Nome do empregado</th><th>Assinatura</th></tr>${L('colaboradores').filter(x=>x.empresaId===c.empresaId&&x.status!=='Desligado').sort(byN).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.nome)}</td><td></td></tr>`).join('')}</table>`;
+ }else if(k==='apuracao'){
+  h=cab('Ata de apuração dos votos — CIPA')+idEmp;
+  h+=`<p>Aos ${fd(p.eleicao)}, a comissão eleitoral procedeu à apuração dos votos da eleição dos representantes dos empregados na CIPA, gestão ${esc(c.gestao||'—')}.</p>`+kv([['Total de votantes',esc(c.votantes||'____')],['Votos em branco',esc(c.brancos||'____')],['Votos nulos',esc(c.nulos||'____')]])+`<h2>Resultado</h2>${lst(linhas(c.apuracao))}<p class="small">Os candidatos mais votados são os titulares; os demais, suplentes, por ordem de votos. Em caso de empate, assume o de maior tempo de serviço no estabelecimento. Os documentos do processo ficam arquivados por, no mínimo, 5 anos.</p><p style="margin-top:14pt">${local}</p><div class="sig"><div>Presidente da comissão eleitoral<span>Nome e assinatura</span></div><div>Membro da comissão eleitoral<span>Nome e assinatura</span></div></div>`;
+ }else if(k==='posse'){
+  h=cab('Ata de eleição e posse da CIPA')+idEmp;
+  h+=`<p>Aos ${fd(p.posse)}, tomam posse os membros da CIPA da empresa <b>${esc(e.razao||'')}</b>, para o mandato de <b>${fd(c.mandatoIni)} a ${fd(fim)}</b>, eleitos e designados conforme a NR-5.</p>`+quadro()+`<h2>Empregador — titulares</h2>${lst(m.empTit)}<h2>Empregador — suplentes</h2>${lst(m.empSup)}<h2>Empregados — titulares</h2>${lst(m.trabTit)}<h2>Empregados — suplentes</h2>${lst(m.trabSup)}`+kv([['Presidente (indicado pelo empregador)',esc(c.presidente||'—')],['Vice-presidente (escolhido pelos representantes dos empregados)',esc(c.vice||'—')],['Secretário (escolhido pela comissão)',esc(c.secretario||'—')]])+`<p style="margin-top:14pt">${local}</p>`+rod()+`<div class="sig">${[...m.empTit,...m.trabTit].map(n=>`<div>Membro titular<span>${esc(n)}</span></div>`).join('')}</div>`;
+ }else if(k==='designacao'){
+  h=cab('Designação dos representantes do empregador na CIPA')+idEmp;
+  h+=`<p>O empregador designa os representantes abaixo para compor a CIPA, gestão ${esc(c.gestao||'—')}, mandato de ${fd(c.mandatoIni)} a ${fd(fim)}, nos termos da NR-5.</p><h2>Titulares</h2>${lst(m.empTit)}<h2>Suplentes</h2>${lst(m.empSup)}<p>Presidente da CIPA: <b>${esc(c.presidente||'____________________')}</b></p><p style="margin-top:14pt">${local}</p>`+rod('Empregador / representante legal',false);
+ }else if(k==='designado'){
+  h=cab('Designação de representante da organização (NR-5)')+idEmp;
+  h+=`<p>Por não haver obrigatoriedade de constituir CIPA (${esc(r.faixa)}), o empregador designa <b>${esc(c.designado||'____________________')}</b> como representante responsável pelo cumprimento dos objetivos da NR-5, com mandato de ${fd(c.mandatoIni)} a ${fd(fim)}, ficando assegurado o treinamento previsto na norma.</p><p style="margin-top:14pt">${local}</p><div class="sig"><div>Empregador / representante legal<span>Nome e assinatura</span></div><div>Representante designado<span>${esc(c.designado||'Nome e assinatura')}</span></div></div>`;
+ }else if(k==='reuniao'){
+  h=cab('Ata de reunião ordinária da CIPA')+idEmp+kv([['Reunião nº','____'],['Data / horário','____/____/______  ____:____'],['Local',esc(c.localEleicao||'______________')]])+`<h2>Presentes</h2><p><span class="blank l"></span></p><h2>Pauta</h2><p>1. Leitura e aprovação da ata anterior<br>2. Acompanhamento das recomendações pendentes<br>3. Análise de acidentes, incidentes e condições de risco do período<br>4. Assuntos gerais</p><h2>Deliberações e encaminhamentos</h2><p><span class="blank l"></span><br><span class="blank l"></span><br><span class="blank l"></span></p><div class="sig"><div>Presidente<span>${esc(c.presidente||'Nome e assinatura')}</span></div><div>Secretário<span>${esc(c.secretario||'Nome e assinatura')}</span></div></div>`;
+ }else if(k==='calendario'){
+  const ini=c.mandatoIni||today(),dia=Math.min(28,parseInt(ini.slice(8,10),10)||1);
+  const rows=Array.from({length:12},(_,i)=>{const d0=addM(ini.slice(0,8)+'01',i+1).slice(0,8)+String(dia).padStart(2,'0');const d=diaUtilOuAntes(d0);return [i+1,fd(d),esc(c.horarioVotacao?'conforme expediente':'')]});
+  h=cab('Calendário de reuniões ordinárias da CIPA')+idEmp+`<p>Mandato ${fd(c.mandatoIni)} a ${fd(fim)}. Reuniões mensais, em horário de expediente, com ata assinada pelos presentes.</p><table class="tbl2"><tr><th>Reunião</th><th>Data prevista</th><th>Realizada em</th></tr>${rows.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td></td></tr>`).join('')}</table>`+rod('Presidente da CIPA',false);
+ }else{ /* presenca */
+  const nomes=[...m.empTit,...m.empSup,...m.trabTit,...m.trabSup];
+  h=cab('Lista de presença — reunião da CIPA')+idEmp+`<p>Data: ____/____/______ &nbsp; Reunião nº: ____</p><table class="tbl2"><tr><th>Nº</th><th>Nome</th><th>Assinatura</th></tr>${(nomes.length?nomes:Array(12).fill('')).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td></td></tr>`).join('')}</table>`;
+ }
+ return h;
+}
+
 VIEWS.pts=()=>{
  let l=L('pts');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
@@ -2666,6 +2827,8 @@ const DOC_CSS=`
 .pb{break-before:page;page-break-before:always;height:0}
 .blank{display:inline-block;min-width:38mm;border-bottom:.7pt solid #444;height:11pt;vertical-align:bottom}
 .blank.l{min-width:90mm}
+.paper table th{background:#F2F6F6;border:.6pt solid #7C9599;padding:4pt 5pt;text-align:left;font:700 9pt Arial,sans-serif}
+.paper table.tbl2 td{height:17pt}
 .sig{display:grid;grid-template-columns:1fr 1fr;gap:26pt 30pt;margin-top:34pt;font:9pt Arial,sans-serif;break-inside:avoid}
 .sig div{border-top:.8pt solid #222;padding-top:3pt;text-align:center}
 .sig span{display:block;color:#444}
@@ -3900,6 +4063,9 @@ impAcoes(){
 newSol(){abrirSol()},editSol(d){abrirSol(d.id)},
 newCat(){abrirCat()},editCat(d){abrirCat(d.id)},delCat(d){ask('Excluir este registro de CAT?','Excluir',()=>del('cats',d.id))},
 newEpi(){abrirEpi()},editEpi(d){abrirEpi(d.id)},delEpi(d){ask('Excluir este registro de entrega de EPI?','Excluir',()=>del('epis',d.id))},
+newCipa(){abrirCipa()},editCipa(d){abrirCipa(d.id)},delCipa(d){ask('Excluir esta gestão da CIPA? Atas e documentos do processo devem ser guardados por no mínimo 5 anos (NR-5).','Excluir',()=>del('cipas',d.id))},
+proxCipa(d){const c=G('cipas',d.id);if(!c)return;const fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);const ini=diaUtilApos(fim);abrirCipa(null,{empresaId:c.empresaId,mandatoIni:ini,gestao:ini.slice(0,4)+'/'+(parseInt(ini.slice(0,4),10)+1),sindicato:c.sindicato,localEleicao:c.localEleicao,horarioVotacao:c.horarioVotacao,presidente:c.presidente,empTit:c.empTit,empSup:c.empSup,comissaoEleitoral:c.comissaoEleitoral})},
+docCipa(d){const c=G('cipas',d.id),sel=document.getElementById('cd_'+d.id);if(!c)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome=(CIPA_DOCS.find(x=>x[0]===k)||[k,k])[1];openDoc({title:nome+' — '+nEmp(c.empresaId),html:cipaDoc(c,k),filename:'cipa-'+k+'-'+slug(nEmp(c.empresaId))+'.html',assunto:nome+' — CIPA '+(c.gestao||''),corpo:'Segue: '+nome+' (CIPA, gestão '+(c.gestao||'')+').'})},
 newPt(){abrirPt()},editPt(d){abrirPt(d.id)},delPt(d){ask('Excluir esta Permissão de Trabalho? Atenção: a PET de espaço confinado deve ser arquivada por 5 anos (NR-33, item 33.3.3, alínea j).','Excluir',()=>del('pts',d.id))},
 newTrein(){abrirTreinamento()},editTrein(d){abrirTreinamento(d.id)},delTrein(d){ask('Excluir este registro de treinamento?','Excluir',()=>del('treinamentos',d.id))},
 newTreinLote(){abrirTreinamentoLote()},
@@ -4053,6 +4219,7 @@ solCol(){preencherExames()},
 solTipo(){preencherExames()},
 catEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsCat(t.value),'','Selecione')},
 epiEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsEpi(t.value),'','Selecione')},
+cipaEmp(t){const el=$('#cipaDim');if(el)el.innerHTML=cipaDimHtml(G('empresas',t.value))},
 ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.value),'','Selecione')},
 treinEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsTrein(t.value),'','Selecione')},
 treinTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl.value];if(!tn)return;
