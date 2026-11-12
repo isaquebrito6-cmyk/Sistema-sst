@@ -186,3 +186,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - **CIPA (NR-5)**: tela própria (menu "CIPA (NR-5)") com dimensionamento pelo grau de risco (NR-4) e nº de empregados da empresa, controle de mandato/prazos eleitorais (edital 60 dias, inscrição 15, votação 30) e 13 documentos prontos (edital, ata de posse, cédula, calendário etc.). O Quadro I é inferido do texto da norma: conferir com o oficial.
 - CIPA: botão "Certificados do treinamento" em cada gestão gera os certificados (NR-5, carga mínima por grau) já com os membros marcados.
 - Word agora gera .docx de verdade (texto editável, tabelas e assinaturas; certificados e carteirinhas saem como páginas idênticas ao PDF) e Excel traz o documento inteiro numa planilha, não só as tabelas.
+- Certificados com mais de 8 h exigem data de término ou os dias realizados, e o certificado lista o período/os dias.
