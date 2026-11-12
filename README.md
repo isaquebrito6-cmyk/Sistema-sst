@@ -187,3 +187,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - CIPA: botão "Certificados do treinamento" em cada gestão gera os certificados (NR-5, carga mínima por grau) já com os membros marcados.
 - Word agora gera .docx de verdade (texto editável, tabelas e assinaturas; certificados e carteirinhas saem como páginas idênticas ao PDF) e Excel traz o documento inteiro numa planilha, não só as tabelas.
 - Certificados com mais de 8 h exigem data de término ou os dias realizados, e o certificado lista o período/os dias.
+- CIPA: ao informar o início da vigência, o sistema preenche sozinho gestão, fim do mandato, edital, votação, treinamento e carga horária (campos editados à mão são preservados).

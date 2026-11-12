@@ -2529,6 +2529,17 @@ function cipaProxima(c){ /* prazo para convocar a próxima eleição */
  const fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);if(!fim)return null;
  const ed=diaUtilOuAntes(addD(fim,-60));return {fim,edital:ed,dias:dias(ed)};
 }
+/* preenche automaticamente os demais dados a partir do início da vigência (só mexe em campo vazio ou já preenchido automaticamente) */
+function cipaAuto(){
+ const g=k=>document.getElementById('f_'+k);const ini=(g('mandatoIni')||{}).value;if(!ini)return;
+ const emp=G('empresas',(g('empresaId')||{}).value)||{},r=cipaDim(emp.grau,emp.funcionarios);
+ const fimAnt=addD(ini,-1),edital=diaUtilOuAntes(addD(fimAnt,-60)),eleic=diaUtilOuAntes(addD(fimAnt,-30));
+ const ano=parseInt(ini.slice(0,4),10),fim=cipaFimPadrao(ini);
+ const v={gestao:ano+'/'+(ano+1),mandatoFim:fim,dataEdital:edital,dataEleicao:eleic,treinoData:diaUtilOuAntes(addD(ini,-7)),treinoCarga:r.tipo==='cipa'||emp.grau?String(CIPA_HORAS[r.grau]||''):''};
+ Object.keys(v).forEach(k=>{const el=g(k);if(!el)return;if(!el.value||el.dataset.auto==='1'){el.value=v[k];el.dataset.auto='1'}});
+ const pz=cipaPrazos({mandatoIni:ini,dataEdital:(g('dataEdital')||{}).value,dataEleicao:(g('dataEleicao')||{}).value});
+ const c=document.getElementById('cipaCron');if(c)c.innerHTML=`<div class="note"><b>Cronograma calculado a partir da vigência</b><br>Edital e comissão eleitoral: <b>${fd(pz.edital)}</b> · Inscrições: <b>${fd(pz.inscrIni)} a ${fd(pz.inscrFim)}</b> · Votação: <b>${fd(pz.eleicao)}</b> · Treinamento: <b>${fd((g('treinoData')||{}).value)}</b> · Posse: <b>${fd(ini)}</b> · Fim do mandato: <b>${fd(fim)}</b></div>`;
+}
 function abrirCipa(id,pre){
  const rec=id?clone(G('cipas',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.fEmp||''),mandatoIni:'',localEleicao:'',horarioVotacao:'08:00 às 17:00'},pre||{});
  window._cipaRec=rec;
@@ -2538,8 +2549,9 @@ function abrirCipa(id,pre){
   {k:'gestao',l:'Gestão',w:2,h:'Ex.: 2026/2027 (se vazio, é gerada)'},
   {t:'html',w:6,html:'<div id="cipaDim">'+cipaDimHtml(G('empresas',rec.empresaId))+'</div>'},
   {sec:'Mandato'},
-  {k:'mandatoIni',l:'Início do mandato (posse)',t:'date',r:1,w:3,h:'Duração: 1 ano; permitida uma reeleição'},
+  {k:'mandatoIni',l:'Início do mandato (posse)',t:'date',r:1,w:3,c:'cipaIni',h:'Ao informar a data, o sistema preenche gestão, fim, prazos da eleição e treinamento'},
   {k:'mandatoFim',l:'Fim do mandato',t:'date',w:3,h:'Em branco = 1 ano após a posse'},
+  {t:'html',w:6,html:'<div id="cipaCron"></div>'},
   {sec:'Processo eleitoral (prazos NR-5: edital ≥ 60 dias antes do fim do mandato anterior; inscrições ≥ 15 dias; votação até 30 dias antes do fim)'},
   {k:'dataEdital',l:'Data do edital de convocação',t:'date',w:3,h:'Em branco = calculada pela regra dos 60 dias'},
   {k:'dataEleicao',l:'Data da votação',t:'date',w:3,h:'Em branco = calculada (30 dias antes do fim)'},
@@ -2564,6 +2576,7 @@ function abrirCipa(id,pre){
  save:v=>{Object.assign(rec,v);if(!rec.gestao&&rec.mandatoIni)rec.gestao=rec.mandatoIni.slice(0,4)+'/'+(parseInt(rec.mandatoIni.slice(0,4),10)+1);
   if(!rec.mandatoFim&&rec.mandatoIni)rec.mandatoFim=cipaFimPadrao(rec.mandatoIni);
   save('cipas',rec);toast('Gestão da CIPA salva.');return true}});
+ setTimeout(()=>{['gestao','mandatoFim','dataEdital','dataEleicao','treinoData','treinoCarga'].forEach(k=>{const el=document.getElementById('f_'+k);if(el)el.addEventListener('input',()=>{el.dataset.auto='';if(k==='dataEdital'||k==='dataEleicao'||k==='treinoData')cipaAuto()})});cipaAuto()},60);
 }
 const CIPA_DOCS=[['cronograma','Cronograma do processo eleitoral'],['edital','Edital de convocação'],['sindicato','Comunicação ao sindicato'],['comissao','Nomeação da comissão eleitoral'],['inscritos','Lista de inscritos'],['cedula','Cédula e lista de votantes'],['apuracao','Ata de apuração'],['posse','Ata de eleição e posse'],['designacao','Designação dos representantes do empregador'],['reuniao','Ata de reunião ordinária (modelo)'],['calendario','Calendário anual de reuniões'],['presenca','Lista de presença'],['designado','Designação de representante (sem CIPA)']];
 VIEWS.cipa=()=>{
@@ -4352,7 +4365,8 @@ solCol(){preencherExames()},
 solTipo(){preencherExames()},
 catEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsCat(t.value),'','Selecione')},
 epiEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsEpi(t.value),'','Selecione')},
-cipaEmp(t){const el=$('#cipaDim');if(el)el.innerHTML=cipaDimHtml(G('empresas',t.value))},
+cipaEmp(t){const el=$('#cipaDim');if(el)el.innerHTML=cipaDimHtml(G('empresas',t.value));cipaAuto()},
+cipaIni(t){cipaAuto()},
 ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.value),'','Selecione')},
 treinEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsTrein(t.value),'','Selecione')},
 treinTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl.value];if(!tn)return;
