@@ -188,3 +188,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Word agora gera .docx de verdade (texto editável, tabelas e assinaturas; certificados e carteirinhas saem como páginas idênticas ao PDF) e Excel traz o documento inteiro numa planilha, não só as tabelas.
 - Certificados com mais de 8 h exigem data de término ou os dias realizados, e o certificado lista o período/os dias.
 - CIPA: ao informar o início da vigência, o sistema preenche sozinho gestão, fim do mandato, edital, votação, treinamento e carga horária (campos editados à mão são preservados).
+- CIPA: botões "Colar lista" e "Enviar planilha/CSV/TXT" nos campos de nomes (membros, comissão, inscritos, apuração); colar do Excel direto também funciona, sem duplicar nomes.

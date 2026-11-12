@@ -2540,6 +2540,50 @@ function cipaAuto(){
  const pz=cipaPrazos({mandatoIni:ini,dataEdital:(g('dataEdital')||{}).value,dataEleicao:(g('dataEleicao')||{}).value});
  const c=document.getElementById('cipaCron');if(c)c.innerHTML=`<div class="note"><b>Cronograma calculado a partir da vigência</b><br>Edital e comissão eleitoral: <b>${fd(pz.edital)}</b> · Inscrições: <b>${fd(pz.inscrIni)} a ${fd(pz.inscrFim)}</b> · Votação: <b>${fd(pz.eleicao)}</b> · Treinamento: <b>${fd((g('treinoData')||{}).value)}</b> · Posse: <b>${fd(ini)}</b> · Fim do mandato: <b>${fd(fim)}</b></div>`;
 }
+/* importar / colar listas de nomes nos campos da CIPA (planilha, CSV, TXT ou área de transferência) */
+const CIPA_LISTAS={empTit:1,empSup:1,trabTit:1,trabSup:1,comissaoEleitoral:1,inscritos:2,apuracao:2};
+function cipaLinhasDeMatriz(k,rows){
+ const n=CIPA_LISTAS[k]||1;let out=[];
+ rows.forEach((r,i)=>{r=(r||[]).map(c=>String(c==null?'':c).trim());if(!r.some(Boolean))return;
+  if(i===0&&/^(nome|name|colaborador|funcion|candidato|matr)/i.test(r[0]))return;
+  out.push(r.slice(0,n).filter(Boolean).join(' — '))});
+ return out.filter(Boolean);
+}
+function cipaAnexaLista(k,nomes){
+ const ta=document.getElementById('f_'+k);if(!ta)return;
+ const atuais=linhas(ta.value),vistos=new Set(atuais.map(norm));let n=0;
+ nomes.forEach(x=>{if(!vistos.has(norm(x))){vistos.add(norm(x));atuais.push(x);n++}});
+ ta.value=atuais.join('\n');ta.dispatchEvent(new Event('input',{bubbles:true}));
+ toast(n+' nome(s) adicionado(s)'+(nomes.length-n?' ('+(nomes.length-n)+' repetido(s) ignorado(s))':'')+'.');
+}
+const cipaTextoParaMatriz=(t,sep)=>String(t||'').split(/\r?\n/).map(l=>l.split(sep));
+async function cipaImportaArquivo(k,file){
+ if(!file)return;const nm=file.name.toLowerCase();
+ try{
+  if(/\.(xlsx|xls|ods)$/.test(nm)){await colimpLoadXLSX();const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,blankrows:false});cipaAnexaLista(k,cipaLinhasDeMatriz(k,rows))}
+  else{const t=await file.text();const sep=/\.csv$/.test(nm)?(t.split('\n')[0].includes(';')?';':(t.split('\n')[0].includes('\t')?'\t':',')):'\t';
+   cipaAnexaLista(k,cipaLinhasDeMatriz(k,cipaTextoParaMatriz(t,sep)))}
+ }catch(e){toast('Não consegui ler o arquivo. Use planilha (.xlsx), CSV ou TXT com um nome por linha.',5000)}
+}
+async function cipaColaLista(k){
+ try{const t=await navigator.clipboard.readText();if(!t.trim()){toast('A área de transferência está vazia.');return}
+  cipaAnexaLista(k,cipaLinhasDeMatriz(k,cipaTextoParaMatriz(t,'\t')))}
+ catch(e){toast('O navegador não liberou a área de transferência. Cole direto no campo (Ctrl+V) que o sistema ajusta.',6000)}
+}
+function cipaFerramentasListas(){
+ Object.keys(CIPA_LISTAS).forEach(k=>{const ta=document.getElementById('f_'+k);if(!ta||ta.dataset.ferr)return;ta.dataset.ferr='1';
+  const bar=document.createElement('div');bar.className='row';bar.style.cssText='gap:6px;margin-top:4px;flex-wrap:wrap';
+  bar.innerHTML=`<button type="button" class="btn s g" data-cl="cola">Colar lista</button><button type="button" class="btn s g" data-cl="arq">Enviar planilha/CSV/TXT</button><input type="file" accept=".xlsx,.xls,.ods,.csv,.txt,text/plain,text/csv" hidden>`;
+  ta.insertAdjacentElement('afterend',bar);
+  const fi=bar.querySelector('input');
+  bar.querySelector('[data-cl=cola]').onclick=()=>cipaColaLista(k);
+  bar.querySelector('[data-cl=arq]').onclick=()=>fi.click();
+  fi.onchange=()=>{cipaImportaArquivo(k,fi.files[0]);fi.value=''};
+  /* colar direto no campo: células copiadas do Excel (separadas por tab) viram "Nome — Função" ou só o nome */
+  ta.addEventListener('paste',e=>{const t=(e.clipboardData||window.clipboardData).getData('text');if(!t.includes('\t')&&!t.includes('\r'))return;e.preventDefault();cipaAnexaLista(k,cipaLinhasDeMatriz(k,cipaTextoParaMatriz(t,'\t')))});
+ });
+}
 function abrirCipa(id,pre){
  const rec=id?clone(G('cipas',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.fEmp||''),mandatoIni:'',localEleicao:'',horarioVotacao:'08:00 às 17:00'},pre||{});
  window._cipaRec=rec;
@@ -2576,6 +2620,7 @@ function abrirCipa(id,pre){
  save:v=>{Object.assign(rec,v);if(!rec.gestao&&rec.mandatoIni)rec.gestao=rec.mandatoIni.slice(0,4)+'/'+(parseInt(rec.mandatoIni.slice(0,4),10)+1);
   if(!rec.mandatoFim&&rec.mandatoIni)rec.mandatoFim=cipaFimPadrao(rec.mandatoIni);
   save('cipas',rec);toast('Gestão da CIPA salva.');return true}});
+ setTimeout(cipaFerramentasListas,60);
  setTimeout(()=>{['gestao','mandatoFim','dataEdital','dataEleicao','treinoData','treinoCarga'].forEach(k=>{const el=document.getElementById('f_'+k);if(el)el.addEventListener('input',()=>{el.dataset.auto='';if(k==='dataEdital'||k==='dataEleicao'||k==='treinoData')cipaAuto()})});cipaAuto()},60);
 }
 const CIPA_DOCS=[['cronograma','Cronograma do processo eleitoral'],['edital','Edital de convocação'],['sindicato','Comunicação ao sindicato'],['comissao','Nomeação da comissão eleitoral'],['inscritos','Lista de inscritos'],['cedula','Cédula e lista de votantes'],['apuracao','Ata de apuração'],['posse','Ata de eleição e posse'],['designacao','Designação dos representantes do empregador'],['reuniao','Ata de reunião ordinária (modelo)'],['calendario','Calendário anual de reuniões'],['presenca','Lista de presença'],['designado','Designação de representante (sem CIPA)']];
