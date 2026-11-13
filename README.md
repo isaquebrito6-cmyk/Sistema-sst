@@ -191,3 +191,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - CIPA: botões "Colar lista" e "Enviar planilha/CSV/TXT" nos campos de nomes (membros, comissão, inscritos, apuração); colar do Excel direto também funciona, sem duplicar nomes.
 - CIPA: santinhos dos candidatos (4 por folha A4, com foto do cadastro, número, função e lema) em PDF/Word; inscritos aceitam "Nome — Função — Lema".
 - CIPA: busca no cadastro de colaboradores (nome, iniciais ou matrícula) em todos os campos de nomes.
+- CIPA: foto do colaborador puxada automaticamente do cadastro nos santinhos (acha por nome, mesmo parcial) e avisa quem está sem foto ou fora do cadastro.

@@ -2577,6 +2577,11 @@ function cipaFerramentasListas(){
   bar.innerHTML=`<button type="button" class="btn s g" data-cl="cola">Colar lista</button><button type="button" class="btn s g" data-cl="arq">Enviar planilha/CSV/TXT</button><input type="file" accept=".xlsx,.xls,.ods,.csv,.txt,text/plain,text/csv" hidden>`;
   ta.insertAdjacentElement('afterend',bar);
   const fi=bar.querySelector('input');
+  if(k==='inscritos'){const st=document.createElement('div');st.className='sm muted';st.style.marginTop='4px';bar.insertAdjacentElement('afterend',st);
+   const atual=()=>{const emp=(document.getElementById('f_empresaId')||{}).value;const cs=linhas(ta.value).map(l=>l.split(/\s+[—–-]\s+/)[0].trim());
+    if(!cs.length){st.innerHTML='';return}
+    st.innerHTML='Foto do cadastro nos santinhos: '+cs.map(n=>{const c=cipaAchaColab(emp,n);return c&&c.foto?`<span class="chip low">${esc(n)} ✓</span>`:`<span class="chip gray" title="${c?'Colaborador sem foto cadastrada':'Nome não encontrado no cadastro'}">${esc(n)} — ${c?'sem foto':'fora do cadastro'}</span>`}).join(' ')};
+   ta.addEventListener('input',atual);atual();window._cipaFotoSt=atual}
   /* busca no cadastro de colaboradores da empresa: nome, iniciais ou matrícula/ID */
   const bx=document.createElement('div');bx.style.cssText='position:relative;margin-top:4px';
   bx.innerHTML='<input type="search" placeholder="Buscar no cadastro: nome, iniciais ou matrícula" autocomplete="off" aria-label="Buscar colaborador no cadastro"><div class="cipa-sug" hidden style="position:absolute;z-index:30;left:0;right:0;top:100%;background:var(--card,#fff);border:1px solid var(--line,#ccc);border-radius:8px;max-height:230px;overflow:auto;box-shadow:0 6px 18px rgba(0,0,0,.25)"></div>';
@@ -2586,7 +2591,7 @@ function cipaFerramentasListas(){
    const emp=(document.getElementById('f_empresaId')||{}).value;if(!emp){sg.hidden=false;sg.innerHTML='<div style="padding:8px">Selecione a empresa primeiro.</div>';return}
    const ini=c=>norm(c.nome).split(' ').filter(w=>w.length>2||true).map(w=>w[0]).join('');
    lista=L('colaboradores').filter(c=>c.empresaId===emp&&c.status!=='Desligado'&&(norm(c.nome).includes(q)||(!q.includes(' ')&&ini(c).startsWith(q))||(c.matricula&&norm(c.matricula).startsWith(q)))).sort(byN).slice(0,8);
-   sg.hidden=false;sg.innerHTML=lista.length?lista.map((c,i)=>`<div data-i="${i}" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line,#ddd)"><b>${esc(c.nome)}</b> <small style="opacity:.75">${esc(c.funcao||'')}${c.matricula?' · mat. '+esc(c.matricula):''}</small></div>`).join(''):'<div style="padding:8px">Nenhum colaborador encontrado.</div>'};
+   sg.hidden=false;sg.innerHTML=lista.length?lista.map((c,i)=>`<div data-i="${i}" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line,#ddd)">${c.foto?`<img src="${c.foto}" alt="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">`:''}<b>${esc(c.nome)}</b> <small style="opacity:.75">${esc(c.funcao||'')}${c.matricula?' · mat. '+esc(c.matricula):''}</small></div>`).join(''):'<div style="padding:8px">Nenhum colaborador encontrado.</div>'};
   const escolhe=c=>{if(!c)return;const n=CIPA_LISTAS[k]||1;cipaAnexaLista(k,[n>1&&c.funcao?c.nome+' — '+c.funcao:c.nome]);bi.value='';sg.hidden=true;bi.focus()};
   bi.addEventListener('input',busca);
   bi.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();escolhe(lista[0])}else if(e.key==='Escape')sg.hidden=true});
@@ -2654,10 +2659,14 @@ VIEWS.cipa=()=>{
  (l.length?cards:emptyBox('Nenhuma gestão da CIPA cadastrada','Cadastre a gestão para calcular o dimensionamento, acompanhar os prazos da eleição e emitir os documentos.',`<button class="btn p" data-a="newCipa">${ic('plus')}Nova gestão</button>`,'users'));
 };
 function cipaCandidatos(c){return linhas(c.inscritos).map((l,i)=>{const p=l.split(/\s+[—–-]\s+/).map(x=>x.trim());return {num:i+1,nome:p[0],funcao:p[1]||'',lema:p[2]||''}})}
+/* acha o colaborador pelo nome digitado: igual, ou contido/contendo (se só houver um) */
+function cipaAchaColab(empId,nome){const n=norm(nome);if(!n)return null;const cs=L('colaboradores').filter(x=>x.empresaId===empId);
+ const ex=cs.find(x=>norm(x.nome)===n);if(ex)return ex;
+ const par=cs.filter(x=>{const y=norm(x.nome);return y.startsWith(n)||n.startsWith(y)||y.includes(n)});return par.length===1?par[0]:null}
 function cipaSantinhos(c){
  const e=G('empresas',c.empresaId)||{},cs=cipaCandidatos(c),cols=L('colaboradores').filter(x=>x.empresaId===c.empresaId);
  const p=cipaPrazos(c);
- const card=x=>{const col=cols.find(y=>norm(y.nome)===norm(x.nome)),ini=x.nome.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+ const card=x=>{const col=cipaAchaColab(c.empresaId,x.nome),ini=x.nome.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   return `<div class="stn"><div class="stn-top"><b>ELEIÇÃO DA CIPA</b><span>Gestão ${esc(c.gestao||'')} · Votação em ${fd(p.eleicao)}</span></div>
   <div class="stn-mid">${col&&col.foto?`<img class="stn-foto" src="${col.foto}" alt="">`:`<div class="stn-foto">${esc(ini)}</div>`}<div class="stn-num"><small>CANDIDATO Nº</small><b>${x.num}</b></div></div>
   <div class="stn-nome">${esc(x.nome)}</div><div class="stn-fn">${esc(x.funcao||col&&col.funcao||'')}</div>
