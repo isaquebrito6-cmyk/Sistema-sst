@@ -189,3 +189,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Certificados com mais de 8 h exigem data de término ou os dias realizados, e o certificado lista o período/os dias.
 - CIPA: ao informar o início da vigência, o sistema preenche sozinho gestão, fim do mandato, edital, votação, treinamento e carga horária (campos editados à mão são preservados).
 - CIPA: botões "Colar lista" e "Enviar planilha/CSV/TXT" nos campos de nomes (membros, comissão, inscritos, apuração); colar do Excel direto também funciona, sem duplicar nomes.
+- CIPA: santinhos dos candidatos (4 por folha A4, com foto do cadastro, número, função e lema) em PDF/Word; inscritos aceitam "Nome — Função — Lema".

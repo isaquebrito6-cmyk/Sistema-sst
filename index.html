@@ -2541,7 +2541,7 @@ function cipaAuto(){
  const c=document.getElementById('cipaCron');if(c)c.innerHTML=`<div class="note"><b>Cronograma calculado a partir da vigência</b><br>Edital e comissão eleitoral: <b>${fd(pz.edital)}</b> · Inscrições: <b>${fd(pz.inscrIni)} a ${fd(pz.inscrFim)}</b> · Votação: <b>${fd(pz.eleicao)}</b> · Treinamento: <b>${fd((g('treinoData')||{}).value)}</b> · Posse: <b>${fd(ini)}</b> · Fim do mandato: <b>${fd(fim)}</b></div>`;
 }
 /* importar / colar listas de nomes nos campos da CIPA (planilha, CSV, TXT ou área de transferência) */
-const CIPA_LISTAS={empTit:1,empSup:1,trabTit:1,trabSup:1,comissaoEleitoral:1,inscritos:2,apuracao:2};
+const CIPA_LISTAS={empTit:1,empSup:1,trabTit:1,trabSup:1,comissaoEleitoral:1,inscritos:3,apuracao:2};
 function cipaLinhasDeMatriz(k,rows){
  const n=CIPA_LISTAS[k]||1;let out=[];
  rows.forEach((r,i)=>{r=(r||[]).map(c=>String(c==null?'':c).trim());if(!r.some(Boolean))return;
@@ -2602,7 +2602,7 @@ function abrirCipa(id,pre){
   {k:'localEleicao',l:'Local da votação',w:3},{k:'horarioVotacao',l:'Horário da votação',w:3},
   {k:'sindicato',l:'Sindicato da categoria (para comunicação)',w:4},
   {k:'comissaoEleitoral',l:'Comissão eleitoral (um nome por linha)',t:'textarea',rows:3,w:6,h:'Organizada pelo empregador com participação dos empregados'},
-  {k:'inscritos',l:'Candidatos inscritos (um por linha: Nome — Função)',t:'textarea',rows:4,w:6},
+  {k:'inscritos',l:'Candidatos inscritos (um por linha: Nome — Função — Lema do santinho)',t:'textarea',rows:4,w:6},
   {k:'apuracao',l:'Apuração (um por linha: Nome — votos)',t:'textarea',rows:4,w:6,h:'Os mais votados são os titulares; os demais, suplentes, por ordem de votos'},
   {k:'votantes',l:'Total de votantes',w:2,inp:'numeric'},{k:'brancos',l:'Votos em branco',w:2,inp:'numeric'},{k:'nulos',l:'Votos nulos',w:2,inp:'numeric'},
   {sec:'Composição da comissão (um nome por linha)'},
@@ -2623,7 +2623,7 @@ function abrirCipa(id,pre){
  setTimeout(cipaFerramentasListas,60);
  setTimeout(()=>{['gestao','mandatoFim','dataEdital','dataEleicao','treinoData','treinoCarga'].forEach(k=>{const el=document.getElementById('f_'+k);if(el)el.addEventListener('input',()=>{el.dataset.auto='';if(k==='dataEdital'||k==='dataEleicao'||k==='treinoData')cipaAuto()})});cipaAuto()},60);
 }
-const CIPA_DOCS=[['cronograma','Cronograma do processo eleitoral'],['edital','Edital de convocação'],['sindicato','Comunicação ao sindicato'],['comissao','Nomeação da comissão eleitoral'],['inscritos','Lista de inscritos'],['cedula','Cédula e lista de votantes'],['apuracao','Ata de apuração'],['posse','Ata de eleição e posse'],['designacao','Designação dos representantes do empregador'],['reuniao','Ata de reunião ordinária (modelo)'],['calendario','Calendário anual de reuniões'],['presenca','Lista de presença'],['designado','Designação de representante (sem CIPA)']];
+const CIPA_DOCS=[['santinho','Santinhos dos candidatos (propaganda eleitoral)'],['cronograma','Cronograma do processo eleitoral'],['edital','Edital de convocação'],['sindicato','Comunicação ao sindicato'],['comissao','Nomeação da comissão eleitoral'],['inscritos','Lista de inscritos'],['cedula','Cédula e lista de votantes'],['apuracao','Ata de apuração'],['posse','Ata de eleição e posse'],['designacao','Designação dos representantes do empregador'],['reuniao','Ata de reunião ordinária (modelo)'],['calendario','Calendário anual de reuniões'],['presenca','Lista de presença'],['designado','Designação de representante (sem CIPA)']];
 VIEWS.cipa=()=>{
  let l=L('cipas');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
  l=l.sort((a,b)=>(b.mandatoIni||'').localeCompare(a.mandatoIni||''));
@@ -2638,7 +2638,22 @@ VIEWS.cipa=()=>{
  <p class="sm muted" style="margin:0 0 14px">Processo da CIPA conforme a NR-5, com o dimensionamento pelo grau de risco (NR-4) e número de empregados cadastrados na empresa: calcula titulares/suplentes, controla o mandato e os prazos eleitorais e emite edital, atas, cédula, designações e calendário de reuniões. Guarde os documentos por, no mínimo, 5 anos.</p>`+
  (l.length?cards:emptyBox('Nenhuma gestão da CIPA cadastrada','Cadastre a gestão para calcular o dimensionamento, acompanhar os prazos da eleição e emitir os documentos.',`<button class="btn p" data-a="newCipa">${ic('plus')}Nova gestão</button>`,'users'));
 };
+function cipaCandidatos(c){return linhas(c.inscritos).map((l,i)=>{const p=l.split(/\s+[—–-]\s+/).map(x=>x.trim());return {num:i+1,nome:p[0],funcao:p[1]||'',lema:p[2]||''}})}
+function cipaSantinhos(c){
+ const e=G('empresas',c.empresaId)||{},cs=cipaCandidatos(c),cols=L('colaboradores').filter(x=>x.empresaId===c.empresaId);
+ const p=cipaPrazos(c);
+ const card=x=>{const col=cols.find(y=>norm(y.nome)===norm(x.nome)),ini=x.nome.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  return `<div class="stn"><div class="stn-top"><b>ELEIÇÃO DA CIPA</b><span>Gestão ${esc(c.gestao||'')} · Votação em ${fd(p.eleicao)}</span></div>
+  <div class="stn-mid">${col&&col.foto?`<img class="stn-foto" src="${col.foto}" alt="">`:`<div class="stn-foto">${esc(ini)}</div>`}<div class="stn-num"><small>CANDIDATO Nº</small><b>${x.num}</b></div></div>
+  <div class="stn-nome">${esc(x.nome)}</div><div class="stn-fn">${esc(x.funcao||col&&col.funcao||'')}</div>
+  <div class="stn-lema">${esc(x.lema||'Segurança é compromisso de todos. Vote consciente!')}</div>
+  <div class="stn-foot">${e.logo?`<img src="${e.logo}" alt="">`:''}<b>${esc(e.fantasia||e.razao||'')}</b><br>Voto secreto${c.horarioVotacao?' · '+esc(c.horarioVotacao):''}${c.localEleicao?' · '+esc(c.localEleicao):''}</div></div>`};
+ if(!cs.length)return '<div class="note" style="margin:20mm">Cadastre os candidatos inscritos (um por linha: Nome — Função — Lema) para gerar os santinhos.</div>';
+ const pgs=[];for(let i=0;i<cs.length;i+=4)pgs.push(`<div class="santinho-sheet">${cs.slice(i,i+4).map(card).join('')}</div>`);
+ return pgs.join('');
+}
 function cipaDoc(c,k){
+ if(k==='santinho')return cipaSantinhos(c);
  const e=G('empresas',c.empresaId)||{},r=cipaDimDe(c),m=cipaMembros(c),p=cipaPrazos(c),fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);
  const cab=(t,sub)=>dHead(t,sub||fd(today()),e.logo)+`<h1 style="font-size:17pt">${t}</h1>`;
  const idEmp=`<p class="small">${esc(e.razao||'')}${e.cnpj?' — CNPJ '+esc(e.cnpj):''} · CIPA — gestão ${esc(c.gestao||'—')}</p>`;
@@ -2664,9 +2679,9 @@ function cipaDoc(c,k){
   h+=`<p>O empregador nomeia a comissão eleitoral responsável pela condução do processo eleitoral da CIPA (gestão ${esc(c.gestao||'—')}): divulgação do edital, inscrições, fiscalização da votação, apuração e elaboração das atas.</p><h2>Integrantes</h2>${lst(linhas(c.comissaoEleitoral))}<p style="margin-top:14pt">${local}</p>`+rod();
  }else if(k==='inscritos'){
   h=cab('Lista de candidatos inscritos')+idEmp;
-  const li=linhas(c.inscritos);h+=`<p>Período de inscrição: ${fd(p.inscrIni)} a ${fd(p.inscrFim)}.</p><table class="tbl2"><tr><th>Nº</th><th>Candidato — função</th><th>Assinatura / data</th></tr>${(li.length?li:Array(10).fill('')).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td></td></tr>`).join('')}</table>`+rod('Comissão eleitoral',false);
+  const li=linhas(c.inscritos).map(x=>x.split(/\s+[—–-]\s+/).slice(0,2).join(' — '));h+=`<p>Período de inscrição: ${fd(p.inscrIni)} a ${fd(p.inscrFim)}.</p><table class="tbl2"><tr><th>Nº</th><th>Candidato — função</th><th>Assinatura / data</th></tr>${(li.length?li:Array(10).fill('')).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x)}</td><td></td></tr>`).join('')}</table>`+rod('Comissão eleitoral',false);
  }else if(k==='cedula'){
-  const li=linhas(c.inscritos);
+  const li=linhas(c.inscritos).map(x=>x.split(/\s+[—–-]\s+/).slice(0,2).join(' — '));
   h=cab('Cédula de votação — CIPA')+idEmp+`<p>Votação em ${fd(p.eleicao)}, ${esc(c.horarioVotacao||'')}. Marque um "X" em até <b>${r.ef||'__'}</b> candidato(s).</p><table class="tbl2"><tr><th style="width:30pt">Voto</th><th>Candidato — função</th></tr>${(li.length?li:Array(10).fill('')).map(x=>`<tr><td></td><td>${esc(x)}</td></tr>`).join('')}</table><p class="small">Cédula sem rasuras; voto secreto.</p>`;
   h+=`<div class="pb"></div>`+cab('Lista de votantes')+idEmp+`<table class="tbl2"><tr><th>Nº</th><th>Nome do empregado</th><th>Assinatura</th></tr>${L('colaboradores').filter(x=>x.empresaId===c.empresaId&&x.status!=='Desligado').sort(byN).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.nome)}</td><td></td></tr>`).join('')}</table>`;
  }else if(k==='apuracao'){
@@ -2993,6 +3008,19 @@ const DOC_CSS=`
 @media screen and (max-width:820px){.paper{padding:16px;font-size:10pt}.paper h1{font-size:22pt}.paper table{display:block;overflow-x:auto;white-space:normal}.cover{padding:16px 0;min-height:0}}
 @media print{.paper{box-shadow:none;max-width:none;padding:0;margin:0}}
 @page idcard{size:A5 landscape;margin:8mm}
+@page santinho{size:A4;margin:0}
+.paper:has(.santinho-sheet){max-width:210mm;padding:0;background:none;box-shadow:none}
+.santinho-sheet{page:santinho;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:138mm;gap:0;width:210mm;min-height:297mm;box-sizing:border-box;padding:10mm 7.5mm;align-content:start;background:#fff;break-after:page;page-break-after:always}
+.santinho-sheet:last-child{break-after:auto;page-break-after:auto}
+.stn{box-sizing:border-box;width:95mm;height:138mm;border:.3mm dashed #9bb;display:flex;flex-direction:column;overflow:hidden;font-family:Arial,sans-serif;color:#10343a;background:#fff;position:relative}
+.stn-top{background:#0B5560;color:#fff;text-align:center;padding:4mm 3mm 3mm}.stn-top b{display:block;font-size:13pt;letter-spacing:.4pt}.stn-top span{font-size:8.5pt;opacity:.92}
+.stn-mid{display:flex;align-items:center;justify-content:center;gap:5mm;padding:5mm 4mm 2mm}
+.stn-foto{width:34mm;height:44mm;border:.8mm solid #A87B00;border-radius:2mm;object-fit:cover;background:#e8eff0;display:flex;align-items:center;justify-content:center;font:700 22pt Arial;color:#0B5560}
+.stn-num{text-align:center;line-height:1}.stn-num small{display:block;font-size:8pt;letter-spacing:1pt;color:#5b777b;margin-bottom:1mm}.stn-num b{font-size:46pt;color:#A87B00}
+.stn-nome{text-align:center;font:700 14pt Arial;padding:1mm 4mm 0;line-height:1.15}.stn-fn{text-align:center;font-size:9.5pt;color:#5b777b;padding:0 4mm}
+.stn-lema{margin:3mm 6mm 0;padding:2.5mm 3mm;border-left:1.2mm solid #A87B00;background:#f4f8f8;font-style:italic;font-size:11.5pt;line-height:1.35;flex:1;display:flex;align-items:center;margin-bottom:3mm}
+.stn-foot{margin-top:auto;border-top:.4mm solid #cfdcdd;padding:2.5mm 3mm;text-align:center;font-size:8pt;line-height:1.35}
+.stn-foot img{height:7mm;max-width:30mm;object-fit:contain;display:block;margin:0 auto 1mm}
 .paper:has(.idcard-sheet){max-width:210mm;padding:0;background:none;box-shadow:none}
 .idcard-sheet{page:idcard;display:flex;flex-direction:column;gap:6mm;justify-content:flex-start;align-items:center;padding:8mm;break-inside:avoid;break-after:page;page-break-after:always}
 .idcard-sheet:last-child{break-after:auto;page-break-after:auto}
@@ -3751,7 +3779,7 @@ function logoAjustaNoDoc(){
  });
 }
 /* PDF de certificados e carteirinhas: renderiza cada página (.cert-sheet / .idcard-sheet) e monta o PDF no navegador (html2canvas + jsPDF carregados sob demanda). */
-const docPdfOk=d=>!!(d&&/class="(cert-sheet|idcard-sheet)/.test(d.html||''));
+const docPdfOk=d=>!!(d&&/class="(cert-sheet|idcard-sheet|santinho-sheet)/.test(d.html||''));
 const PDF_LIBS=['https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
 function carregaScript(u){return new Promise((ok,err)=>{if([...document.scripts].some(x=>x.src===u))return ok();const e=document.createElement('script');e.src=u;e.onload=ok;e.onerror=()=>err(new Error('Falha ao carregar '+u));document.head.appendChild(e)})}
 async function docPdfBlob(d){
@@ -3761,9 +3789,9 @@ async function docPdfBlob(d){
  host.innerHTML='<div class="paper" style="max-width:none;margin:0;box-shadow:none">'+d.html+'</div>';document.body.appendChild(host);
  try{
   host.querySelectorAll('.cert-title').forEach(x=>{x.style.background='none';x.style.webkitTextFillColor='currentColor';x.style.webkitBackgroundClip='border-box'});
-  host.querySelectorAll('.cert-sheet,.idcard-sheet').forEach(x=>{x.style.zoom='1';x.style.margin='0';x.style.boxShadow='none';if(x.classList.contains('idcard-sheet')){x.style.width='210mm';x.style.boxSizing='border-box'}});
+  host.querySelectorAll('.cert-sheet,.idcard-sheet,.santinho-sheet').forEach(x=>{x.style.zoom='1';x.style.margin='0';x.style.boxShadow='none';if(x.classList.contains('idcard-sheet')||x.classList.contains('santinho-sheet')){x.style.width='210mm';x.style.boxSizing='border-box'}});
   if(document.fonts&&document.fonts.ready)await document.fonts.ready;
-  const pages=[...host.querySelectorAll('.cert-sheet,.idcard-sheet')];if(!pages.length)throw new Error('Sem páginas');
+  const pages=[...host.querySelectorAll('.cert-sheet,.idcard-sheet,.santinho-sheet')];if(!pages.length)throw new Error('Sem páginas');
   let pdf=null;
   for(const el of pages){
    const cv=await html2canvas(el,{scale:2.5,backgroundColor:'#ffffff',useCORS:true,logging:false});
@@ -3825,10 +3853,10 @@ async function docPaginasImg(d){
  host.innerHTML='<div class="paper" style="max-width:none;margin:0;box-shadow:none">'+d.html+'</div>';document.body.appendChild(host);
  try{
   host.querySelectorAll('.cert-title').forEach(x=>{x.style.background='none';x.style.webkitTextFillColor='currentColor';x.style.webkitBackgroundClip='border-box'});
-  host.querySelectorAll('.cert-sheet,.idcard-sheet').forEach(x=>{x.style.zoom='1';x.style.margin='0';x.style.boxShadow='none';if(x.classList.contains('idcard-sheet')){x.style.width='210mm';x.style.boxSizing='border-box'}});
+  host.querySelectorAll('.cert-sheet,.idcard-sheet,.santinho-sheet').forEach(x=>{x.style.zoom='1';x.style.margin='0';x.style.boxShadow='none';if(x.classList.contains('idcard-sheet')||x.classList.contains('santinho-sheet')){x.style.width='210mm';x.style.boxSizing='border-box'}});
   if(document.fonts&&document.fonts.ready)await document.fonts.ready;
   const out=[];
-  for(const el of host.querySelectorAll('.cert-sheet,.idcard-sheet')){
+  for(const el of host.querySelectorAll('.cert-sheet,.idcard-sheet,.santinho-sheet')){
    const cv=await html2canvas(el,{scale:2.5,backgroundColor:'#ffffff',useCORS:true,logging:false});
    out.push({url:cv.toDataURL('image/jpeg',.93),cw:cv.width,ch:cv.height,cert:el.classList.contains('cert-sheet')})}
   return out;
