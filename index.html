@@ -507,10 +507,10 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos','cipas'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos','cipas','avpsicos'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
-const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos','cipas'];
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos','cipas','avpsicos'];
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
@@ -579,7 +579,7 @@ async function initData(){
    if(S.role==='consultoria')await garantirPsicoMigrado(col,ref,CFG_ID());
    if(S.role==='empresa'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('empresas',ref('empresas',rid),1);ouvir('clinicas',col('clinicas').where('consultoriaId','==',CFG_ID()));
-    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis','pts','treinamentos','cipas'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
+    ['colaboradores','riscos','acoes','solicitacoes','documentos','cats','epis','pts','treinamentos','cipas','avpsicos'].forEach(c=>ouvir(c,col(c).where('empresaId','==',rid)));
     /* respostas do checklist psicossocial: a empresa não recebe */
    }else if(S.role==='clinica'){
     ouvir('config',ref('config',CFG_ID()),1);ouvir('clinicas',ref('clinicas',rid),1);
@@ -905,9 +905,9 @@ function initEpiList(wrapId,rec){
 /* ====================== ESTADO E REGRAS ====================== */
 const S={view:'painel',role:'consultoria',rid:'',emp:'',q:'',sst:'Todas',ready:false,nav:false,det:null,doc:null,form:null,cloud:false,usingAuth:false,authLocked:false,authUser:null,consultoriaId:'',verTodas:false};
 const NAV={
-consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['cipa','CIPA (NR-5)','users'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
+consultoria:[['painel','Painel','home'],['empresas','Empresas','build'],['colaboradores','Colaboradores','users'],['riscos','Inventário de riscos','shield'],['acoes','Plano de ação','tasks'],['solicitacoes','Exames e ASO','clip'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['cipa','CIPA (NR-5)','users'],['psiorg','Psicossocial (NR-1)','shield'],['clinicas','Clínicas','clinic'],['documentos','PGR, PCMSO e modelos','file'],['usuarios','Usuários','users'],['consultorias','Consultorias','build'],['auditoria','Auditoria','shield'],['config','Configurações','gear']],
 clinica:[['solicitacoes','Solicitações recebidas','clip']],
-empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['cipa','CIPA (NR-5)','users'],['documentos','Documentos','file']],
+empresa:[['solicitacoes','Exames e ASO','clip'],['colaboradores','Colaboradores','users'],['cats','Acidentes (CAT)','alert'],['epis','EPI','check'],['pts','Permissão de Trabalho','lock'],['treinamentos','Treinamentos (NRs)','cert'],['cipa','CIPA (NR-5)','users'],['psiorg','Psicossocial (NR-1)','shield'],['documentos','Documentos','file']],
 colaborador:[['meuportal','Meus dados','users']]};
 const isC=()=>S.role==='consultoria';
 /* super admin da plataforma: dono fixo do sistema, ou o próprio modo sem login real (demo local) */
@@ -2733,6 +2733,69 @@ function cipaDoc(c,k){
  return h;
 }
 
+/* ====================== Avaliação psicossocial COLETIVA (NR-1, GRO — fatores de risco psicossociais) ====================== */
+/* Resultados agregados por empresa/grupo; nenhuma resposta individual é guardada. Critério de níveis: convenção interna do sistema (ajustável), não da norma. */
+const PSI_FATORES=[
+ {id:'carga',n:'Sobrecarga de trabalho e ritmo intenso',q:'Tenho tempo suficiente para fazer meu trabalho com qualidade e segurança.',hz:'psi-carga',m:'Revisar metas e dimensionamento da equipe; redistribuir tarefas; canal de escuta.'},
+ {id:'jornada',n:'Jornada prolongada, horas extras e pausas',q:'Consigo fazer pausas e descansar entre as jornadas, sem excesso de horas extras.',hz:'psi-jornada',m:'Controle de jornada; limite de horas extras; pausas e descanso entre turnos.'},
+ {id:'autonomia',n:'Autonomia e controle sobre o trabalho',q:'Tenho margem para decidir como executar minhas tarefas.',hz:'psi-autonomia',m:'Ampliar participação nas decisões do posto; revisar procedimentos com os trabalhadores.'},
+ {id:'papeis',n:'Clareza de papéis e de atribuições',q:'Sei exatamente o que se espera de mim e quais são minhas responsabilidades.',hz:null,m:'Descrição de funções; alinhamento de prioridades; integração de novos trabalhadores.'},
+ {id:'apoio',n:'Apoio da liderança e dos colegas',q:'Recebo apoio da minha liderança e dos colegas quando preciso.',hz:null,m:'Capacitação de lideranças; reuniões de equipe; fluxo de apoio ao trabalhador.'},
+ {id:'comunica',n:'Comunicação e gestão de mudanças',q:'Sou informado e consultado sobre mudanças que afetam meu trabalho.',hz:null,m:'Comunicação prévia das mudanças; canais formais de informação; reuniões periódicas.'},
+ {id:'reconhece',n:'Reconhecimento e recompensas',q:'Meu trabalho é reconhecido de forma justa.',hz:null,m:'Política de reconhecimento; feedback periódico; critérios claros de avaliação.'},
+ {id:'justica',n:'Justiça organizacional e tratamento respeitoso',q:'As regras e decisões da empresa são aplicadas de forma justa a todos.',hz:null,m:'Critérios transparentes; código de conduta; tratamento isonômico.'},
+ {id:'assedio',n:'Assédio moral ou sexual e violência no trabalho',q:'Já presenciei ou sofri humilhação, assédio ou violência no trabalho (resposta desfavorável = sim).',hz:'psi-assedio',m:'Política de prevenção e canal de denúncia sigiloso; treinamento de lideranças; apuração de casos.'},
+ {id:'terceiros',n:'Violência de terceiros, eventos traumáticos e trabalho isolado',q:'Sinto-me seguro em relação a clientes, terceiros e a situações de isolamento no trabalho.',hz:'psi-terceiros',m:'Procedimentos de atendimento e emergência; comunicação em trabalho isolado; apoio pós-evento.'}];
+const PSI_NIVEIS=[[60,'Crítico','#B3261E',5],[40,'Alto','#C75C00',4],[20,'Atenção','#A87B00',3],[0,'Aceitável','#2E7D32',1]];
+const psiNivel=p=>{p=parseFloat(String(p).replace(',','.'));if(isNaN(p))return null;return PSI_NIVEIS.find(n=>p>=n[0])};
+function psiPct(a,id){const v=a['pct_'+id];return v===''||v==null?null:parseFloat(String(v).replace(',','.'))}
+function abrirPsiOrg(id){
+ const rec=id?clone(G('avpsicos',id)):{empresaId:S.role==='empresa'?S.rid:(S.fEmp||''),data:today(),metodo:'Questionário coletivo anônimo, respondido de forma voluntária'};
+ const f=[{k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,ph:'Selecione'},{k:'data',l:'Data da avaliação',t:'date',r:1,w:3},
+  {k:'grupo',l:'Setores / grupos avaliados',w:6,h:'Ex.: Produção, Administrativo, Logística. Evite grupos com menos de 5 respondentes (preserva o anonimato).'},
+  {k:'trabalhadores',l:'Trabalhadores do grupo',w:2,inp:'numeric'},{k:'respondentes',l:'Participantes (respondentes)',w:2,inp:'numeric'},{k:'metodo',l:'Método da consulta',w:6},
+  {k:'responsavel',l:'Responsável pela avaliação (nome e registro)',w:6},
+  {sec:'Resultado por fator — informe o % de respostas desfavoráveis do grupo (0 a 100) e as medidas de prevenção'}];
+ PSI_FATORES.forEach(x=>{f.push({k:'pct_'+x.id,l:x.n+' — % desfavorável',w:3,inp:'numeric'});f.push({k:'med_'+x.id,l:'Medidas e responsável/prazo',w:3,ph:x.m})});
+ f.push({k:'conclusao',l:'Conclusão / observações',t:'textarea',rows:3});
+ openForm({title:id?'Editar avaliação psicossocial':'Nova avaliação psicossocial coletiva',btn:'Salvar',val:rec,fields:f,
+  save:v=>{Object.assign(rec,v);PSI_FATORES.forEach(x=>{if(!rec['med_'+x.id]&&psiNivel(rec['pct_'+x.id])&&psiNivel(rec['pct_'+x.id])[0]>=20)rec['med_'+x.id]=x.m});save('avpsicos',rec);toast('Avaliação salva.');return true}});
+}
+VIEWS.psiorg=()=>{
+ let l=L('avpsicos');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
+ l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+ const cards=l.map(a=>{
+  const ch=PSI_FATORES.map(x=>{const p=psiPct(a,x.id),n=psiNivel(p);return n?`<span class="chip" style="background:${n[2]}22;color:${n[2]};border:1px solid ${n[2]}55" title="${esc(x.n)}: ${p}%">${esc(x.n.split(' ')[0])} ${p}%</span>`:''}).join(' ');
+  return `<div class="card" style="margin-bottom:12px"><div class="row sb"><h3 style="margin:0">${esc(nEmp(a.empresaId))} — ${fd(a.data)}</h3><span class="muted sm">${a.respondentes||'—'} de ${a.trabalhadores||'—'} participantes</span></div>
+  <p class="muted sm" style="margin:4px 0 8px">${esc(a.grupo||'Todos os setores')}</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${ch||'<span class="muted sm">Sem resultados informados.</span>'}</div>
+  <div class="row" style="gap:6px;flex-wrap:wrap"><select id="pd_${a.id}" aria-label="Documento">${opts([['rel','Relatório da avaliação coletiva (NR-1)'],['plano','Plano de ação psicossocial'],['ques','Questionário coletivo anônimo (modelo)']],'','Escolha o documento…')}</select><button class="btn s p" data-a="docPsiOrg" data-id="${a.id}">${ic('print')}Gerar documento</button><button class="btn s" data-a="psiParaInv" data-id="${a.id}">${ic('shield')}Levar ao inventário de riscos</button><div class="grow"></div><button class="btn s g" data-a="editPsiOrg" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPsiOrg" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('');
+ return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newPsiOrg">${ic('plus')}Nova avaliação</button></div>
+ <p class="sm muted" style="margin:0 0 14px">Avaliação <b>coletiva</b> dos fatores de risco psicossociais (NR-1, GRO/PGR): aplique o questionário anônimo ao grupo, informe o percentual de respostas desfavoráveis por fator e o sistema classifica o nível, monta o relatório e o plano de ação e leva os fatores relevantes ao inventário de riscos. Não guarda respostas individuais. Os níveis (Aceitável &lt;20%, Atenção 20–39%, Alto 40–59%, Crítico ≥60%) são um critério interno do sistema, ajustável pelo profissional responsável.</p>`+
+ (l.length?cards:emptyBox('Nenhuma avaliação psicossocial coletiva','Cadastre o resultado do questionário coletivo para gerar o relatório, o plano de ação e os riscos do inventário.',`<button class="btn p" data-a="newPsiOrg">${ic('plus')}Nova avaliação</button>`,'shield'));
+};
+function psiDoc(a,k){
+ const e=G('empresas',a.empresaId)||{};
+ const cab=(t)=>dHead(t,fd(a.data),e.logo)+`<h1 style="font-size:17pt">${t}</h1><p class="small">${esc(e.razao||'')}${e.cnpj?' — CNPJ '+esc(e.cnpj):''}</p>`;
+ const rod=`<div class="sig"><div>Responsável pela avaliação<span>${esc(a.responsavel||'Nome, registro e assinatura')}</span></div><div>Empregador / representante legal<span>Nome e assinatura</span></div></div>`;
+ const res=PSI_FATORES.map(x=>({x,p:psiPct(a,x.id),n:psiNivel(psiPct(a,x.id))}));
+ const part=(a.respondentes&&a.trabalhadores)?Math.round(100*a.respondentes/a.trabalhadores)+'%':'—';
+ if(k==='ques')return cab('Questionário coletivo — fatores psicossociais do trabalho')+`<p class="small">Participação voluntária e anônima. Não escreva seu nome. As respostas serão tratadas apenas de forma agrupada, sem identificar pessoas. Marque, para cada afirmação: 1 = discordo totalmente · 2 = discordo · 3 = neutro · 4 = concordo · 5 = concordo totalmente. Setor/grupo: ______________________</p><table><tr><th style="width:24pt">Nº</th><th>Afirmação</th><th style="width:130pt">1 &nbsp;2 &nbsp;3 &nbsp;4 &nbsp;5</th></tr>${PSI_FATORES.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.q)}</td><td>☐ &nbsp;☐ &nbsp;☐ &nbsp;☐ &nbsp;☐</td></tr>`).join('')}</table><p class="small">Para as afirmações 1 a 8 e 10, considera-se resposta desfavorável as marcações 1 e 2; para a afirmação 9 (assédio e violência), a resposta desfavorável é "concordo" (4 ou 5), pois a pergunta é formulada ao contrário.</p><p>Comentários (opcional): <span class="blank l"></span><br><span class="blank l"></span></p>`;
+ if(k==='plano'){
+  const ac=res.filter(r=>r.n&&r.n[0]>=20);
+  return cab('Plano de ação — fatores de risco psicossociais')+`<p>Ações decorrentes da avaliação coletiva de ${fd(a.data)}, a serem acompanhadas no plano de ação do PGR.</p>`+(ac.length?`<table><tr><th>Fator</th><th>Nível</th><th>Medidas de prevenção</th><th>Responsável / prazo</th><th>Situação</th></tr>${ac.sort((p,q)=>q.p-p.p).map(r=>`<tr><td>${esc(r.x.n)}</td><td>${r.n[1]} (${r.p}%)</td><td>${esc(a['med_'+r.x.id]||r.x.m)}</td><td></td><td>☐ Pendente ☐ Em andamento ☐ Concluída</td></tr>`).join('')}</table>`:'<p>Nenhum fator atingiu o nível de atenção; manter as medidas existentes e reavaliar no prazo definido.</p>')+rod;
+ }
+ /* relatório */
+ const crit=res.filter(r=>r.n&&r.n[0]>=40);
+ return cab('Relatório da avaliação dos fatores de risco psicossociais')+
+ `<h2>1. Identificação</h2>`+kv([['Empresa',esc(e.razao||'')],['Data da avaliação',fd(a.data)],['Setores / grupos avaliados',esc(a.grupo||'Todos')],['Trabalhadores no grupo',esc(a.trabalhadores||'—')],['Participantes',esc(a.respondentes||'—')+(part!=='—'?' ('+part+')':'')],['Responsável',esc(a.responsavel||'—')]])+
+ `<h2>2. Objetivo e base</h2><p>Identificar e avaliar, de forma coletiva, os fatores de risco psicossociais relacionados ao trabalho, para sua inclusão no Gerenciamento de Riscos Ocupacionais e no PGR (NR-1, Capítulo 1.5), definindo medidas de prevenção e acompanhamento.</p>`+
+ `<h2>3. Metodologia</h2><p>${esc(a.metodo||'Consulta coletiva aos trabalhadores.')}. A participação é voluntária. Os dados são tratados de forma <b>agregada e anônima</b>, sem identificação individual, e resultados de grupos com poucos respondentes não devem ser divulgados separadamente. Para cada fator, calcula-se o percentual de respostas desfavoráveis do grupo e classifica-se o nível pelo critério: Aceitável (abaixo de 20%), Atenção (20 a 39%), Alto (40 a 59%) e Crítico (60% ou mais). A avaliação não constitui diagnóstico clínico de pessoas.</p>`+
+ `<h2>4. Resultados por fator</h2><table><tr><th>Fator de risco psicossocial</th><th>% desfavorável</th><th>Nível</th></tr>${res.map(r=>`<tr><td>${esc(r.x.n)}</td><td>${r.p==null?'—':r.p+'%'}</td><td>${r.n?`<b style="color:${r.n[2]}">${r.n[1]}</b>`:'—'}</td></tr>`).join('')}</table>`+
+ `<h2>5. Medidas de prevenção</h2>`+(res.some(r=>r.n&&r.n[0]>=20)?`<ul>${res.filter(r=>r.n&&r.n[0]>=20).sort((p,q)=>q.p-p.p).map(r=>`<li><b>${esc(r.x.n)}</b> (${r.n[1]}, ${r.p}%): ${esc(a['med_'+r.x.id]||r.x.m)}</li>`).join('')}</ul>`:'<p>Nenhum fator atingiu o nível de atenção. Manter as práticas atuais.</p>')+
+ `<h2>6. Conclusão</h2><p>${crit.length?'Foram identificados fatores em nível alto ou crítico ('+crit.map(r=>esc(r.x.n.toLowerCase())).join('; ')+'), que devem ser priorizados no plano de ação do PGR.':'Não foram identificados fatores em nível alto ou crítico na avaliação.'} ${esc(a.conclusao||'')}</p>`+
+ `<h2>7. Monitoramento</h2><p>Reavaliar periodicamente, quando houver mudanças relevantes na organização do trabalho e após a implementação das medidas, comparando os resultados com esta avaliação. Os fatores de nível atenção ou superior foram incluídos no inventário de riscos do PGR.</p><div class="note">Documento de apoio: confirme os critérios e fatores com o texto vigente da NR-1 e com o guia do Ministério do Trabalho e Emprego sobre riscos psicossociais.</div>`+rod;
+}
+
 VIEWS.pts=()=>{
  let l=L('pts');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
@@ -4309,6 +4372,16 @@ certCipa(d){const c=G('cipas',d.id);if(!c)return;const r=cipaDimDe(c);const e=G(
 newCipa(){abrirCipa()},editCipa(d){abrirCipa(d.id)},delCipa(d){ask('Excluir esta gestão da CIPA? Atas e documentos do processo devem ser guardados por no mínimo 5 anos (NR-5).','Excluir',()=>del('cipas',d.id))},
 proxCipa(d){const c=G('cipas',d.id);if(!c)return;const fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);const ini=diaUtilApos(fim);abrirCipa(null,{empresaId:c.empresaId,mandatoIni:ini,gestao:ini.slice(0,4)+'/'+(parseInt(ini.slice(0,4),10)+1),sindicato:c.sindicato,localEleicao:c.localEleicao,horarioVotacao:c.horarioVotacao,presidente:c.presidente,empTit:c.empTit,empSup:c.empSup,comissaoEleitoral:c.comissaoEleitoral})},
 docCipa(d){const c=G('cipas',d.id),sel=document.getElementById('cd_'+d.id);if(!c)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome=(CIPA_DOCS.find(x=>x[0]===k)||[k,k])[1];openDoc({title:nome+' — '+nEmp(c.empresaId),html:cipaDoc(c,k),filename:'cipa-'+k+'-'+slug(nEmp(c.empresaId))+'.html',assunto:nome+' — CIPA '+(c.gestao||''),corpo:'Segue: '+nome+' (CIPA, gestão '+(c.gestao||'')+').'})},
+newPsiOrg(){abrirPsiOrg()},editPsiOrg(d){abrirPsiOrg(d.id)},delPsiOrg(d){ask('Excluir esta avaliação psicossocial?','Excluir',()=>del('avpsicos',d.id))},
+docPsiOrg(d){const a=G('avpsicos',d.id),sel=document.getElementById('pd_'+d.id);if(!a)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome={rel:'Relatório psicossocial',plano:'Plano de ação psicossocial',ques:'Questionário psicossocial'}[k];openDoc({title:nome+' — '+nEmp(a.empresaId),html:psiDoc(a,k),filename:'psicossocial-'+k+'-'+slug(nEmp(a.empresaId))+'.html',assunto:nome,corpo:'Segue: '+nome+'.'})},
+psiParaInv(d){const a=G('avpsicos',d.id);if(!a)return;let n=0,at=0;
+ PSI_FATORES.forEach(x=>{const p=psiPct(a,x.id),nv=psiNivel(p);if(!nv||nv[0]<20)return;
+  const ja=L('riscos').find(r=>r.empresaId===a.empresaId&&r.cat==='psicossocial'&&r.fatorPsi===x.id);const prob=String(nv[3]);
+  const h=x.hz?HAZ.find(y=>y.id===x.hz):null;
+  const rec=ja?clone(ja):{empresaId:a.empresaId,setor:a.grupo||'Todos os setores',funcoes:'Todas',cat:'psicossocial',exposicao:'Habitual e permanente',perigo:x.n,fonte:h?h.fonte:'Organização do trabalho',danos:h?h.danos:'Estresse ocupacional, adoecimento, afastamentos',per:'',exames:['clinico','psicossocial'],fatorPsi:x.id};
+  rec.sev='3';rec.prob=prob;rec.medidas=a['med_'+x.id]||x.m;rec.aval='Avaliação coletiva '+fd(a.data)+': '+p+'% de respostas desfavoráveis ('+nv[1]+').';
+  save('riscos',rec,true);ja?at++:n++});
+ toast(n+' risco(s) incluído(s) e '+at+' atualizado(s) no inventário (probabilidade pelo nível; severidade 3, ajuste se necessário).',6000)},
 newPt(){abrirPt()},editPt(d){abrirPt(d.id)},delPt(d){ask('Excluir esta Permissão de Trabalho? Atenção: a PET de espaço confinado deve ser arquivada por 5 anos (NR-33, item 33.3.3, alínea j).','Excluir',()=>del('pts',d.id))},
 newTrein(){abrirTreinamento()},editTrein(d){abrirTreinamento(d.id)},delTrein(d){ask('Excluir este registro de treinamento?','Excluir',()=>del('treinamentos',d.id))},
 newTreinLote(){abrirTreinamentoLote()},
