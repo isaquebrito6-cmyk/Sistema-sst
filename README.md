@@ -198,3 +198,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - PGR: catálogo de riscos ampliado de 29 para 59 itens, com medidas de controle ligadas às NRs (NR-6, 10, 11, 12, 13, 15, 17, 18, 20, 23, 26, 31, 32, 34, 35, 36) e enquadramento da NR-15 quando aplicável.
 - PGR: catálogo com 81 riscos, incluindo os ramos de limpeza e resíduos, concessionárias e oficinas (mecânica, funilaria, vendas) e fábrica de motores e veículos.
 - PGR: catálogo com 87 riscos; novos itens de movimentação interna e plataformas (empilhadeira, carrinho rebocador, paleteira elétrica, PTA/PEMT, limpeza com plataforma, baterias de tração e GLP).
+- PGR: catálogo com 102 riscos; novos itens para trabalho administrativo, RH e escritório (digitação, telas, mobiliário, home office, conforto térmico, elétrico, quedas, arquivo, voz, pressão por prazos, atendimento a público, viagens).
