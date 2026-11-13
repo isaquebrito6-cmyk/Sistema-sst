@@ -1491,6 +1491,8 @@ const COLIMP_FIELDS=[
  {k:'matricula',l:'Matrícula / ID',al:['matricula','matrícula','registro','id','codigo','código','id do colaborador','cod']},
  {k:'cep',l:'CEP',al:['cep']},{k:'endereco',l:'Endereço (rua)',al:['endereco','endereço','logradouro','rua','avenida']},{k:'numero',l:'Número (endereço)',al:['numero','número','num']},{k:'complemento',l:'Complemento',al:['complemento']},{k:'bairro',l:'Bairro',al:['bairro']},{k:'cidade',l:'Cidade',al:['cidade','municipio','município']},{k:'uf',l:'UF',al:['uf','estado']},
  {k:'pis',l:'PIS/PASEP/NIT',al:['pis','pasep','nit','pis/pasep/nit']},
+ {k:'cnhCat',l:'CNH — categoria',al:['cnh','categoria cnh','cnh categoria','categoria da cnh','categoria','cat cnh','habilitacao','habilitação']},
+ {k:'cnhVal',l:'CNH — validade',al:['validade cnh','cnh validade','validade da cnh','vencimento cnh','vencimento da cnh','venc cnh','validade habilitacao','validade habilitação']},
  {k:'telefone',l:'Telefone',al:['telefone','celular','fone','tel']},
  {k:'email',l:'E-mail',al:['email','e-mail','mail']},
  {k:'status',l:'Situação',al:['situacao','situação','status']}
@@ -1502,7 +1504,7 @@ function colimpData(v){
  v=String(v||'').trim();if(!v)return '';
  if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);
  const m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
- if(m)return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+ if(m){const d=+m[1],mo=+m[2];if(mo>12&&d<=12)return m[3]+'-'+String(d).padStart(2,'0')+'-'+String(mo).padStart(2,'0');return m[3]+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
  return '';
 }
 function colimpSexo(v){const n=norm(v);if(n.startsWith('f'))return 'Feminino';if(n.startsWith('m'))return 'Masculino';return ''}
@@ -1519,6 +1521,8 @@ function abrirColaboradorImport(){
    if(mapped.admissao)mapped.admissao=colimpData(mapped.admissao);
    if(mapped.demissao)mapped.demissao=colimpData(mapped.demissao);
    if(mapped.afastDesde)mapped.afastDesde=colimpData(mapped.afastDesde);
+   if(mapped.cnhVal)mapped.cnhVal=colimpData(mapped.cnhVal);
+   if(mapped.cnhCat){const c=String(mapped.cnhCat).toUpperCase().replace(/[^A-E]/g,'').split('').sort().join('');mapped.cnhCat=['A','B','C','D','E','AB','AC','AD','AE'].includes(c)?c:''}
    if(mapped.sexo)mapped.sexo=colimpSexo(mapped.sexo);
    mapped.status=colimpStatus(mapped.status)||'Ativo';
    const errors=[];
@@ -1549,8 +1553,10 @@ function abrirColaboradorImport(){
    if(/\.xlsx?$/i.test(file.name)){
     await colimpLoadXLSX();
     const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:'array'});
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
     const ws=wb.Sheets[wb.SheetNames[0]];
+    /* células de data do Excel viram texto ISO (aaaa-mm-dd), sem depender do formato regional */
+    Object.keys(ws).forEach(a=>{const c=ws[a];if(c&&c.t==='d'&&c.v instanceof Date){const d=new Date(c.v.getTime()+12*3600e3),iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');c.t='s';c.v=iso;c.w=iso}});
     rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}).map(r=>r.map(x=>String(x==null?'':x)));
    }else{
     rows=colimpParseCSV(await file.text());
@@ -1579,7 +1585,7 @@ function abrirColaboradorImport(){
   if(!validas.length){toast('Nenhuma linha válida para importar. Confira o mapeamento das colunas.',4500);return}
   validas.forEach(r=>{
    const m=r.mapped;
-   save('colaboradores',{empresaId:S.role==='empresa'?S.rid:state.empresaId,status:m.status||'Ativo',nome:m.nome,cpf:m.cpf?mask.cpf(m.cpf):'',nasc:m.nasc||'',sexo:m.sexo||'',admissao:m.admissao||'',afastDesde:m.status==='Afastado'?(m.afastDesde||''):'',funcao:m.funcao,setor:m.setor,demissao:m.demissao||'',matricula:m.matricula||'',pis:m.pis||'',telefone:m.telefone?mask.tel(m.telefone):'',email:m.email||'',cep:m.cep?mask.cep(m.cep):'',endereco:m.endereco||'',numero:m.numero||'',complemento:m.complemento||'',bairro:m.bairro||'',cidade:m.cidade||'',uf:m.uf||''},true);
+   save('colaboradores',{empresaId:S.role==='empresa'?S.rid:state.empresaId,status:m.status||'Ativo',nome:m.nome,cpf:m.cpf?mask.cpf(m.cpf):'',nasc:m.nasc||'',sexo:m.sexo||'',admissao:m.admissao||'',afastDesde:m.status==='Afastado'?(m.afastDesde||''):'',funcao:m.funcao,setor:m.setor,demissao:m.demissao||'',matricula:m.matricula||'',pis:m.pis||'',telefone:m.telefone?mask.tel(m.telefone):'',email:m.email||'',cep:m.cep?mask.cep(m.cep):'',endereco:m.endereco||'',numero:m.numero||'',complemento:m.complemento||'',bairro:m.bairro||'',cidade:m.cidade||'',uf:m.uf||'',cnhCat:m.cnhCat||'',cnhVal:m.cnhVal||''},true);
   });
   const skipped=rowsData.length-validas.length;
   closeForm();render();
