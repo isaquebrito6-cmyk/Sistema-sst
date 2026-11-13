@@ -2749,18 +2749,33 @@ const PSI_FATORES=[
 const PSI_NIVEIS=[[60,'Crítico','#B3261E',5],[40,'Alto','#C75C00',4],[20,'Atenção','#A87B00',3],[0,'Aceitável','#2E7D32',1]];
 const psiNivel=p=>{p=parseFloat(String(p).replace(',','.'));if(isNaN(p))return null;return PSI_NIVEIS.find(n=>p>=n[0])};
 function psiPct(a,id){const v=a['pct_'+id];return v===''||v==null?null:parseFloat(String(v).replace(',','.'))}
+/* puxa do cadastro: setores, nº de trabalhadores ativos e responsável técnico */
+function psiAuto(origem){
+ const g=k=>document.getElementById('f_'+k),emp=(g('empresaId')||{}).value,e=G('empresas',emp);if(!e){return}
+ const ativos=L('colaboradores').filter(c=>c.empresaId===emp&&c.status!=='Desligado');
+ const setores=[...new Set([...ativos.flatMap(c=>setoresDe({setor:c.setor})),...L('riscos').filter(r=>r.empresaId===emp).flatMap(setoresDe)].filter(x=>x!=='Sem setor'))].sort((a,b)=>norm(a).localeCompare(norm(b)));
+ const sel=String((g('grupo')||{}).value||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean),selN=sel.map(norm);
+ const box=document.getElementById('psiSet');
+ if(box){box.innerHTML=setores.length?`<div class="sm muted" style="margin-bottom:4px">Setores do cadastro (clique para incluir/retirar do grupo avaliado):</div><div style="display:flex;gap:6px;flex-wrap:wrap">${setores.map(x=>`<button type="button" class="chip ${selN.includes(norm(x))?'low':'gray'}" data-psis="${esc(x)}" style="cursor:pointer;border:0">${esc(x)}</button>`).join('')}</div>`:'<div class="sm muted">Nenhum setor cadastrado nos colaboradores ou riscos desta empresa.</div>';
+  box.querySelectorAll('[data-psis]').forEach(b=>b.onclick=()=>{const v=b.dataset.psis,gr=g('grupo');let l=String(gr.value||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);const i=l.findIndex(x=>norm(x)===norm(v));if(i>=0)l.splice(i,1);else l.push(v);gr.value=l.join(', ');gr.dataset.auto='';psiAuto('grupo')})}
+ const n=selN.length?ativos.filter(c=>setoresDe({setor:c.setor}).some(x=>selN.includes(norm(x)))).length:ativos.length;
+ const tr=g('trabalhadores');if(tr&&(!tr.value||tr.dataset.auto==='1'||origem==='grupo'&&tr.dataset.auto!=='0')){tr.value=String(n);tr.dataset.auto='1'}
+ const rs=g('responsavel');if(rs&&(!rs.value||rs.dataset.auto==='1')&&e.tec_nome){rs.value=e.tec_nome+(e.tec_reg?', '+e.tec_reg:'');rs.dataset.auto='1'}
+}
 function abrirPsiOrg(id){
  const rec=id?clone(G('avpsicos',id)):{empresaId:S.role==='empresa'?S.rid:(S.fEmp||''),data:today(),metodo:'Questionário coletivo anônimo, respondido de forma voluntária'};
- const f=[{k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,ph:'Selecione'},{k:'data',l:'Data da avaliação',t:'date',r:1,w:3},
-  {k:'grupo',l:'Setores / grupos avaliados',w:6,h:'Ex.: Produção, Administrativo, Logística. Evite grupos com menos de 5 respondentes (preserva o anonimato).'},
+ const f=[{k:'empresaId',l:'Empresa',t:'select',r:1,o:empOpts,w:3,ph:'Selecione',c:'psiEmp'},{k:'data',l:'Data da avaliação',t:'date',r:1,w:3},
+  {k:'grupo',l:'Setores / grupos avaliados',w:6,h:'Vazio = todos os setores. Evite grupos com menos de 5 respondentes (preserva o anonimato).'},{t:'html',w:6,html:'<div id="psiSet"></div>'},
   {k:'trabalhadores',l:'Trabalhadores do grupo',w:2,inp:'numeric'},{k:'respondentes',l:'Participantes (respondentes)',w:2,inp:'numeric'},{k:'metodo',l:'Método da consulta',w:6},
   {k:'responsavel',l:'Responsável pela avaliação (nome e registro)',w:6},
   {sec:'Resultado por fator — informe o % de respostas desfavoráveis do grupo (0 a 100) e as medidas de prevenção'}];
  PSI_FATORES.forEach(x=>{f.push({k:'pct_'+x.id,l:x.n+' — % desfavorável',w:3,inp:'numeric'});f.push({k:'med_'+x.id,l:'Medidas e responsável/prazo',w:3,ph:x.m})});
  f.push({k:'conclusao',l:'Conclusão / observações',t:'textarea',rows:3});
  openForm({title:id?'Editar avaliação psicossocial':'Nova avaliação psicossocial coletiva',btn:'Salvar',val:rec,fields:f,
-  save:v=>{Object.assign(rec,v);PSI_FATORES.forEach(x=>{if(!rec['med_'+x.id]&&psiNivel(rec['pct_'+x.id])&&psiNivel(rec['pct_'+x.id])[0]>=20)rec['med_'+x.id]=x.m});save('avpsicos',rec);toast('Avaliação salva.');return true}});
+  save:v=>{Object.assign(rec,v);if(!rec.grupo)rec.grupo='Todos os setores';PSI_FATORES.forEach(x=>{if(!rec['med_'+x.id]&&psiNivel(rec['pct_'+x.id])&&psiNivel(rec['pct_'+x.id])[0]>=20)rec['med_'+x.id]=x.m});save('avpsicos',rec);toast('Avaliação salva.');return true}});
+ psiIniciaAuto();
 }
+function psiIniciaAuto(){setTimeout(()=>{['trabalhadores','responsavel'].forEach(k=>{const el=document.getElementById('f_'+k);if(el)el.addEventListener('input',()=>{el.dataset.auto=k==='trabalhadores'?'0':''})});const gr=document.getElementById('f_grupo');if(gr)gr.addEventListener('input',()=>{const t=document.getElementById('f_trabalhadores');if(t&&t.dataset.auto!=='0')t.dataset.auto='1';psiAuto('grupo')});psiAuto()},60)}
 VIEWS.psiorg=()=>{
  let l=L('avpsicos');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
@@ -4537,6 +4552,7 @@ catEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsCat(t.
 epiEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsEpi(t.value),'','Selecione')},
 cipaEmp(t){const el=$('#cipaDim');if(el)el.innerHTML=cipaDimHtml(G('empresas',t.value));cipaAuto()},
 cipaIni(t){cipaAuto()},
+psiEmp(t){const r=document.getElementById('f_responsavel'),tr=document.getElementById('f_trabalhadores');if(r&&r.dataset.auto==='1')r.value='';if(tr&&tr.dataset.auto==='1')tr.value='';psiAuto()},
 ptEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsPt(t.value),'','Selecione')},
 treinEmp(t){const el=$('#f_colabId');if(el)el.innerHTML=opts(window._colOptsTrein(t.value),'','Selecione')},
 treinTipo(){const tipoEl=$('#f_tipo');if(!tipoEl)return;const tn=TREIN_NRS[tipoEl.value];if(!tn)return;
