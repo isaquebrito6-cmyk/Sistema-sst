@@ -233,6 +233,44 @@ service cloud.firestore {
       allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
+    // ---------- Avaliação psicossocial online (NR-1): link público e respostas anônimas ----------
+    // psipub/{token}: dados mínimos da pesquisa para a página do trabalhador (empresa, setores, aberta/encerrada).
+    // O id é um token aleatório de 32 caracteres; só se lê por id (sem listagem). Só o admin escreve.
+    match /psipub/{tok} {
+      allow get: if true;
+      allow create: if podeAdmin(request.resource.data);
+      allow update: if podeAdmin(resource.data) && request.resource.data.consultoriaId == resource.data.consultoriaId
+        && request.resource.data.empresaId == resource.data.empresaId;
+      allow delete: if podeAdmin(resource.data);
+    }
+
+    // psiresp/{id}: uma resposta anônima (sem nome, CPF ou qualquer identificador). Qualquer pessoa com o link
+    // pode CRIAR enquanto a pesquisa estiver aberta; só o admin da consultoria lê ou apaga. Nunca se altera.
+    match /psiresp/{id} {
+      function pub() { return get(/databases/$(database)/documents/psipub/$(request.resource.data.tok)).data; }
+      function nota(r, k) { return !(k in r) || (r[k] is int && r[k] >= 1 && r[k] <= 5); }
+      allow create: if request.resource.data.keys().hasOnly(['avId','empresaId','consultoriaId','tok','setor','dia','r'])
+        && request.resource.data.tok is string
+        && exists(/databases/$(database)/documents/psipub/$(request.resource.data.tok))
+        && pub().aberto == true
+        && pub().avId == request.resource.data.avId
+        && pub().empresaId == request.resource.data.empresaId
+        && pub().consultoriaId == request.resource.data.consultoriaId
+        && request.resource.data.r is map
+        && request.resource.data.r.size() >= 1
+        && request.resource.data.r.keys().hasOnly(['carga','jornada','autonomia','papeis','apoio','comunica','reconhece','justica','assedio','terceiros'])
+        && nota(request.resource.data.r, 'carga') && nota(request.resource.data.r, 'jornada')
+        && nota(request.resource.data.r, 'autonomia') && nota(request.resource.data.r, 'papeis')
+        && nota(request.resource.data.r, 'apoio') && nota(request.resource.data.r, 'comunica')
+        && nota(request.resource.data.r, 'reconhece') && nota(request.resource.data.r, 'justica')
+        && nota(request.resource.data.r, 'assedio') && nota(request.resource.data.r, 'terceiros')
+        && (!('setor' in request.resource.data) || (request.resource.data.setor is string && request.resource.data.setor.size() <= 80))
+        && (!('dia' in request.resource.data) || (request.resource.data.dia is string && request.resource.data.dia.size() <= 10));
+      allow get, list: if podeAdmin(resource.data);
+      allow update: if false;
+      allow delete: if podeAdmin(resource.data);
+    }
+
     // ---------- CIPA (NR-5): gestões, eleições e composição ----------
     match /cipas/{id} {
       allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);

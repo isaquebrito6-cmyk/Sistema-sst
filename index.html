@@ -2875,6 +2875,62 @@ function abrirPsiOrg(id){
  psiIniciaAuto();
 }
 function psiIniciaAuto(){setTimeout(()=>{['trabalhadores','responsavel','respondentes'].forEach(k=>{const el=document.getElementById('f_'+k);if(el)el.addEventListener('input',()=>{el.dataset.auto=k==='responsavel'?'':'0'})});const gr=document.getElementById('f_grupo');if(gr)gr.addEventListener('input',()=>{const t=document.getElementById('f_trabalhadores');if(t&&t.dataset.auto!=='0')t.dataset.auto='1';psiAuto('grupo')});psiAuto()},60)}
+/* ===== Resposta online anônima (link/QR) e apuração automática ===== */
+const PSI_QR_LIB='https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+const psiLink=a=>location.origin+location.pathname+'?psi='+a.onlineToken;
+const psiQ=x=>x.q.replace(/\s*\(resposta desfavorável[^)]*\)\.?$/,'.');
+async function psiQR(txt){await carregaScript(PSI_QR_LIB);const q=qrcode(0,'M');q.addData(txt);q.make();return q.createSvgTag({cellSize:4,margin:0,scalable:true})}
+function psiSetoresEmp(emp){
+ const ativos=L('colaboradores').filter(c=>c.empresaId===emp&&c.status!=='Desligado');
+ return [...new Set([...ativos.flatMap(c=>setoresDe({setor:c.setor})),...L('riscos').filter(r=>r.empresaId===emp).flatMap(setoresDe)].filter(x=>x!=='Sem setor'))].sort((a,b)=>norm(a).localeCompare(norm(b)))}
+/* % desfavorável por fator (e por setor, só com 5+ respostas, para não expor grupos pequenos) */
+function psiCalc(rs){
+ const desf=(id,v)=>id==='assedio'?v>=4:v<=2;
+ const agg=l=>{const o={n:l.length,pct:{}};PSI_FATORES.forEach(x=>{const vs=l.map(r=>(r.r||{})[x.id]).filter(v=>typeof v==='number'&&v>=1&&v<=5);o.pct[x.id]=vs.length?Math.round(100*vs.filter(v=>desf(x.id,v)).length/vs.length):null});return o};
+ const tot=agg(rs),g={};rs.forEach(r=>{if(r.setor)(g[r.setor]=g[r.setor]||[]).push(r)});
+ tot.setores={};Object.keys(g).forEach(k=>{if(g[k].length>=5)tot.setores[k]=agg(g[k])});return tot}
+const psiTokenNovo=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,'0')).join('');
+async function psiPublicaOnline(a,aberto){
+ const e=G('empresas',a.empresaId)||{};
+ const gr=String(a.grupo||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).filter(x=>norm(x)!==norm('Todos os setores'));
+ const setores=(gr.length?gr:psiSetoresEmp(a.empresaId)).slice(0,60);
+ await DB.db.doc('psipub/'+a.onlineToken).set({avId:a.id,empresaId:a.empresaId,consultoriaId:a.consultoriaId||CFG_ID(),empresa:e.razao||'',setores,aberto:!!aberto,upd:Date.now()});
+}
+async function psiLimpaOnline(a){
+ if(!DB.db||!a||!a.onlineToken)return;
+ try{const qs=await DB.db.collection('psiresp').where('consultoriaId','==',a.consultoriaId||CFG_ID()).where('avId','==',a.id).get();
+  for(let i=0;i<qs.docs.length;i+=400){const b=DB.db.batch();qs.docs.slice(i,i+400).forEach(d=>b.delete(d.ref));await b.commit()}
+  await DB.db.doc('psipub/'+a.onlineToken).delete()}catch(e){console.warn('limpeza online',e)}
+}
+/* página pública que o trabalhador abre pelo link/QR: sem login, anônima */
+async function psiPublico(tok){
+ ['app','modal-root','doc-root','login-root'].forEach(i=>{const e=document.getElementById(i);if(e)e.style.display='none'});
+ document.title='Pesquisa sobre o ambiente de trabalho';
+ const st=document.createElement('style');
+ st.textContent='#psi-pub{position:fixed;inset:0;overflow:auto;background:#eef2f4;z-index:9999;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14212b}#psi-pub *{box-sizing:border-box}.pp-w{max-width:720px;margin:0 auto;padding:16px}.pp-card{background:#fff;border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px #0002}.pp-card h1{font-size:20px;margin:0 0 6px}.pp-card h2{font-size:15px;margin:0 0 10px}.pp-s{font-size:13px;color:#51626e}.pp-q{border:0;padding:0;margin:0 0 16px}.pp-q legend{font-weight:600;margin-bottom:8px;padding:0}.pp-o{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.pp-o label{display:block}.pp-o input{position:absolute;opacity:0;pointer-events:none}.pp-o span{display:flex;align-items:center;justify-content:center;min-height:48px;border:2px solid #c3ced6;border-radius:10px;font-weight:700;cursor:pointer;background:#fff}.pp-o input:checked+span{background:#0B5560;border-color:#0B5560;color:#fff}.pp-o input:focus-visible+span{outline:3px solid #A87B00}.pp-e{display:flex;justify-content:space-between;font-size:12px;color:#51626e;margin-top:4px}.pp-b{width:100%;min-height:52px;border:0;border-radius:12px;background:#0B5560;color:#fff;font-size:17px;font-weight:700;cursor:pointer}.pp-b:disabled{opacity:.5}select.pp-sel{width:100%;min-height:48px;border:2px solid #c3ced6;border-radius:10px;padding:0 10px;font-size:16px;background:#fff}';
+ document.head.appendChild(st);
+ const root=document.createElement('div');root.id='psi-pub';document.body.appendChild(root);
+ const msg=(t,s)=>{root.innerHTML=`<div class="pp-w"><div class="pp-card"><h1>${esc(t)}</h1><p>${esc(s)}</p></div></div>`};
+ const ja=()=>{try{return localStorage.getItem('psiOk:'+tok)}catch(e){return null}};
+ if(!(window.__fbOk&&window.FB))return msg('Pesquisa indisponível','Não foi possível conectar agora. Tente novamente mais tarde.');
+ if(ja())return msg('Obrigado!','Sua resposta já foi registrada neste aparelho.');
+ let pub;try{const s=await window.FB.db.doc('psipub/'+tok).get();pub=s.exists?s.data():null}catch(e){pub=null}
+ if(!pub||!pub.aberto)return msg('Pesquisa encerrada','Esta pesquisa não está recebendo respostas. Em caso de dúvida, fale com o responsável de segurança do trabalho da empresa.');
+ root.innerHTML=`<div class="pp-w"><div class="pp-card"><h1>Pesquisa sobre o ambiente de trabalho</h1><p class="pp-s">${esc(pub.empresa||'')}</p><p>Queremos entender como está o trabalho aqui, para melhorar. A participação é <b>voluntária</b> e <b>anônima</b>: não pedimos nome, CPF nem qualquer dado pessoal, e as respostas são analisadas apenas em conjunto. Leva cerca de 3 minutos.</p><p class="pp-s">Para cada frase, marque de 1 a 5: <b>1</b> = discordo totalmente · <b>3</b> = neutro · <b>5</b> = concordo totalmente. Se não quiser responder alguma, deixe em branco.</p></div>
+ <form id="ppf" novalidate>${pub.setores&&pub.setores.length?`<div class="pp-card"><h2>Seu setor (opcional)</h2><select class="pp-sel" id="pp_setor" aria-label="Setor"><option value="">Prefiro não informar</option>${pub.setores.map(s=>`<option>${esc(s)}</option>`).join('')}</select><p class="pp-s" style="margin:8px 0 0">Só é usado para resultados por setor quando há 5 ou mais respostas.</p></div>`:''}
+ <div class="pp-card">${PSI_FATORES.map((x,i)=>`<fieldset class="pp-q"><legend>${i+1}. ${esc(psiQ(x))}</legend><div class="pp-o">${[1,2,3,4,5].map(n=>`<label><input type="radio" name="${x.id}" value="${n}"><span>${n}</span></label>`).join('')}</div><div class="pp-e"><span>Discordo</span><span>Concordo</span></div></fieldset>`).join('')}</div>
+ <p class="pp-s" id="pp_m" role="alert" style="min-height:20px"></p><button class="pp-b" type="submit">Enviar respostas</button><p class="pp-s" style="text-align:center;margin-top:10px">Ao enviar, você concorda em participar de forma voluntária. Nenhum dado que identifique você é coletado.</p></form></div>`;
+ document.getElementById('ppf').onsubmit=async ev=>{
+  ev.preventDefault();const r={};PSI_FATORES.forEach(x=>{const c=document.querySelector('input[name="'+x.id+'"]:checked');if(c)r[x.id]=parseInt(c.value,10)});
+  const m=document.getElementById('pp_m'),b=ev.target.querySelector('button');
+  if(!Object.keys(r).length){m.textContent='Responda pelo menos uma pergunta para enviar.';return}
+  b.disabled=true;m.textContent='Enviando…';
+  const d={avId:pub.avId,empresaId:pub.empresaId,consultoriaId:pub.consultoriaId,tok,dia:today(),r};
+  const se=document.getElementById('pp_setor');if(se&&se.value)d.setor=se.value;
+  try{await window.FB.db.collection('psiresp').add(d);try{localStorage.setItem('psiOk:'+tok,'1')}catch(e){}msg('Obrigado!','Sua resposta foi enviada de forma anônima. Você pode fechar esta página.')}
+  catch(e){b.disabled=false;m.textContent=(e&&e.code==='permission-denied')?'Esta pesquisa foi encerrada e não aceita mais respostas.':'Não foi possível enviar agora. Verifique a internet e tente de novo.'}
+ };
+}
 VIEWS.psiorg=()=>{
  let l=L('avpsicos');if(S.role==='empresa')l=l.filter(a=>a.empresaId===S.rid);else if(isC()&&S.fEmp)l=l.filter(a=>a.empresaId===S.fEmp);
  l=l.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
@@ -2882,17 +2938,22 @@ VIEWS.psiorg=()=>{
   const ch=PSI_FATORES.map(x=>{const p=psiPct(a,x.id),n=psiNivel(p);return n?`<span class="chip" style="background:${n[2]}22;color:${n[2]};border:1px solid ${n[2]}55" title="${esc(x.n)}: ${p}%">${esc(x.n.split(' ')[0])} ${p}%</span>`:''}).join(' ');
   return `<div class="card" style="margin-bottom:12px"><div class="row sb"><h3 style="margin:0">${esc(nEmp(a.empresaId))} — ${fd(a.data)}</h3><span class="muted sm">${a.respondentes||'—'} de ${a.trabalhadores||'—'} participantes</span></div>
   <p class="muted sm" style="margin:4px 0 8px">${esc(a.grupo||'Todos os setores')}</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${ch||'<span class="muted sm">Sem resultados informados.</span>'}</div>
-  <div class="row" style="gap:6px;flex-wrap:wrap"><select id="pd_${a.id}" aria-label="Documento">${opts([['rel','Relatório da avaliação coletiva (NR-1)'],['plano','Plano de ação psicossocial'],['ques','Questionário coletivo anônimo (modelo)'],['pres','Lista de participação (sem respostas)']],'','Escolha o documento…')}</select><button class="btn s p" data-a="docPsiOrg" data-id="${a.id}">${ic('print')}Gerar documento</button><button class="btn s" data-a="psiParaInv" data-id="${a.id}">${ic('shield')}Levar ao inventário de riscos</button><div class="grow"></div><button class="btn s g" data-a="editPsiOrg" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPsiOrg" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('');
+  ${psiOnlineHtml(a)}
+  <div class="row" style="gap:6px;flex-wrap:wrap"><select id="pd_${a.id}" aria-label="Documento">${opts([['rel','Relatório da avaliação coletiva (NR-1)'],['plano','Plano de ação psicossocial'],['ques','Questionário coletivo anônimo (modelo)'],['convite','Convite com QR para responder online'],['pres','Lista de participação (sem respostas)']],'','Escolha o documento…')}</select><button class="btn s p" data-a="docPsiOrg" data-id="${a.id}">${ic('print')}Gerar documento</button><button class="btn s" data-a="psiParaInv" data-id="${a.id}">${ic('shield')}Levar ao inventário de riscos</button><div class="grow"></div><button class="btn s g" data-a="editPsiOrg" data-id="${a.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="delPsiOrg" data-id="${a.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('');
  return `<div class="bar">${isC()?`<select id="fe" data-c="fEmp" style="max-width:240px" aria-label="Filtrar por empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fEmp,'Todas as empresas')}</select>`:''}<div class="grow"></div><button class="btn p" data-a="newPsiOrg">${ic('plus')}Nova avaliação</button></div>
  <p class="sm muted" style="margin:0 0 14px">Avaliação <b>coletiva</b> dos fatores de risco psicossociais (NR-1, GRO/PGR): aplique o questionário anônimo ao grupo, informe o percentual de respostas desfavoráveis por fator e o sistema classifica o nível, monta o relatório e o plano de ação e leva os fatores relevantes ao inventário de riscos. Não guarda respostas individuais. Os níveis (Aceitável &lt;20%, Atenção 20–39%, Alto 40–59%, Crítico ≥60%) são um critério interno do sistema, ajustável pelo profissional responsável.</p>`+
  (l.length?cards:emptyBox('Nenhuma avaliação psicossocial coletiva','Cadastre o resultado do questionário coletivo para gerar o relatório, o plano de ação e os riscos do inventário.',`<button class="btn p" data-a="newPsiOrg">${ic('plus')}Nova avaliação</button>`,'shield'));
 };
+function psiOnlineHtml(a){
+ if(!a.onlineToken)return isC()?`<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn s" data-a="psiOnline" data-id="${a.id}">${ic('plus')}Coletar respostas online (link/QR)</button><span class="muted sm">O trabalhador responde pelo celular, sem login e sem se identificar.</span></div>`:'';
+ return `<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center"><span class="chip ${a.onlineAberto?'low':'gray'}">Resposta online: ${a.onlineAberto?'aberta':'encerrada'}</span><span class="muted sm">${a.onlineN?a.onlineN+' resposta(s) apurada(s) em '+fd(a.onlineEm):'ainda não apurado'}</span>${isC()?`<div class="grow"></div><button class="btn s g" data-a="psiCopiaLink" data-id="${a.id}">Copiar link</button><button class="btn s p" data-a="psiApurar" data-id="${a.id}">Apurar respostas e gerar relatório</button><button class="btn s g" data-a="psiOnline" data-id="${a.id}">${a.onlineAberto?'Encerrar':'Reabrir'}</button>`:''}</div>`}
 function psiDoc(a,k){
  const e=G('empresas',a.empresaId)||{};
  const cab=(t)=>dHead(t,fd(a.data),e.logo)+`<h1 style="font-size:17pt">${t}</h1><p class="small">${esc(e.razao||'')}${e.cnpj?' — CNPJ '+esc(e.cnpj):''}</p>`;
  const rod=`<div class="sig"><div>Responsável pela avaliação<span>${esc(a.responsavel||'Nome, registro e assinatura')}</span></div><div>Empregador / representante legal<span>Nome e assinatura</span></div></div>`;
  const res=PSI_FATORES.map(x=>({x,p:psiPct(a,x.id),n:psiNivel(psiPct(a,x.id))}));
  const part=(a.respondentes&&a.trabalhadores)?Math.round(100*a.respondentes/a.trabalhadores)+'%':'—';
+ if(k==='convite'){const lk=a.onlineToken?psiLink(a):'';return cab('Pesquisa sobre o ambiente de trabalho')+`<p style="font-size:13pt">Participe da pesquisa sobre as condições psicossociais do trabalho${e.razao?' em <b>'+esc(e.razao)+'</b>':''}. Leva cerca de 3 minutos.</p><div style="text-align:center;margin:18px 0">${a._qr?`<div style="width:230px;margin:0 auto">${a._qr}</div>`:''}<p style="font-size:11pt;word-break:break-all">${esc(lk)}</p></div><ul><li>Aponte a câmera do celular para o QR ou digite o endereço acima.</li><li>A participação é <b>voluntária</b> e <b>anônima</b>: não pedimos nome nem CPF.</li><li>As respostas são analisadas apenas em conjunto, para melhorar o ambiente de trabalho.</li></ul>`}
  if(k==='pres'){const ns=(a.participantes||[]).map(i=>G('colaboradores',i)).filter(Boolean).sort(byN);return cab('Lista de participação — avaliação psicossocial coletiva')+`<p class="small">Registro apenas da <b>presença/participação</b> dos trabalhadores no levantamento coletivo (${esc(a.grupo||'todos os setores')}). Este documento não contém nem permite associar respostas a pessoas.</p><table><tr><th>Nº</th><th>Nome</th><th>Setor</th><th>Assinatura</th></tr>${(ns.length?ns:Array(15).fill(null)).map((c,i)=>`<tr><td>${i+1}</td><td>${c?esc(c.nome):''}</td><td>${c?esc(c.setor||''):''}</td><td></td></tr>`).join('')}</table>`+rod}
  if(k==='ques')return cab('Questionário coletivo — fatores psicossociais do trabalho')+`<p class="small">Participação voluntária e anônima. Não escreva seu nome. As respostas serão tratadas apenas de forma agrupada, sem identificar pessoas. Marque, para cada afirmação: 1 = discordo totalmente · 2 = discordo · 3 = neutro · 4 = concordo · 5 = concordo totalmente. Setor/grupo: ______________________</p><table><tr><th style="width:24pt">Nº</th><th>Afirmação</th><th style="width:130pt">1 &nbsp;2 &nbsp;3 &nbsp;4 &nbsp;5</th></tr>${PSI_FATORES.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.q)}</td><td>☐ &nbsp;☐ &nbsp;☐ &nbsp;☐ &nbsp;☐</td></tr>`).join('')}</table><p class="small">Para as afirmações 1 a 8 e 10, considera-se resposta desfavorável as marcações 1 e 2; para a afirmação 9 (assédio e violência), a resposta desfavorável é "concordo" (4 ou 5), pois a pergunta é formulada ao contrário.</p><p>Comentários (opcional): <span class="blank l"></span><br><span class="blank l"></span></p>`;
  if(k==='plano'){
@@ -2904,8 +2965,9 @@ function psiDoc(a,k){
  return cab('Relatório da avaliação dos fatores de risco psicossociais')+
  `<h2>1. Identificação</h2>`+kv([['Empresa',esc(e.razao||'')],['Data da avaliação',fd(a.data)],['Setores / grupos avaliados',esc(a.grupo||'Todos')],['Trabalhadores no grupo',esc(a.trabalhadores||'—')],['Participantes',esc(a.respondentes||'—')+(part!=='—'?' ('+part+')':'')],['Responsável',esc(a.responsavel||'—')]])+
  `<h2>2. Objetivo e base</h2><p>Identificar e avaliar, de forma coletiva, os fatores de risco psicossociais relacionados ao trabalho, para sua inclusão no Gerenciamento de Riscos Ocupacionais e no PGR (NR-1, Capítulo 1.5), definindo medidas de prevenção e acompanhamento.</p>`+
- `<h2>3. Metodologia</h2><p>${esc(a.metodo||'Consulta coletiva aos trabalhadores.')}. A participação é voluntária. Os dados são tratados de forma <b>agregada e anônima</b>, sem identificação individual, e resultados de grupos com poucos respondentes não devem ser divulgados separadamente. Para cada fator, calcula-se o percentual de respostas desfavoráveis do grupo e classifica-se o nível pelo critério: Aceitável (abaixo de 20%), Atenção (20 a 39%), Alto (40 a 59%) e Crítico (60% ou mais). A avaliação não constitui diagnóstico clínico de pessoas.</p>`+
+ `<h2>3. Metodologia</h2><p>${esc(a.metodo||'Consulta coletiva aos trabalhadores.')}. A participação é voluntária. Os dados são tratados de forma <b>agregada e anônima</b>, sem identificação individual, e resultados de grupos com poucos respondentes não devem ser divulgados separadamente. Para cada fator, calcula-se o percentual de respostas desfavoráveis do grupo e classifica-se o nível pelo critério: Aceitável (abaixo de 20%), Atenção (20 a 39%), Alto (40 a 59%) e Crítico (60% ou mais). A avaliação não constitui diagnóstico clínico de pessoas.${a.onlineN?' As respostas foram coletadas por questionário online anônimo (link único, sem login e sem identificação do trabalhador); '+a.onlineN+' resposta(s) apurada(s) em '+fd(a.onlineEm)+'.':''}</p>`+
  `<h2>4. Resultados por fator</h2><table><tr><th>Fator de risco psicossocial</th><th>% desfavorável</th><th>Nível</th></tr>${res.map(r=>`<tr><td>${esc(r.x.n)}</td><td>${r.p==null?'—':r.p+'%'}</td><td>${r.n?`<b style="color:${r.n[2]}">${r.n[1]}</b>`:'—'}</td></tr>`).join('')}</table>`+
+ (()=>{const ks=Object.keys(a.porSetor||{});return ks.length?`<h3>Resultados por setor</h3><p class="small">Apenas setores com 5 ou mais respostas, para preservar o anonimato.</p><table><tr><th>Fator</th>${ks.map(k=>`<th>${esc(k)} (n=${a.porSetor[k].n})</th>`).join('')}</tr>${PSI_FATORES.map(x=>`<tr><td>${esc(x.n)}</td>${ks.map(k=>{const p=a.porSetor[k].pct[x.id],n=psiNivel(p);return `<td>${p==null?'—':'<b style="color:'+n[2]+'">'+p+'%</b>'}</td>`}).join('')}</tr>`).join('')}</table>`:''})()+
  `<h2>5. Medidas de prevenção</h2>`+(res.some(r=>r.n&&r.n[0]>=20)?`<ul>${res.filter(r=>r.n&&r.n[0]>=20).sort((p,q)=>q.p-p.p).map(r=>`<li><b>${esc(r.x.n)}</b> (${r.n[1]}, ${r.p}%): ${esc(a['med_'+r.x.id]||r.x.m)}</li>`).join('')}</ul>`:'<p>Nenhum fator atingiu o nível de atenção. Manter as práticas atuais.</p>')+
  `<h2>6. Conclusão</h2><p>${crit.length?'Foram identificados fatores em nível alto ou crítico ('+crit.map(r=>esc(r.x.n.toLowerCase())).join('; ')+'), que devem ser priorizados no plano de ação do PGR.':'Não foram identificados fatores em nível alto ou crítico na avaliação.'} ${esc(a.conclusao||'')}</p>`+
  `<h2>7. Monitoramento</h2><p>Reavaliar periodicamente, quando houver mudanças relevantes na organização do trabalho e após a implementação das medidas, comparando os resultados com esta avaliação. Os fatores de nível atenção ou superior foram incluídos no inventário de riscos do PGR.</p><div class="note">Documento de apoio: confirme os critérios e fatores com o texto vigente da NR-1 e com o guia do Ministério do Trabalho e Emprego sobre riscos psicossociais.</div>`+rod;
@@ -4488,8 +4550,27 @@ certCipa(d){const c=G('cipas',d.id);if(!c)return;const r=cipaDimDe(c);const e=G(
 newCipa(){abrirCipa()},editCipa(d){abrirCipa(d.id)},delCipa(d){ask('Excluir esta gestão da CIPA? Atas e documentos do processo devem ser guardados por no mínimo 5 anos (NR-5).','Excluir',()=>del('cipas',d.id))},
 proxCipa(d){const c=G('cipas',d.id);if(!c)return;const fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);const ini=diaUtilApos(fim);abrirCipa(null,{empresaId:c.empresaId,mandatoIni:ini,gestao:ini.slice(0,4)+'/'+(parseInt(ini.slice(0,4),10)+1),sindicato:c.sindicato,localEleicao:c.localEleicao,horarioVotacao:c.horarioVotacao,presidente:c.presidente,empTit:c.empTit,empSup:c.empSup,comissaoEleitoral:c.comissaoEleitoral})},
 docCipa(d){const c=G('cipas',d.id),sel=document.getElementById('cd_'+d.id);if(!c)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome=(CIPA_DOCS.find(x=>x[0]===k)||[k,k])[1];openDoc({title:nome+' — '+nEmp(c.empresaId),html:cipaDoc(c,k),filename:'cipa-'+k+'-'+slug(nEmp(c.empresaId))+'.html',assunto:nome+' — CIPA '+(c.gestao||''),corpo:'Segue: '+nome+' (CIPA, gestão '+(c.gestao||'')+').'})},
-newPsiOrg(){abrirPsiOrg()},editPsiOrg(d){abrirPsiOrg(d.id)},delPsiOrg(d){ask('Excluir esta avaliação psicossocial?','Excluir',()=>del('avpsicos',d.id))},
-docPsiOrg(d){const a=G('avpsicos',d.id),sel=document.getElementById('pd_'+d.id);if(!a)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome={rel:'Relatório psicossocial',plano:'Plano de ação psicossocial',ques:'Questionário psicossocial',pres:'Lista de participação'}[k];openDoc({title:nome+' — '+nEmp(a.empresaId),html:psiDoc(a,k),filename:'psicossocial-'+k+'-'+slug(nEmp(a.empresaId))+'.html',assunto:nome,corpo:'Segue: '+nome+'.'})},
+async psiOnline(d){const a=G('avpsicos',d.id);if(!a)return;if(!DB.db){toast('A resposta online precisa do banco de dados conectado.',4000);return}
+ try{const r=clone(a);const novo=!r.onlineToken;if(novo)r.onlineToken=psiTokenNovo();
+  const abrir=novo?true:!r.onlineAberto;r.onlineAberto=abrir;r.consultoriaId=r.consultoriaId||CFG_ID();
+  await psiPublicaOnline(r,abrir);save('avpsicos',r,true);render();
+  toast(novo?'Link criado. Copie e envie aos trabalhadores, ou imprima o convite com QR.':abrir?'Link reaberto: voltou a receber respostas.':'Link encerrado: não recebe mais respostas.',5000)}
+ catch(e){toast('Não foi possível atualizar o link ('+(e&&e.code||'erro')+').',5000)}},
+psiCopiaLink(d){const a=G('avpsicos',d.id);if(!a||!a.onlineToken)return;const l=psiLink(a);
+ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(l):Promise.reject()).then(()=>toast('Link copiado.'),()=>{window.prompt('Copie o link:',l)})},
+async psiApurar(d){const a=G('avpsicos',d.id);if(!a||!a.onlineToken)return;if(!DB.db){toast('A apuração online precisa do banco de dados conectado.',4000);return}
+ toast('Buscando respostas…');let rs;
+ try{const qs=await DB.db.collection('psiresp').where('consultoriaId','==',a.consultoriaId||CFG_ID()).where('avId','==',a.id).get();rs=qs.docs.map(x=>x.data())}
+ catch(e){toast('Não foi possível ler as respostas ('+(e&&e.code||'erro')+').',5000);return}
+ if(!rs.length){toast('Ainda não há respostas online para esta avaliação.',4000);return}
+ const go=()=>{const c=psiCalc(rs),r=clone(a);
+  PSI_FATORES.forEach(x=>{const p=c.pct[x.id];if(p==null)return;r['pct_'+x.id]=p;if(!r['med_'+x.id]&&p>=20)r['med_'+x.id]=x.m});
+  r.respondentes=c.n;r.onlineN=c.n;r.onlineEm=today();r.porSetor=Object.fromEntries(Object.entries(c.setores).map(([k,v])=>[k,{n:v.n,pct:v.pct}]));
+  save('avpsicos',r,true);render();const b=G('avpsicos',d.id);toast(c.n+' resposta(s) apurada(s). Relatório gerado.',4000);
+  openDoc({title:'Relatório psicossocial — '+nEmp(b.empresaId),html:psiDoc(b,'rel'),filename:'psicossocial-rel-'+slug(nEmp(b.empresaId))+'.html',assunto:'Relatório psicossocial',corpo:'Segue: Relatório psicossocial.'})};
+ if(rs.length<5)ask('Há apenas '+rs.length+' resposta(s). Com menos de 5 respostas o anonimato fica frágil e o resultado pouco representativo. Apurar mesmo assim?','Apurar',go);else go()},
+newPsiOrg(){abrirPsiOrg()},editPsiOrg(d){abrirPsiOrg(d.id)},delPsiOrg(d){ask('Excluir esta avaliação psicossocial?'+(((G('avpsicos',d.id)||{}).onlineToken)?' O link online e as respostas recebidas também serão apagados.':''),'Excluir',()=>{const a=G('avpsicos',d.id);del('avpsicos',d.id);psiLimpaOnline(a)})},
+async docPsiOrg(d){let a=G('avpsicos',d.id);const sel=document.getElementById('pd_'+d.id);if(!a)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome={rel:'Relatório psicossocial',plano:'Plano de ação psicossocial',ques:'Questionário psicossocial',convite:'Convite para responder online',pres:'Lista de participação'}[k];if(k==='convite'){if(!a.onlineToken){toast('Primeiro crie o link em "Coletar respostas online".',4000);return}try{a=Object.assign({},a,{_qr:await psiQR(psiLink(a))})}catch(e){}}openDoc({title:nome+' — '+nEmp(a.empresaId),html:psiDoc(a,k),filename:'psicossocial-'+k+'-'+slug(nEmp(a.empresaId))+'.html',assunto:nome,corpo:'Segue: '+nome+'.'})},
 psiParaInv(d){const a=G('avpsicos',d.id);if(!a)return;let n=0,at=0;
  PSI_FATORES.forEach(x=>{const p=psiPct(a,x.id),nv=psiNivel(p);if(!nv||nv[0]<20)return;
   const ja=L('riscos').find(r=>r.empresaId===a.empresaId&&r.cat==='psicossocial'&&r.fatorPsi===x.id);const prob=String(nv[3]);
@@ -4862,7 +4943,8 @@ function iniciarComAuth(){
   render();
  });
 }
-if(window.__fbOk&&window.FB)iniciarComAuth();else iniciarSemAuth();
+const _psiTok=(new URLSearchParams(location.search).get('psi')||'').replace(/[^a-f0-9]/gi,'');
+if(_psiTok)psiPublico(_psiTok);else if(window.__fbOk&&window.FB)iniciarComAuth();else iniciarSemAuth();
 </script>
 </body>
 </html>
