@@ -201,3 +201,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - PGR: catálogo com 102 riscos; novos itens para trabalho administrativo, RH e escritório (digitação, telas, mobiliário, home office, conforto térmico, elétrico, quedas, arquivo, voz, pressão por prazos, atendimento a público, viagens).
 - Quem dirige a serviço: campos de CNH (categoria e validade) no colaborador com aviso de vencimento, risco "condução de veículo por administrativo/comercial" no PGR e treinamento de direção defensiva (8 h).
 - Importação de colaboradores: colunas CNH (categoria e validade) e correção da leitura de datas (células de data do Excel e texto dd/mm/aaaa).
+- Treinamentos: certificado combinado "Operador de empilhadeira, rebocador e carrinho industrial" (NR-11/12), com carteirinha e conteúdo dos três equipamentos.
