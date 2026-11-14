@@ -244,16 +244,36 @@ service cloud.firestore {
       allow delete: if podeAdmin(resource.data);
     }
 
+    // psicod/{code}: código de uso único (um por trabalhador, no modo de links individuais). O id da resposta
+    // (psiresp/{code}) é o próprio código, então uma segunda resposta com o mesmo código é recusada; o código também
+    // é marcado como usado no mesmo lote. O sistema não guarda a quem cada código foi enviado.
+    match /psicod/{code} {
+      allow get: if true;
+      allow list: if podeAdmin(resource.data);
+      allow create: if podeAdmin(request.resource.data);
+      allow update: if podeAdmin(resource.data)
+        || (resource.data.usado == false && request.resource.data.usado == true
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usado'])
+            && existsAfter(/databases/$(database)/documents/psiresp/$(code)));
+      allow delete: if podeAdmin(resource.data);
+    }
+
     // psiresp/{id}: uma resposta anônima (sem nome, CPF ou qualquer identificador). Qualquer pessoa com o link
     // pode CRIAR enquanto a pesquisa estiver aberta; só o admin da consultoria lê ou apaga. Nunca se altera.
     match /psiresp/{id} {
       function pub() { return get(/databases/$(database)/documents/psipub/$(request.resource.data.tok)).data; }
+      function cod() { return get(/databases/$(database)/documents/psicod/$(id)).data; }
       function nota(r, k) { return !(k in r) || (r[k] is int && r[k] >= 1 && r[k] <= 5); }
       allow create: if request.resource.data.keys().hasOnly(['avId','empresaId','consultoriaId','tok','setor','dia','r'])
         && request.resource.data.tok is string
         && exists(/databases/$(database)/documents/psipub/$(request.resource.data.tok))
         && pub().aberto == true
         && pub().avId == request.resource.data.avId
+        && (pub().get('unico', false) == false
+            || (exists(/databases/$(database)/documents/psicod/$(id))
+                && cod().avId == request.resource.data.avId
+                && cod().usado == false
+                && request.resource.data.get('setor', '') == cod().get('setor', '')))
         && pub().empresaId == request.resource.data.empresaId
         && pub().consultoriaId == request.resource.data.consultoriaId
         && request.resource.data.r is map

@@ -2894,16 +2894,73 @@ async function psiPublicaOnline(a,aberto){
  const e=G('empresas',a.empresaId)||{};
  const gr=String(a.grupo||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).filter(x=>norm(x)!==norm('Todos os setores'));
  const setores=(gr.length?gr:psiSetoresEmp(a.empresaId)).slice(0,60);
- await DB.db.doc('psipub/'+a.onlineToken).set({avId:a.id,empresaId:a.empresaId,consultoriaId:a.consultoriaId||CFG_ID(),empresa:e.razao||'',setores,aberto:!!aberto,upd:Date.now()});
+ await DB.db.doc('psipub/'+a.onlineToken).set({avId:a.id,empresaId:a.empresaId,consultoriaId:a.consultoriaId||CFG_ID(),empresa:e.razao||'',setores,aberto:!!aberto,unico:!!a.onlineUnico,upd:Date.now()});
 }
 async function psiLimpaOnline(a){
  if(!DB.db||!a||!a.onlineToken)return;
  try{const qs=await DB.db.collection('psiresp').where('consultoriaId','==',a.consultoriaId||CFG_ID()).where('avId','==',a.id).get();
   for(let i=0;i<qs.docs.length;i+=400){const b=DB.db.batch();qs.docs.slice(i,i+400).forEach(d=>b.delete(d.ref));await b.commit()}
+  const cs=await DB.db.collection('psicod').where('consultoriaId','==',a.consultoriaId||CFG_ID()).where('avId','==',a.id).get();
+  for(let i=0;i<cs.docs.length;i+=400){const b=DB.db.batch();cs.docs.slice(i,i+400).forEach(d=>b.delete(d.ref));await b.commit()}
   await DB.db.doc('psipub/'+a.onlineToken).delete()}catch(e){console.warn('limpeza online',e)}
 }
+/* ----- envio individual (uso único) por WhatsApp / e-mail ----- */
+function psiDestinatarios(a){
+ const gr=String(a.grupo||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).filter(x=>norm(x)!==norm('Todos os setores')),grN=gr.map(norm);
+ return L('colaboradores').filter(c=>c.empresaId===a.empresaId&&c.status!=='Desligado'&&(!grN.length||setoresDe({setor:c.setor}).some(x=>grN.includes(norm(x))))).sort(byN)}
+function psiSetorDe(a,c){
+ const grN=String(a.grupo||'').split(/[,;\n]/).map(x=>norm(x.trim())).filter(Boolean),ss=setoresDe({setor:c.setor});
+ const s=ss.find(x=>grN.includes(norm(x)))||ss[0]||'';return s==='Sem setor'?'':String(s).slice(0,80)}
+const psiFone=t=>{const d=String(t||'').replace(/\D/g,'');if(d.length===10||d.length===11)return '55'+d;if(d.startsWith('55')&&(d.length===12||d.length===13))return d;return ''};
+const psiEmailOk=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e||'').trim());
+async function psiLiga(id,opt){
+ const a=G('avpsicos',id);if(!a)return;if(!DB.db){toast('A resposta online precisa do banco de dados conectado.',4000);return}
+ opt=opt||{};
+ try{const r=clone(a);const novo=!r.onlineToken;if(novo)r.onlineToken=psiTokenNovo();
+  if(opt.unico!==undefined)r.onlineUnico=!!opt.unico;
+  const abrir=opt.abrir!==undefined?opt.abrir:(novo?true:!r.onlineAberto);r.onlineAberto=abrir;r.consultoriaId=r.consultoriaId||CFG_ID();
+  await psiPublicaOnline(r,abrir);save('avpsicos',r,true);render();
+  toast(novo?(r.onlineUnico?'Pronto. Agora use "Enviar links individuais" para mandar a cada trabalhador.':'Link criado. Copie e envie aos trabalhadores, ou imprima o convite com QR.'):opt.unico!==undefined?'Modo atualizado.':abrir?'Link reaberto: voltou a receber respostas.':'Link encerrado: não recebe mais respostas.',5000)}
+ catch(e){toast('Não foi possível atualizar o link ('+(e&&e.code||'erro')+').',5000)}
+}
+function psiFormModo(a,novo){
+ const G1='Link geral e QR',U1='Links individuais de uso único (WhatsApp / e-mail)';
+ openForm({title:novo?'Como coletar as respostas?':'Modo de coleta',btn:novo?'Criar':'Salvar',val:{modo:a.onlineUnico?U1:G1},
+  fields:[{k:'modo',l:'Modo',t:'select',r:1,w:6,o:[G1,U1]},{t:'html',w:6,html:'<p class="sm muted" style="margin:0"><b>Link geral e QR:</b> um endereço só, para mural ou grupo; qualquer pessoa com o link responde (não impede respostas repetidas).<br><b>Links individuais de uso único:</b> cada trabalhador recebe o seu link por WhatsApp ou e-mail e só consegue responder uma vez. O sistema <b>não guarda qual link foi para qual pessoa</b>: só registra quem já recebeu, para você não enviar duas vezes.</p>'}],
+  save:v=>{psiLiga(a.id,{unico:v.modo===U1,abrir:novo?true:undefined});return true}})
+}
+async function psiGeraCodigos(a,colabs){
+ const out={},b=DB.db.batch();
+ colabs.forEach(c=>{const cod=psiTokenNovo().slice(0,24);out[c.id]=cod;b.set(DB.db.doc('psicod/'+cod),{avId:a.id,empresaId:a.empresaId,consultoriaId:a.consultoriaId||CFG_ID(),setor:psiSetorDe(a,c),usado:false})});
+ if(colabs.length)await b.commit();return out}
+async function psiAbrirEnvio(id){
+ const a=G('avpsicos',id);if(!a||!a.onlineToken||!a.onlineUnico)return;if(!DB.db){toast('Precisa do banco de dados conectado.',4000);return}
+ const e=G('empresas',a.empresaId)||{},ds=psiDestinatarios(a),sent=Object.assign({},a.enviados||{});
+ const env=window._psiEnv={id,cod:{},sent};
+ const contato=c=>({wa:psiFone(c.telefone),em:psiEmailOk(c.email)?String(c.email).trim():''});
+ const novos=ds.filter(c=>!sent[c.id]&&(contato(c).wa||contato(c).em));
+ toast('Preparando links…');
+ try{Object.assign(env.cod,await psiGeraCodigos(a,novos))}catch(er){toast('Não foi possível preparar os links ('+(er&&er.code||'erro')+').',5000);return}
+ const msg0='Olá, {nome}! A '+(e.razao||'empresa')+' está fazendo uma pesquisa anônima sobre o ambiente de trabalho (leva cerca de 3 minutos). Seu link pessoal, de uso único: {link}\nNão pedimos nome nem CPF. Obrigado!';
+ const d=document.createElement('div');d.className='overlay';d.id='psiEnv';d.style.zIndex=90;
+ const lin=c=>{const k=contato(c),ok=sent[c.id];return `<tr data-cid="${c.id}"><td>${esc(c.nome)}<div class="sm muted">${esc(psiSetorDe(a,c)||'—')}</div></td><td class="sm">${k.wa?esc(c.telefone):'<span class="muted">sem celular</span>'}<br>${k.em?esc(k.em):'<span class="muted">sem e-mail</span>'}</td><td style="white-space:nowrap"><button class="btn s" data-pe="wa" ${k.wa?'':'disabled'}>WhatsApp</button> <button class="btn s g" data-pe="em" ${k.em?'':'disabled'}>E-mail</button></td><td class="sm" data-st>${ok?'✓ enviado':''}</td></tr>`};
+ d.innerHTML=`<div class="sheet" style="max-width:860px"><header><h2>Enviar link individual (uso único)</h2><button type="button" class="btn g s" data-pe="x" aria-label="Fechar">✕</button></header><div class="bd"><p class="sm muted" style="margin:0 0 8px">Cada pessoa recebe um link próprio, que só aceita uma resposta. Ao tocar em <b>WhatsApp</b> ou <b>E-mail</b>, o aplicativo abre com a mensagem pronta e você só confirma o envio. O sistema guarda apenas <b>quem já recebeu</b>, nunca qual link foi para quem.</p><label class="sm" for="psiMsg"><b>Mensagem</b> (use {nome} e {link})</label><textarea id="psiMsg" rows="5" style="width:100%;margin:4px 0 10px">${esc(msg0)}</textarea>${ds.length?`<div style="overflow:auto;max-height:46vh"><table><tr><th>Trabalhador</th><th>Contato</th><th>Enviar por</th><th></th></tr>${ds.map(lin).join('')}</table></div>`:'<p class="muted">Nenhum colaborador ativo no grupo avaliado.</p>'}<p class="sm muted" style="margin:8px 0 0">Quem está sem celular ou e-mail no cadastro não aparece com botão: complete o cadastro ou use o modo "Link geral e QR".</p></div><footer><button class="btn p" data-pe="x">Concluir</button></footer></div>`;
+ d.addEventListener('click',async ev=>{
+  const b=ev.target.closest('[data-pe]');if(!b)return;if(b.dataset.pe==='x'){d.remove();window._psiEnv=null;render();return}
+  const tr=b.closest('tr[data-cid]');if(!tr)return;const c=G('colaboradores',tr.dataset.cid),k=contato(c),av=G('avpsicos',id);
+  let cod=env.cod[c.id];
+  if(!cod){try{b.disabled=true;Object.assign(env.cod,await psiGeraCodigos(av,[c]));b.disabled=false;toast('Link novo gerado para '+c.nome.split(' ')[0]+'. Toque de novo para enviar.',4000)}catch(er){b.disabled=false;toast('Não foi possível gerar o link ('+(er&&er.code||'erro')+').',5000)}return}
+  const link=location.origin+location.pathname+'?psi='+av.onlineToken+'&c='+cod;
+  const txt=document.getElementById('psiMsg').value.replace(/\{nome\}/g,(c.nome||'').split(/\s+/)[0]).replace(/\{link\}/g,link);
+  if(b.dataset.pe==='wa')window.open('https://wa.me/'+k.wa+'?text='+encodeURIComponent(txt),'_blank');
+  else{const l=document.createElement('a');l.href='mailto:'+k.em+'?subject='+encodeURIComponent('Pesquisa anônima sobre o ambiente de trabalho')+'&body='+encodeURIComponent(txt);document.body.appendChild(l);l.click();l.remove()}
+  env.sent[c.id]=b.dataset.pe;const r2=clone(av);r2.enviados=Object.assign({},r2.enviados||{},{[c.id]:b.dataset.pe});save('avpsicos',r2,true);
+  tr.querySelector('[data-st]').textContent='✓ enviado por '+(b.dataset.pe==='wa'?'WhatsApp':'e-mail');
+ });
+ document.body.appendChild(d);
+}
 /* página pública que o trabalhador abre pelo link/QR: sem login, anônima */
-async function psiPublico(tok){
+async function psiPublico(tok,cod){
  ['app','modal-root','doc-root','login-root'].forEach(i=>{const e=document.getElementById(i);if(e)e.style.display='none'});
  document.title='Pesquisa sobre o ambiente de trabalho';
  const st=document.createElement('style');
@@ -2911,13 +2968,20 @@ async function psiPublico(tok){
  document.head.appendChild(st);
  const root=document.createElement('div');root.id='psi-pub';document.body.appendChild(root);
  const msg=(t,s)=>{root.innerHTML=`<div class="pp-w"><div class="pp-card"><h1>${esc(t)}</h1><p>${esc(s)}</p></div></div>`};
- const ja=()=>{try{return localStorage.getItem('psiOk:'+tok)}catch(e){return null}};
+ const ja=()=>{try{return localStorage.getItem('psiOk:'+tok+(cod||''))}catch(e){return null}};
  if(!(window.__fbOk&&window.FB))return msg('Pesquisa indisponível','Não foi possível conectar agora. Tente novamente mais tarde.');
  if(ja())return msg('Obrigado!','Sua resposta já foi registrada neste aparelho.');
  let pub;try{const s=await window.FB.db.doc('psipub/'+tok).get();pub=s.exists?s.data():null}catch(e){pub=null}
  if(!pub||!pub.aberto)return msg('Pesquisa encerrada','Esta pesquisa não está recebendo respostas. Em caso de dúvida, fale com o responsável de segurança do trabalho da empresa.');
+ let cd=null;
+ if(pub.unico){
+  if(!cod)return msg('Link individual necessário','Esta pesquisa usa links pessoais, de uso único. Peça o seu link ao responsável de segurança do trabalho.');
+  try{const s2=await window.FB.db.doc('psicod/'+cod).get();cd=s2.exists?s2.data():null}catch(e){cd=null}
+  if(!cd||cd.avId!==pub.avId)return msg('Link inválido','Este link não é válido. Peça um novo ao responsável.');
+  if(cd.usado)return msg('Link já utilizado','Este link pessoal já foi usado e não pode ser aberto novamente. Obrigado pela participação!');
+ }
  root.innerHTML=`<div class="pp-w"><div class="pp-card"><h1>Pesquisa sobre o ambiente de trabalho</h1><p class="pp-s">${esc(pub.empresa||'')}</p><p>Queremos entender como está o trabalho aqui, para melhorar. A participação é <b>voluntária</b> e <b>anônima</b>: não pedimos nome, CPF nem qualquer dado pessoal, e as respostas são analisadas apenas em conjunto. Leva cerca de 3 minutos.</p><p class="pp-s">Para cada frase, marque de 1 a 5: <b>1</b> = discordo totalmente · <b>3</b> = neutro · <b>5</b> = concordo totalmente. Se não quiser responder alguma, deixe em branco.</p></div>
- <form id="ppf" novalidate>${pub.setores&&pub.setores.length?`<div class="pp-card"><h2>Seu setor (opcional)</h2><select class="pp-sel" id="pp_setor" aria-label="Setor"><option value="">Prefiro não informar</option>${pub.setores.map(s=>`<option>${esc(s)}</option>`).join('')}</select><p class="pp-s" style="margin:8px 0 0">Só é usado para resultados por setor quando há 5 ou mais respostas.</p></div>`:''}
+ <form id="ppf" novalidate>${pub.setores&&pub.setores.length&&!pub.unico?`<div class="pp-card"><h2>Seu setor (opcional)</h2><select class="pp-sel" id="pp_setor" aria-label="Setor"><option value="">Prefiro não informar</option>${pub.setores.map(s=>`<option>${esc(s)}</option>`).join('')}</select><p class="pp-s" style="margin:8px 0 0">Só é usado para resultados por setor quando há 5 ou mais respostas.</p></div>`:''}
  <div class="pp-card">${PSI_FATORES.map((x,i)=>`<fieldset class="pp-q"><legend>${i+1}. ${esc(psiQ(x))}</legend><div class="pp-o">${[1,2,3,4,5].map(n=>`<label><input type="radio" name="${x.id}" value="${n}"><span>${n}</span></label>`).join('')}</div><div class="pp-e"><span>Discordo</span><span>Concordo</span></div></fieldset>`).join('')}</div>
  <p class="pp-s" id="pp_m" role="alert" style="min-height:20px"></p><button class="pp-b" type="submit">Enviar respostas</button><p class="pp-s" style="text-align:center;margin-top:10px">Ao enviar, você concorda em participar de forma voluntária. Nenhum dado que identifique você é coletado.</p></form></div>`;
  document.getElementById('ppf').onsubmit=async ev=>{
@@ -2926,9 +2990,9 @@ async function psiPublico(tok){
   if(!Object.keys(r).length){m.textContent='Responda pelo menos uma pergunta para enviar.';return}
   b.disabled=true;m.textContent='Enviando…';
   const d={avId:pub.avId,empresaId:pub.empresaId,consultoriaId:pub.consultoriaId,tok,dia:today(),r};
-  const se=document.getElementById('pp_setor');if(se&&se.value)d.setor=se.value;
-  try{await window.FB.db.collection('psiresp').add(d);try{localStorage.setItem('psiOk:'+tok,'1')}catch(e){}msg('Obrigado!','Sua resposta foi enviada de forma anônima. Você pode fechar esta página.')}
-  catch(e){b.disabled=false;m.textContent=(e&&e.code==='permission-denied')?'Esta pesquisa foi encerrada e não aceita mais respostas.':'Não foi possível enviar agora. Verifique a internet e tente de novo.'}
+  const se=document.getElementById('pp_setor');if(se&&se.value)d.setor=se.value;if(cd&&cd.setor)d.setor=cd.setor;
+  try{if(pub.unico){const bt=window.FB.db.batch();bt.set(window.FB.db.doc('psiresp/'+cod),d);bt.update(window.FB.db.doc('psicod/'+cod),{usado:true});await bt.commit()}else await window.FB.db.collection('psiresp').add(d);try{localStorage.setItem('psiOk:'+tok+(cod||''),'1')}catch(e){}msg('Obrigado!','Sua resposta foi enviada de forma anônima. Você pode fechar esta página.')}
+  catch(e){b.disabled=false;m.textContent=(e&&e.code==='permission-denied')?(pub.unico?'Este link já foi usado ou a pesquisa foi encerrada.':'Esta pesquisa foi encerrada e não aceita mais respostas.'):'Não foi possível enviar agora. Verifique a internet e tente de novo.'}
  };
 }
 VIEWS.psiorg=()=>{
@@ -2946,7 +3010,7 @@ VIEWS.psiorg=()=>{
 };
 function psiOnlineHtml(a){
  if(!a.onlineToken)return isC()?`<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn s" data-a="psiOnline" data-id="${a.id}">${ic('plus')}Coletar respostas online (link/QR)</button><span class="muted sm">O trabalhador responde pelo celular, sem login e sem se identificar.</span></div>`:'';
- return `<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center"><span class="chip ${a.onlineAberto?'low':'gray'}">Resposta online: ${a.onlineAberto?'aberta':'encerrada'}</span><span class="muted sm">${a.onlineN?a.onlineN+' resposta(s) apurada(s) em '+fd(a.onlineEm):'ainda não apurado'}</span>${isC()?`<div class="grow"></div><button class="btn s g" data-a="psiCopiaLink" data-id="${a.id}">Copiar link</button><button class="btn s p" data-a="psiApurar" data-id="${a.id}">Apurar respostas e gerar relatório</button><button class="btn s g" data-a="psiOnline" data-id="${a.id}">${a.onlineAberto?'Encerrar':'Reabrir'}</button>`:''}</div>`}
+ return `<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center"><span class="chip ${a.onlineAberto?'low':'gray'}">Resposta online: ${a.onlineAberto?'aberta':'encerrada'}</span><span class="chip gray">${a.onlineUnico?'Links individuais (uso único)':'Link geral'}</span><span class="muted sm">${a.onlineN?a.onlineN+' resposta(s) apurada(s) em '+fd(a.onlineEm):'ainda não apurado'}</span>${isC()?`<div class="grow"></div>${a.onlineUnico?`<button class="btn s" data-a="psiEnviar" data-id="${a.id}">Enviar links individuais</button>`:`<button class="btn s g" data-a="psiCopiaLink" data-id="${a.id}">Copiar link</button>`}<button class="btn s g" data-a="psiModo" data-id="${a.id}">Modo</button><button class="btn s p" data-a="psiApurar" data-id="${a.id}">Apurar respostas e gerar relatório</button><button class="btn s g" data-a="psiOnline" data-id="${a.id}">${a.onlineAberto?'Encerrar':'Reabrir'}</button>`:''}</div>`}
 function psiDoc(a,k){
  const e=G('empresas',a.empresaId)||{};
  const cab=(t)=>dHead(t,fd(a.data),e.logo)+`<h1 style="font-size:17pt">${t}</h1><p class="small">${esc(e.razao||'')}${e.cnpj?' — CNPJ '+esc(e.cnpj):''}</p>`;
@@ -4550,12 +4614,9 @@ certCipa(d){const c=G('cipas',d.id);if(!c)return;const r=cipaDimDe(c);const e=G(
 newCipa(){abrirCipa()},editCipa(d){abrirCipa(d.id)},delCipa(d){ask('Excluir esta gestão da CIPA? Atas e documentos do processo devem ser guardados por no mínimo 5 anos (NR-5).','Excluir',()=>del('cipas',d.id))},
 proxCipa(d){const c=G('cipas',d.id);if(!c)return;const fim=c.mandatoFim||cipaFimPadrao(c.mandatoIni);const ini=diaUtilApos(fim);abrirCipa(null,{empresaId:c.empresaId,mandatoIni:ini,gestao:ini.slice(0,4)+'/'+(parseInt(ini.slice(0,4),10)+1),sindicato:c.sindicato,localEleicao:c.localEleicao,horarioVotacao:c.horarioVotacao,presidente:c.presidente,empTit:c.empTit,empSup:c.empSup,comissaoEleitoral:c.comissaoEleitoral})},
 docCipa(d){const c=G('cipas',d.id),sel=document.getElementById('cd_'+d.id);if(!c)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome=(CIPA_DOCS.find(x=>x[0]===k)||[k,k])[1];openDoc({title:nome+' — '+nEmp(c.empresaId),html:cipaDoc(c,k),filename:'cipa-'+k+'-'+slug(nEmp(c.empresaId))+'.html',assunto:nome+' — CIPA '+(c.gestao||''),corpo:'Segue: '+nome+' (CIPA, gestão '+(c.gestao||'')+').'})},
-async psiOnline(d){const a=G('avpsicos',d.id);if(!a)return;if(!DB.db){toast('A resposta online precisa do banco de dados conectado.',4000);return}
- try{const r=clone(a);const novo=!r.onlineToken;if(novo)r.onlineToken=psiTokenNovo();
-  const abrir=novo?true:!r.onlineAberto;r.onlineAberto=abrir;r.consultoriaId=r.consultoriaId||CFG_ID();
-  await psiPublicaOnline(r,abrir);save('avpsicos',r,true);render();
-  toast(novo?'Link criado. Copie e envie aos trabalhadores, ou imprima o convite com QR.':abrir?'Link reaberto: voltou a receber respostas.':'Link encerrado: não recebe mais respostas.',5000)}
- catch(e){toast('Não foi possível atualizar o link ('+(e&&e.code||'erro')+').',5000)}},
+psiOnline(d){const a=G('avpsicos',d.id);if(!a)return;if(!DB.db){toast('A resposta online precisa do banco de dados conectado.',4000);return}if(!a.onlineToken)psiFormModo(a,true);else psiLiga(a.id)},
+psiModo(d){const a=G('avpsicos',d.id);if(a)psiFormModo(a,false)},
+psiEnviar(d){psiAbrirEnvio(d.id)},
 psiCopiaLink(d){const a=G('avpsicos',d.id);if(!a||!a.onlineToken)return;const l=psiLink(a);
  (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(l):Promise.reject()).then(()=>toast('Link copiado.'),()=>{window.prompt('Copie o link:',l)})},
 async psiApurar(d){const a=G('avpsicos',d.id);if(!a||!a.onlineToken)return;if(!DB.db){toast('A apuração online precisa do banco de dados conectado.',4000);return}
@@ -4570,7 +4631,7 @@ async psiApurar(d){const a=G('avpsicos',d.id);if(!a||!a.onlineToken)return;if(!D
   openDoc({title:'Relatório psicossocial — '+nEmp(b.empresaId),html:psiDoc(b,'rel'),filename:'psicossocial-rel-'+slug(nEmp(b.empresaId))+'.html',assunto:'Relatório psicossocial',corpo:'Segue: Relatório psicossocial.'})};
  if(rs.length<5)ask('Há apenas '+rs.length+' resposta(s). Com menos de 5 respostas o anonimato fica frágil e o resultado pouco representativo. Apurar mesmo assim?','Apurar',go);else go()},
 newPsiOrg(){abrirPsiOrg()},editPsiOrg(d){abrirPsiOrg(d.id)},delPsiOrg(d){ask('Excluir esta avaliação psicossocial?'+(((G('avpsicos',d.id)||{}).onlineToken)?' O link online e as respostas recebidas também serão apagados.':''),'Excluir',()=>{const a=G('avpsicos',d.id);del('avpsicos',d.id);psiLimpaOnline(a)})},
-async docPsiOrg(d){let a=G('avpsicos',d.id);const sel=document.getElementById('pd_'+d.id);if(!a)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome={rel:'Relatório psicossocial',plano:'Plano de ação psicossocial',ques:'Questionário psicossocial',convite:'Convite para responder online',pres:'Lista de participação'}[k];if(k==='convite'){if(!a.onlineToken){toast('Primeiro crie o link em "Coletar respostas online".',4000);return}try{a=Object.assign({},a,{_qr:await psiQR(psiLink(a))})}catch(e){}}openDoc({title:nome+' — '+nEmp(a.empresaId),html:psiDoc(a,k),filename:'psicossocial-'+k+'-'+slug(nEmp(a.empresaId))+'.html',assunto:nome,corpo:'Segue: '+nome+'.'})},
+async docPsiOrg(d){let a=G('avpsicos',d.id);const sel=document.getElementById('pd_'+d.id);if(!a)return;if(!sel||!sel.value){toast('Escolha o documento na lista.');return}const k=sel.value,nome={rel:'Relatório psicossocial',plano:'Plano de ação psicossocial',ques:'Questionário psicossocial',convite:'Convite para responder online',pres:'Lista de participação'}[k];if(k==='convite'){if(!a.onlineToken){toast('Primeiro crie o link em "Coletar respostas online".',4000);return}if(a.onlineUnico){toast('No modo de links individuais não há QR geral. Use "Enviar links individuais".',5000);return}try{a=Object.assign({},a,{_qr:await psiQR(psiLink(a))})}catch(e){}}openDoc({title:nome+' — '+nEmp(a.empresaId),html:psiDoc(a,k),filename:'psicossocial-'+k+'-'+slug(nEmp(a.empresaId))+'.html',assunto:nome,corpo:'Segue: '+nome+'.'})},
 psiParaInv(d){const a=G('avpsicos',d.id);if(!a)return;let n=0,at=0;
  PSI_FATORES.forEach(x=>{const p=psiPct(a,x.id),nv=psiNivel(p);if(!nv||nv[0]<20)return;
   const ja=L('riscos').find(r=>r.empresaId===a.empresaId&&r.cat==='psicossocial'&&r.fatorPsi===x.id);const prob=String(nv[3]);
@@ -4944,7 +5005,8 @@ function iniciarComAuth(){
  });
 }
 const _psiTok=(new URLSearchParams(location.search).get('psi')||'').replace(/[^a-f0-9]/gi,'');
-if(_psiTok)psiPublico(_psiTok);else if(window.__fbOk&&window.FB)iniciarComAuth();else iniciarSemAuth();
+const _psiCod=(new URLSearchParams(location.search).get('c')||'').replace(/[^a-f0-9]/gi,'');
+if(_psiTok)psiPublico(_psiTok,_psiCod);else if(window.__fbOk&&window.FB)iniciarComAuth();else iniciarSemAuth();
 </script>
 </body>
 </html>
