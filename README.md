@@ -210,3 +210,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - **Menu e atalhos animados e 100% coloridos**: nenhum ícone fica branco (a tabela `NR26` define a cor de cada tela e a `NAVAN`, o movimento: pulsar, flutuar, saltar, batimento, tremer, piscar, girar). Cada ícone anima em intervalos, em tempos defasados, e reage ao passar o mouse. Com "reduzir movimento" ativado no aparelho, tudo fica parado.
 - **Ícone próprio de Configurações**: duas engrenagens encaixadas em azul-aço, girando em sentidos opostos e velocidades diferentes ("trabalhando").
 
+- Relatório psicossocial: assinaturas do responsável e do empregador (desenhar na tela, colar imagem ou linha em branco para o papel).

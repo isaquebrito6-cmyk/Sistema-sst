@@ -2925,12 +2925,17 @@ function abrirPsiOrg(id){
   {k:'grupo',l:'Setores / grupos avaliados',w:6,h:'Vazio = todos os setores. Evite grupos com menos de 5 respondentes (preserva o anonimato).'},{t:'html',w:6,html:'<div id="psiSet"></div>'},{t:'html',w:6,html:'<div id="psiPart"></div>'},
   {k:'trabalhadores',l:'Trabalhadores do grupo',w:2,inp:'numeric'},{k:'respondentes',l:'Participantes (respondentes)',w:2,inp:'numeric'},{k:'metodo',l:'Método da consulta',w:6},
   {k:'responsavel',l:'Responsável pela avaliação (nome e registro)',w:6},
+  {k:'respEmpresa',l:'Empregador / representante legal (nome e cargo)',w:6},
+  {sec:'Assinaturas (opcional) — quem não assinar na tela assina no papel: o documento sai com linha em branco'},
+  {t:'html',w:6,html:'<label>Assinatura do responsável pela avaliação</label><div class="sigpad"><canvas id="psiRespCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="psiRespClear">Limpar assinatura</button><span class="sm muted" id="psiRespStatus"></span></div>'},
+  {t:'html',w:6,html:'<label>Assinatura do empregador / representante legal</label><div class="sigpad"><canvas id="psiEmpCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="psiEmpClear">Limpar assinatura</button><span class="sm muted" id="psiEmpStatus"></span></div>'},
   {sec:'Resultado por fator — informe o % de respostas desfavoráveis do grupo (0 a 100) e as medidas de prevenção'}];
  PSI_FATORES.forEach(x=>{f.push({k:'pct_'+x.id,l:x.n+' — % desfavorável',w:3,inp:'numeric'});f.push({k:'med_'+x.id,l:'Medidas e responsável/prazo',w:3,ph:x.m})});
  f.push({k:'conclusao',l:'Conclusão / observações',t:'textarea',rows:3});
  openForm({title:id?'Editar avaliação psicossocial':'Nova avaliação psicossocial coletiva',btn:'Salvar',val:rec,fields:f,
   save:v=>{Object.assign(rec,v);rec.participantes=(window._psiMarc||[]).slice();if(!rec.grupo)rec.grupo='Todos os setores';PSI_FATORES.forEach(x=>{if(!rec['med_'+x.id]&&psiNivel(rec['pct_'+x.id])&&psiNivel(rec['pct_'+x.id])[0]>=20)rec['med_'+x.id]=x.m});save('avpsicos',rec);toast('Avaliação salva.');return true}});
  psiIniciaAuto();
+ setTimeout(()=>{initSigPad('psiRespCv',rec,'psiRespStatus','psiRespClear',null,'respAssinaturaImg','respAssinaturaData');initSigPad('psiEmpCv',rec,'psiEmpStatus','psiEmpClear',null,'empAssinaturaImg','empAssinaturaData')},40);
 }
 function psiIniciaAuto(){setTimeout(()=>{['trabalhadores','responsavel','respondentes'].forEach(k=>{const el=document.getElementById('f_'+k);if(el)el.addEventListener('input',()=>{el.dataset.auto=k==='responsavel'?'':'0'})});const gr=document.getElementById('f_grupo');if(gr)gr.addEventListener('input',()=>{const t=document.getElementById('f_trabalhadores');if(t&&t.dataset.auto!=='0')t.dataset.auto='1';psiAuto('grupo')});psiAuto()},60)}
 /* ===== Resposta online anônima (link/QR) e apuração automática ===== */
@@ -3072,7 +3077,7 @@ function psiOnlineHtml(a){
 function psiDoc(a,k){
  const e=G('empresas',a.empresaId)||{};
  const cab=(t)=>dHead(t,fd(a.data),e.logo)+`<h1 style="font-size:17pt">${t}</h1><p class="small">${esc(e.razao||'')}${e.cnpj?' — CNPJ '+esc(e.cnpj):''}</p>`;
- const rod=`<div class="sig"><div>Responsável pela avaliação<span>${esc(a.responsavel||'Nome, registro e assinatura')}</span></div><div>Empregador / representante legal<span>Nome e assinatura</span></div></div>`;
+ const rod=`<div class="sig">${sigCell('Responsável pela avaliação',a.responsavel||'Nome, registro e assinatura',a,'respAssinaturaImg','respAssinaturaData')}${sigCell('Empregador / representante legal',a.respEmpresa||'Nome e assinatura',a,'empAssinaturaImg','empAssinaturaData')}</div>`;
  const res=PSI_FATORES.map(x=>({x,p:psiPct(a,x.id),n:psiNivel(psiPct(a,x.id))}));
  const part=(a.respondentes&&a.trabalhadores)?Math.round(100*a.respondentes/a.trabalhadores)+'%':'—';
  if(k==='convite'){const lk=a.onlineToken?psiLink(a):'';return cab('Pesquisa sobre o ambiente de trabalho')+`<p style="font-size:13pt">Participe da pesquisa sobre as condições psicossociais do trabalho${e.razao?' em <b>'+esc(String(e.razao).replace(/\.+$/,'.'))+'</b>':''}${/\.$/.test(String(e.razao||''))?'':'.'} Leva cerca de 3 minutos.</p><div style="text-align:center;margin:18px 0">${a._qr?`<div style="width:230px;margin:0 auto">${a._qr}</div>`:''}<p style="font-size:11pt;word-break:break-all">${esc(lk)}</p></div><ul><li>Aponte a câmera do celular para o QR ou digite o endereço acima.</li><li>A participação é <b>voluntária</b> e <b>anônima</b>: não pedimos nome nem CPF.</li><li>As respostas são analisadas apenas em conjunto, para melhorar o ambiente de trabalho.</li></ul>`}
