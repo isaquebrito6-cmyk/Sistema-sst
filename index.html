@@ -2623,7 +2623,7 @@ VIEWS.epis=()=>{
  :emptyBox('Nenhuma entrega registrada','Registre aqui cada entrega ou troca de EPI por colaborador.',`<button class="btn p" data-a="newEpi">${ic('plus')}Nova entrega</button>`,'check'));
 };
 /* ====================== CIPA — NR-5 (dimensionamento pela NR-4: grau de risco) ====================== */
-/* Quadro I da NR-5 (Portaria MTP 422/2021). ATENÇÃO: o mapeamento das colunas foi inferido do texto da norma — conferir com o Quadro I oficial. */
+/* Quadro I da NR-5 (Portaria MTP 422/2021). Conferido com o texto oficial: valores, limites de CIPA por grau (grau 1 a partir de 81; grau 2 a partir de 51; graus 3 e 4 a partir de 20) e acréscimo acima de 10.000 (a cada 2.500). */
 const CIPA_FAIXAS=[[20,29],[30,50],[51,80],[81,100],[101,120],[121,140],[141,300],[301,500],[501,1000],[1001,2500],[2501,5000],[5001,10000]];
 const CIPA_Q={
  1:{ef:[1,1,1,1,2,4,5,6,8],su:[1,1,1,1,2,3,4,5,6],ini:3,inc:[1,1]},
@@ -2660,7 +2660,7 @@ function cipaDimHtml(e){
  if(!e)return '<small>Selecione a empresa para ver o dimensionamento.</small>';
  const r=cipaDim(e.grau,e.funcionarios);
  const base=`<b>Dimensionamento (NR-5, Quadro I) — Grau de risco ${esc(String(r.grau))} (NR-4) · ${esc(String(r.n))} empregados</b><br>`;
- const aviso='<br><small style="color:#8a5a00">Valores do Quadro I conferidos por inferência do texto da norma: confirme no Quadro I oficial da NR-5 antes de emitir o edital. Para empresas com mais de uma unidade, o número de empregados é por estabelecimento.</small>';
+ const aviso='<br><small style="color:#8a5a00">Dimensionamento conforme o Quadro I da NR-5 (Portaria MTP 422/2021). Para empresas com mais de uma unidade, o número de empregados é por estabelecimento.</small>';
  if(r.tipo==='designado')return `<div class="note">${base}${esc(r.faixa)}: <b>não há CIPA</b>; o empregador deve <b>designar um representante</b> da organização para cumprir as atribuições da comissão (NR-5, itens 5.4.13 e 5.4.14), com treinamento.${aviso}</div>`;
  return `<div class="note">${base}Faixa: ${esc(r.faixa)}.<br>Representantes do <b>empregador</b>: <b>${r.ef}</b> titular(es) e <b>${r.su}</b> suplente(s). Representantes dos <b>empregados</b> (eleitos): <b>${r.ef}</b> titular(es) e <b>${r.su}</b> suplente(s).<br>Treinamento mínimo: <b>${CIPA_HORAS[r.grau]} horas</b> (antes da posse; na primeira gestão, até 30 dias após a posse).${aviso}</div>`;
 }
