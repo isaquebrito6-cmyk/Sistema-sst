@@ -213,3 +213,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Relatório psicossocial: assinaturas do responsável e do empregador (desenhar na tela, colar imagem ou linha em branco para o papel).
 - Psicossocial online: envio simplificado em 2 passos (1. Enviar questionário → painel único com copiar/WhatsApp/e-mail/QR/links individuais/encerrar; 2. Apurar e gerar relatório).
 - Links individuais do psicossocial: quem não tem celular/e-mail (ou está ausente) recebe por "Informar celular", "Copiar link" ou QR para escanear.
+- Psicossocial: ata de devolutiva dos resultados (com lista de presença assinável) e texto de ciência/consentimento na lista de participação.
