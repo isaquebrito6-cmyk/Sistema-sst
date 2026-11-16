@@ -2982,14 +2982,14 @@ async function psiLiga(id,opt){
  try{const r=clone(a);const novo=!r.onlineToken;if(novo)r.onlineToken=psiTokenNovo();
   if(opt.unico!==undefined)r.onlineUnico=!!opt.unico;
   const abrir=opt.abrir!==undefined?opt.abrir:(novo?true:!r.onlineAberto);r.onlineAberto=abrir;r.consultoriaId=r.consultoriaId||CFG_ID();
-  await psiPublicaOnline(r,abrir);save('avpsicos',r,true);render();
-  toast(novo?(r.onlineUnico?'Pronto. Agora use "Enviar links individuais" para mandar a cada trabalhador.':'Link criado. Copie e envie aos trabalhadores, ou imprima o convite com QR.'):opt.unico!==undefined?'Modo atualizado.':abrir?'Link reaberto: voltou a receber respostas.':'Link encerrado: não recebe mais respostas.',5000)}
+  await psiPublicaOnline(r,abrir);save('avpsicos',r,true);render();if(novo||opt.unico!==undefined)setTimeout(()=>psiMenu(id),150);
+  toast(novo?'Pronto! Agora escolha como enviar.':opt.unico!==undefined?'Modo atualizado.':abrir?'Link reaberto: voltou a receber respostas.':'Link encerrado: não recebe mais respostas.',5000)}
  catch(e){toast('Não foi possível atualizar o link ('+(e&&e.code||'erro')+').',5000)}
 }
 function psiFormModo(a,novo){
- const G1='Link geral e QR',U1='Links individuais de uso único (WhatsApp / e-mail)';
+ const G1='Um link para todos (grupo, mural ou QR)',U1='Um link para cada pessoa (WhatsApp ou e-mail, uso único)';
  openForm({title:novo?'Como coletar as respostas?':'Modo de coleta',btn:novo?'Criar':'Salvar',val:{modo:a.onlineUnico?U1:G1},
-  fields:[{k:'modo',l:'Modo',t:'select',r:1,w:6,o:[G1,U1]},{t:'html',w:6,html:'<p class="sm muted" style="margin:0"><b>Link geral e QR:</b> um endereço só, para mural ou grupo; qualquer pessoa com o link responde (não impede respostas repetidas).<br><b>Links individuais de uso único:</b> cada trabalhador recebe o seu link por WhatsApp ou e-mail e só consegue responder uma vez. O sistema <b>não guarda qual link foi para qual pessoa</b>: só registra quem já recebeu, para você não enviar duas vezes.</p>'}],
+  fields:[{k:'modo',l:'Modo',t:'select',r:1,w:6,o:[G1,U1]},{t:'html',w:6,html:'<p class="sm muted" style="margin:0"><b>Um link para todos:</b> um endereço só, para mural ou grupo; qualquer pessoa com o link responde (não impede respostas repetidas).<br><b>Um link para cada pessoa:</b> cada trabalhador recebe o seu link por WhatsApp ou e-mail e só consegue responder uma vez. O sistema <b>não guarda qual link foi para qual pessoa</b>: só registra quem já recebeu, para você não enviar duas vezes.</p>'}],
   save:v=>{psiLiga(a.id,{unico:v.modo===U1,abrir:novo?true:undefined});return true}})
 }
 async function psiGeraCodigos(a,colabs){
@@ -3072,8 +3072,36 @@ VIEWS.psiorg=()=>{
  (l.length?cards:emptyBox('Nenhuma avaliação psicossocial coletiva','Cadastre o resultado do questionário coletivo para gerar o relatório, o plano de ação e os riscos do inventário.',`<button class="btn p" data-a="newPsiOrg">${ic('plus')}Nova avaliação</button>`,'shield'));
 };
 function psiOnlineHtml(a){
- if(!a.onlineToken)return isC()?`<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn s" data-a="psiOnline" data-id="${a.id}">${ic('plus')}Coletar respostas online (link/QR)</button><span class="muted sm">O trabalhador responde pelo celular, sem login e sem se identificar.</span></div>`:'';
- return `<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center"><span class="chip ${a.onlineAberto?'low':'gray'}">Resposta online: ${a.onlineAberto?'aberta':'encerrada'}</span><span class="chip gray">${a.onlineUnico?'Links individuais (uso único)':'Link geral'}</span><span class="muted sm">${a.onlineN?a.onlineN+' resposta(s) apurada(s) em '+fd(a.onlineEm):'ainda não apurado'}</span>${isC()?`<div class="grow"></div>${a.onlineUnico?`<button class="btn s" data-a="psiEnviar" data-id="${a.id}">Enviar links individuais</button>`:`<button class="btn s g" data-a="psiCopiaLink" data-id="${a.id}">Copiar link</button>`}<button class="btn s g" data-a="psiModo" data-id="${a.id}">Modo</button><button class="btn s p" data-a="psiApurar" data-id="${a.id}">Apurar respostas e gerar relatório</button><button class="btn s g" data-a="psiOnline" data-id="${a.id}">${a.onlineAberto?'Encerrar':'Reabrir'}</button>`:''}</div>`}
+ if(!isC())return a.onlineToken?`<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="chip ${a.onlineAberto?'low':'gray'}">Resposta online: ${a.onlineAberto?'aberta':'encerrada'}</span></div>`:'';
+ if(!a.onlineToken)return `<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center"><button class="btn s p" data-a="psiOnline" data-id="${a.id}">${ic('send')}Enviar questionário online</button><span class="muted sm">O trabalhador responde pelo celular, sem login e sem se identificar. Depois é só apurar e o relatório sai pronto.</span></div>`;
+ const ds=a.onlineUnico?psiDestinatarios(a):[],env=ds.filter(c=>(a.enviados||{})[c.id]).length;
+ return `<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center"><span class="chip ${a.onlineAberto?'low':'gray'}">${a.onlineAberto?'Recebendo respostas':'Encerrada'}</span><span class="muted sm">${a.onlineUnico?'Um link para cada pessoa'+(ds.length?' · enviado a '+env+' de '+ds.length:''):'Um link para todos'} · ${a.onlineN?a.onlineN+' resposta(s) apurada(s) em '+fd(a.onlineEm):'ainda não apurado'}</span><div class="grow"></div><button class="btn s" data-a="psiMenu" data-id="${a.id}">${ic('send')}1. Enviar questionário</button><button class="btn s p" data-a="psiApurar" data-id="${a.id}">2. Apurar respostas e gerar relatório</button></div>`}
+/* Painel único de envio: tudo o que se faz com o link (copiar, WhatsApp, e-mail, QR, links individuais, encerrar) num lugar só */
+function psiMenu(id){
+ const a=G('avpsicos',id);if(!a)return;if(!DB.db){toast('A resposta online precisa do banco de dados conectado.',4000);return}
+ if(!a.onlineToken){psiFormModo(a,true);return}
+ const e=G('empresas',a.empresaId)||{},lk=psiLink(a),ds=a.onlineUnico?psiDestinatarios(a):[],env=ds.filter(c=>(a.enviados||{})[c.id]).length;
+ const msg='Pesquisa anônima sobre o ambiente de trabalho'+(e.razao?' na '+e.razao:'')+' (leva cerca de 3 minutos, sem nome e sem CPF): '+lk;
+ const d=document.createElement('div');d.className='overlay';d.id='psiMenu';d.style.zIndex=90;
+ d.innerHTML=`<div class="sheet" style="max-width:620px"><header><h2>Enviar questionário</h2><button type="button" class="btn g s" data-pm="x" aria-label="Fechar">✕</button></header><div class="bd">
+ <p style="margin:0 0 10px"><span class="chip ${a.onlineAberto?'low':'gray'}">${a.onlineAberto?'Recebendo respostas':'Encerrada — não recebe respostas'}</span></p>
+ ${a.onlineUnico?`<div class="card" style="margin-bottom:10px"><b>Um link para cada pessoa (uso único)</b><p class="sm muted" style="margin:4px 0 8px">Você escolhe quem recebe e envia pelo WhatsApp ou e-mail do próprio aparelho. Cada link só aceita uma resposta.${ds.length?' Já enviado a <b>'+env+' de '+ds.length+'</b>.':''}</p><button class="btn p" data-pm="ind">Escolher quem recebe e enviar</button></div>`
+ :`<div class="card" style="margin-bottom:10px"><b>Um link para todos</b><p class="sm muted" style="margin:4px 0 8px">Mande em grupo de WhatsApp, e-mail ou imprima o convite com QR para o mural.</p><input readonly value="${esc(lk)}" style="width:100%;margin-bottom:8px" onclick="this.select()" aria-label="Link do questionário"><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn s p" data-pm="cp">Copiar link</button><button class="btn s" data-pm="wa">WhatsApp</button><button class="btn s" data-pm="em">E-mail</button><button class="btn s" data-pm="qr">Imprimir convite com QR</button></div><p class="sm muted" style="margin:8px 0 0">Neste modo quem tiver o link pode responder mais de uma vez. Para impedir isso, troque para um link por pessoa abaixo.</p></div>`}
+ <div class="card"><b>Gerenciar</b><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn s g" data-pm="tog">${a.onlineAberto?'Encerrar respostas':'Reabrir respostas'}</button><button class="btn s g" data-pm="modo">Trocar entre link único e um link por pessoa</button></div></div>
+ </div><footer><button class="btn p" data-pm="x">Fechar</button></footer></div>`;
+ d.addEventListener('click',async ev=>{
+  const b=ev.target.closest('[data-pm]');if(!b)return;const k=b.dataset.pm;
+  if(k==='cp'){A.psiCopiaLink({id});return}
+  if(k==='wa'){window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');return}
+  if(k==='em'){const l=document.createElement('a');l.href='mailto:?subject='+encodeURIComponent('Pesquisa anônima sobre o ambiente de trabalho')+'&body='+encodeURIComponent(msg);document.body.appendChild(l);l.click();l.remove();return}
+  d.remove();
+  if(k==='ind')psiAbrirEnvio(id);
+  else if(k==='modo')psiFormModo(G('avpsicos',id),false);
+  else if(k==='tog')psiLiga(id);
+  else if(k==='qr'){try{const b2=Object.assign({},a,{_qr:await psiQR(lk)});openDoc({title:'Convite para responder online — '+nEmp(a.empresaId),html:psiDoc(b2,'convite'),filename:'psicossocial-convite-'+slug(nEmp(a.empresaId))+'.html',assunto:'Convite para responder online',corpo:'Segue o convite com QR.'})}catch(er){toast('Não foi possível gerar o QR agora.',4000)}}
+ });
+ document.body.appendChild(d);
+}
 function psiDoc(a,k){
  const e=G('empresas',a.empresaId)||{};
  const cab=(t)=>dHead(t,fd(a.data),e.logo)+`<h1 style="font-size:17pt">${t}</h1><p class="small">${esc(e.razao||'')}${e.cnpj?' — CNPJ '+esc(e.cnpj):''}</p>`;
@@ -4680,6 +4708,7 @@ docCipa(d){const c=G('cipas',d.id),sel=document.getElementById('cd_'+d.id);if(!c
 psiOnline(d){const a=G('avpsicos',d.id);if(!a)return;if(!DB.db){toast('A resposta online precisa do banco de dados conectado.',4000);return}if(!a.onlineToken)psiFormModo(a,true);else psiLiga(a.id)},
 psiModo(d){const a=G('avpsicos',d.id);if(a)psiFormModo(a,false)},
 psiEnviar(d){psiAbrirEnvio(d.id)},
+psiMenu(d){psiMenu(d.id)},
 psiCopiaLink(d){const a=G('avpsicos',d.id);if(!a||!a.onlineToken)return;const l=psiLink(a);
  (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(l):Promise.reject()).then(()=>toast('Link copiado.'),()=>{window.prompt('Copie o link:',l)})},
 async psiApurar(d){const a=G('avpsicos',d.id);if(!a||!a.onlineToken)return;if(!DB.db){toast('A apuração online precisa do banco de dados conectado.',4000);return}

@@ -211,3 +211,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - **Ícone próprio de Configurações**: duas engrenagens encaixadas em azul-aço, girando em sentidos opostos e velocidades diferentes ("trabalhando").
 
 - Relatório psicossocial: assinaturas do responsável e do empregador (desenhar na tela, colar imagem ou linha em branco para o papel).
+- Psicossocial online: envio simplificado em 2 passos (1. Enviar questionário → painel único com copiar/WhatsApp/e-mail/QR/links individuais/encerrar; 2. Apurar e gerar relatório).
