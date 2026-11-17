@@ -2307,20 +2307,20 @@ async function ocrCanvas(cv,st){
  try{await w.setParameters({preserve_interword_spaces:'1'})}catch(_){}
  const r=await w.recognize(cv);await w.terminate();return r.data.text||'';
 }
-async function asoTextoDoArquivo(file,st){
- st=st||(()=>{});
+async function asoTextoDoArquivo(file,st,maxPg){
+ st=st||(()=>{});maxPg=maxPg||3;
  if(/pdf/i.test(file.type||'')||/\.pdf$/i.test(file.name||'')){
   st('Abrindo o PDF…');await asoLoadPdfJs();
   const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
   let txt='';
-  for(let p=1;p<=Math.min(pdf.numPages,3);p++){
+  for(let p=1;p<=Math.min(pdf.numPages,maxPg);p++){
    const tc=await (await pdf.getPage(p)).getTextContent(),lin={};
    tc.items.forEach(it=>{const y=Math.round(it.transform[5]/3);(lin[y]=lin[y]||[]).push(it)});
    Object.keys(lin).map(Number).sort((a,b)=>b-a).forEach(y=>{txt+=lin[y].sort((a,b)=>a.transform[4]-b.transform[4]).map(i=>i.str).join('  ')+'\n'});
   }
   if(txt.replace(/\s/g,'').length>80)return txt;
   let out='';  // PDF escaneado (só imagem): desenha a página e lê por OCR
-  for(let p=1;p<=Math.min(pdf.numPages,2);p++){
+  for(let p=1;p<=Math.min(pdf.numPages,maxPg>3?10:2);p++){
    const pg=await pdf.getPage(p),vp=pg.getViewport({scale:2}),cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
    await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;out+=await ocrCanvas(cv,st)+'\n';
   }
@@ -2591,11 +2591,151 @@ VIEWS.clinicas=()=>{
  (l.length?`<div class="grid">${l.map(c=>`<div class="card"><h3>${esc(c.nome)}</h3><p class="sm muted" style="margin:0 0 8px">${esc(c.cnpj||'')}${c.cidade?' · '+esc(c.cidade):''}<br>${esc(c.telefone||'')} ${esc(c.email||'')}</p>${c.medico_nome?`<p class="sm" style="margin:0 0 10px">${esc(c.medico_nome)} ${esc(c.medico_crm||'')}</p>`:''}<div class="row"><button class="btn s" data-a="edit" data-e="clinica" data-id="${c.id}">${ic('edit')}Editar</button><button class="btn s g d" data-a="delCli" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`).join('')}</div>`:emptyBox('Nenhuma clínica cadastrada','Cadastre ao menos uma clínica para encaminhar exames.',`<button class="btn p" data-a="new" data-e="clinica">${ic('plus')}Nova clínica</button>`,'clinic'));
 };
 function empSel(){return S.role==='empresa'?'':`<select id="ef" data-c="ef" style="max-width:280px" aria-label="Empresa">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.emp)}</select>`}
+/* ====================== IMPORTAÇÃO DE PGR EXISTENTE ======================
+   Para migrar uma empresa que já tem PGR vigente: cola o texto ou envia o arquivo (PDF com texto, PDF escaneado/foto via OCR, Word .docx
+   ou .txt). Tudo roda no navegador (grátis, sem enviar o documento a terceiros). O leitor reconhece setor/GHE, função, atividades e
+   os perigos (por tabela com cabeçalho "Perigo/Fonte/Dano/Medidas/Severidade/Probabilidade" ou por palavras-chave do catálogo).
+   NADA é gravado sem o usuário conferir: abre uma tela de conferência para marcar, corrigir setor/categoria/severidade e importar. */
+const PGR_KW=[
+[/ru[ií]do.{0,20}impacto|impacto.{0,20}ru[ií]do/,'ruido-impacto'],[/\bru[ií]dos?\b|nps|dos[ií]metria|decib/,'ruido'],[/\bcalor\b|ibutg|sobrecarga t[eé]rmica|temperaturas? elevada/,'calor'],
+[/\bfrio\b|c[aâ]mara fria|refrigerad/,'frio'],[/vibra[cç]/,'vibracao'],[/radia[cç][aãõo]\w* ionizante|raios? ?x\b|radioativ/,'ionizante'],
+[/radia[cç]\w* n[aã]o.?ionizante|ultravioleta|\buv\b|radia[cç][aã]o solar/,'radnaoion'],[/umidade|encharcad/,'umidade'],
+[/poeiras?\b|s[ií]lica|particulad/,'poeira'],[/\bfumos?\b|fumos met/,'fumos'],[/solventes?|\btintas?\b|vapores org/,'solvente'],
+[/produtos? qu[ií]micos?|agentes? qu[ií]micos?|saneantes?|desinfetantes?|detergentes?/,'quimlimp'],[/hidrocarbon|\b[oó]leos?\b|graxas?|gasolina|diesel|combust[ií]vel|lubrificante/,'hidrocarb'],
+[/biol[oó]gic|bact[eé]ria|v[ií]rus|fungos?|esgoto|\blixo\b|res[ií]duos? (?:org|infec|s[oó]lid)/,'biolog'],[/perfurocortante|agulha/,'perfurocortante'],
+[/levantamento|transporte manual|carga manual|manuseio de carga|esfor[cç]o f[ií]sico|\bpeso\b/,'carga'],[/postura sentada|uso de computador|digita[cç]/,'postura'],
+[/repetitiv|postura[s]? for[cç]ada|inadequada[s]? postura/,'repetitivo'],[/\bturnos?\b|noturno|trabalho noturno/,'turno'],[/em p[eé] (?:por|durante)|trabalho em p[eé]/,'em-pe'],
+[/ilumina[cç]/,'iluminacao'],[/mobili[aá]rio|cadeira|bancada inadequad/,'adm-mobiliario'],[/home ?office|teletrabalho/,'adm-homeoffice'],
+[/queda de altura|trabalho em altura|nr.?35|andaime|escada/,'altura'],[/choque el[eé]trico|eletricidade|energia el[eé]trica|nr.?10|instala[cç][oõ]es el[eé]tricas/,'eletrico'],
+[/espa[cç]o confinado|nr.?33/,'confinado'],[/hidrojat|alta press[aã]o/,'hidrojato'],[/partes m[oó]veis|m[aá]quinas e equipamentos|nr.?12|prensa/,'maquinas'],
+[/queda de mesmo n[ií]vel|escorreg|trope[cç]|piso (?:molhado|escorregadio)/,'queda'],[/superf[ií]cie irregular|piso irregular|obst[aá]culos/,'superfirreg'],
+[/empilhadeira|ve[ií]culos industriais|carrinho rebocador|paleteira/,'empilhadeira'],[/atropelamento|colis[aã]o/,'atropelamento'],[/cortes?\b|perfura[cç]|ferramentas manuais|laceram/,'cortes'],
+[/inc[eê]ndio|explos[aã]o|inflam[aá]ve/,'incendio'],[/proje[cç][aã]o de (?:part|frag)/,'projecao'],[/i[cç]amento|ponte rolante|guindaste/,'icamento'],
+[/queda de objetos|queda de materiais/,'queda-obj'],[/trabalho a quente|soldagem|solda\b|esmerilh/,'quente'],[/ass[eé]dio|viol[eê]ncia (?:moral|sexual)/,'psi-assedio'],
+[/estresse|sobrecarga de trabalho|press[aã]o por metas|ritmo intenso/,'psi-carga'],[/jornada prolongada|horas extras|falta de pausas/,'psi-jornada'],
+[/viol[eê]ncia de terceiros|assalto|trabalho isolado/,'psi-terceiros'],[/autonomia|clareza de pap/,'psi-autonomia']];
+const PGR_NORM=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+async function pgrDocxTexto(file){
+ const buf=new Uint8Array(await file.arrayBuffer()),dv=new DataView(buf.buffer);
+ let e=buf.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;
+ if(e<0)throw new Error('Arquivo Word inválido.');
+ const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true),xml=null;
+ for(let i=0;i<n&&xml===null;i++){
+  if(dv.getUint32(p,true)!==0x02014b50)break;
+  const meth=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true);
+  const name=new TextDecoder().decode(buf.subarray(p+46,p+46+nl));p+=46+nl+el+cl;
+  if(name!=='word/document.xml')continue;
+  const st=off+30+dv.getUint16(off+26,true)+dv.getUint16(off+28,true),data=buf.subarray(st,st+csz);
+  if(meth===0)xml=new TextDecoder().decode(data);
+  else{if(typeof DecompressionStream==='undefined')throw new Error('Este navegador não abre arquivos Word aqui. Cole o texto ou envie em PDF.');const ds=new DecompressionStream('deflate-raw'),w=ds.writable.getWriter();w.write(data);w.close();xml=await new Response(ds.readable).text()}
+ }
+ if(xml===null)throw new Error('Não achei o texto dentro do arquivo Word.');
+ xml=xml.replace(/<w:tr[ >][\s\S]*?<\/w:tr>/g,row=>row.split('</w:tc>').map(c=>c.replace(/<\/w:p>/g,' ').replace(/<w:tab\/>/g,' ').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim()).filter((c,i,a)=>i<a.length-1||c).join('  ')+'\n');
+ return xml.replace(/<\/w:p>/g,'\n').replace(/<w:tab\/>/g,'\t').replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d)).replace(/&amp;/g,'&');
+}
+function pgrInterpretar(texto){
+ const linhas=String(texto||'').replace(/\r/g,'').replace(/ /g,' ').split('\n').map(l=>l.replace(/[ \t]+$/,'')).filter(l=>l.trim());
+ const out={riscos:[],setores:new Set(),empresa:fichaInterpretar(linhas.slice(0,80).join('\n'),'empresa')};
+ const cels=l=>l.split(/\t| {2,}|\|/).map(c=>c.trim()).filter((c,i,a)=>c!==''||(i>0&&i<a.length-1)||false);
+ const HDR=[['setor',/^(setor|ghe|ges|g\.?h\.?e|area|departamento|unidade)\b/],['funcao',/^(funcao|funcoes|cargo|cargos)\b/],['perigo',/^(perigo|agente|fator|risco|agente\/fator|fatores?)\b/],['fonte',/^(fonte|origem|fonte geradora)\b/],['danos',/^(dano|danos|lesao|consequencia|efeito|possiveis danos)/],['medidas',/^(medida|medidas|controle|controles|epi|epc|prevencao)/],['sev',/^(severidade|gravidade)/],['prob',/^(probabilidade|frequencia)/],['aval',/^(avaliacao|medicao|intensidade|resultado)/],['exposicao',/^(exposicao|tipo de exposicao)/]];
+ let setor='',funcao='',ativ='',hdr=null,prevRow={};
+ const ctx=l=>l.slice(0,220);
+ const novo=(id,extra)=>{const h=HAZ.find(x=>x.id===id);return Object.assign({hazId:id,cat:h.cat,perigo:h.perigo,fonte:h.fonte,danos:h.danos,medidas:h.medidas,sev:String(h.s),prob:String(h.p),exames:(h.ex||[]).slice(),per:'',exposicao:'Habitual e permanente',estimado:true},extra)};
+ const aval=l=>{const m=[...l.matchAll(/(\d{1,3}(?:[.,]\d+)?)\s*(dB\s*\(?A?\)?|ibutg|°\s*c|mg\/m[³3]|ppm|lux|m\/s[²2]?)/gi)].map(x=>x[0].replace(/\s+/g,' ').trim());return m.slice(0,4).join('; ')};
+ const add=r=>{const k=PGR_NORM(r.setor)+'|'+PGR_NORM(r.perigo).slice(0,60);if(out.riscos.some(x=>x._k===k))return;r._k=k;out.riscos.push(r);if(r.setor)out.setores.add(r.setor)};
+ for(const raw of linhas){
+  const l=raw.trim(),n=PGR_NORM(l);
+  // cabeçalho de tabela de inventário
+  const cs=cels(l);
+  if(cs.length>=4){const mp={};cs.forEach((c,i)=>{const cn=PGR_NORM(c).replace(/[^a-z\/\. ]/g,'').trim();const h=HDR.find(([k,re])=>re.test(cn)&&!(k in mp));if(h)mp[h[0]]=i});
+   if(Object.keys(mp).length>=3&&mp.perigo!==undefined&&(mp.sev!==undefined||mp.fonte!==undefined||mp.medidas!==undefined)){hdr={n:cs.length,mp};prevRow={};continue}}
+  if(hdr&&cs.length===hdr.n){
+   const g=k=>hdr.mp[k]!==undefined?cs[hdr.mp[k]]:'';
+   const per=g('perigo');if(!per||PGR_NORM(per).length<3)continue;
+   if(g('setor'))prevRow.setor=g('setor');if(g('funcao'))prevRow.funcao=g('funcao');
+   const kw=PGR_KW.find(([re])=>re.test(PGR_NORM(cs.join(' '))));const h=kw&&HAZ.find(x=>x.id===kw[1]);
+   const dig=v=>{const m=String(v||'').match(/[1-5]/);return m?m[0]:''};
+   add(novo(h?h.id:'ruido',{hazId:h?h.id:null,cat:h?h.cat:'acidente',perigo:per,fonte:g('fonte')||(h?h.fonte:''),danos:g('danos')||(h?h.danos:''),medidas:g('medidas')||(h?h.medidas:''),aval:g('aval')||aval(l),
+    setor:prevRow.setor||setor||'',funcoes:prevRow.funcao||funcao||'todas',atividades:ativ,sev:dig(g('sev'))||(h?String(h.s):'3'),prob:dig(g('prob'))||(h?String(h.p):'3'),estimado:!(dig(g('sev'))&&dig(g('prob'))),snip:ctx(l),revisarCat:!h,marcar:true}));
+   continue}
+  // contexto: setor / função / atividades
+  let m;
+  if((m=l.match(/^(?:setor|ghe|g\.h\.e\.?|ges|departamento|[áa]rea|unidade|posto de trabalho)\b[^:\-–]{0,14}[:\-–]\s*(.{2,80})$/i))||(m=l.match(/^(?:ghe|ges)\s*\d*\s*[\-–:]\s*(.{2,80})$/i))){setor=m[1].replace(/\s{2,}.*/,'').trim();funcao='';ativ='';hdr=null;continue}
+  if((m=l.match(/^(?:fun[cç][aã]o|fun[cç][oõ]es|cargos?)\s*[:\-–]\s*(.{2,120})$/i))){funcao=m[1].trim();continue}
+  if((m=l.match(/^(?:atividades?|descri[cç][aã]o das atividades|descri[cç][aã]o da atividade)\s*[:\-–]\s*(.{4,400})$/i))){ativ=m[1].trim();continue}
+  // palavras-chave do catálogo
+  if(l.length>260)continue;
+  PGR_KW.forEach(([re,id])=>{if(re.test(n)){add(novo(id,{setor,funcoes:funcao||'todas',atividades:ativ,aval:aval(l),snip:ctx(l),marcar:!!setor&&l.length<200}))}});
+ }
+ return out;
+}
+function pgrPodeCriarEmpresa(){
+ if(S.role==='consultoria'&&!isSuper()){const c=G('consultorias',CFG_ID())||{};
+  if(c.statusPagamento==='suspenso')return 'Assinatura suspensa: não é possível cadastrar novas empresas.';
+  if(c.limiteEmpresas&&L('empresas').length>=c.limiteEmpresas)return 'Limite de '+c.limiteEmpresas+' empresa(s) do seu plano atingido.'}
+ return '';
+}
+function abrirPgrImport(){
+ const emps=L('empresas').sort(byN),atual=(empAtual()||{}).id||'';
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:860px" role="dialog" aria-modal="true" aria-label="Importar PGR existente"><header><h2>Importar PGR existente</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <div id="pi_1"><p class="sm muted" style="margin:0 0 10px">Cole o texto do PGR vigente (copiado do PDF/Word) <b>ou</b> envie o arquivo (PDF, Word .docx, foto/scanner ou .txt). O sistema procura <b>setor/GHE, funções, atividades e os riscos</b> e mostra tudo para você conferir antes de gravar. A leitura roda no seu aparelho: o documento não é enviado a terceiros.</p>
+ <div class="fld w6"><label for="pi_txt">Texto do PGR</label><textarea id="pi_txt" rows="9" placeholder="Cole aqui o texto do inventário de riscos…"></textarea></div>
+ <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn s" id="pi_up">${ic('up')}Enviar arquivo (PDF, Word, foto)</button><input type="file" id="pi_file" accept=".pdf,.docx,.txt,image/*" hidden><span id="pi_st" class="sm muted"></span></div>
+ <p class="sm muted" style="margin:8px 0 0">Funciona melhor com PGR que tenha <b>tabela do inventário</b> (colunas Setor, Função, Perigo, Fonte, Dano, Medidas, Severidade e Probabilidade) ou seções "Setor/GHE: …". PDF escaneado é lido por OCR (mais lento e com mais erros). Arquivos .doc antigos: salve como .docx ou PDF.</p></div>
+ <div id="pi_2" hidden></div></div><footer><button type="button" class="btn" data-a="closeForm">Cancelar</button><button type="button" class="btn p" id="pi_go">Ler e conferir</button></footer></div></div>`;
+ const txt=$('#pi_txt'),st=$('#pi_st'),fi=$('#pi_file');let res=null;
+ $('#pi_up').onclick=()=>fi.click();
+ fi.onchange=async()=>{const f=fi.files[0];if(!f)return;
+  try{st.textContent='Lendo o arquivo…';let t='';
+   if(/\.docx$/i.test(f.name))t=await pgrDocxTexto(f);
+   else if(/\.txt$/i.test(f.name)||/text\/plain/.test(f.type))t=await f.text();
+   else if(/\.doc$/i.test(f.name))throw new Error('Arquivo .doc antigo: salve como .docx ou PDF e envie de novo.');
+   else t=await asoTextoDoArquivo(f,m=>{st.textContent=m},60);
+   txt.value=(txt.value?txt.value+'\n':'')+t.trim();st.textContent='Leitura concluída ('+t.split('\n').length+' linhas). Clique em "Ler e conferir".';
+  }catch(e){st.textContent='';toast(e.message||'Não consegui ler o arquivo.',6000)}
+  fi.value=''};
+ const go=$('#pi_go');
+ go.onclick=()=>{
+  if(res){pgrImportaGravar(res);return}
+  if(!txt.value.trim()){toast('Cole o texto ou envie o arquivo do PGR.');return}
+  res=pgrInterpretar(txt.value);
+  if(!res.riscos.length){res=null;toast('Não identifiquei riscos nesse texto. Confira se tem o inventário (perigos/agentes) e, se foi foto ou PDF escaneado, se a leitura saiu correta.',8000);return}
+  $('#pi_1').hidden=true;const box=$('#pi_2');box.hidden=false;go.textContent='Importar marcados';
+  const rz=res.empresa.razao;
+  const opEmp=emps.map(e=>`<option value="${e.id}" ${e.id===atual?'selected':''}>${esc(e.razao)}</option>`).join('');
+  box.innerHTML=`<div class="fld w6"><label for="pi_emp">Importar para a empresa</label><select id="pi_emp">${opEmp}<option value="__nova" ${!emps.length?'selected':''}>➕ Nova empresa${rz?' — '+esc(rz):' (dados lidos do PGR)'}</option></select></div>
+  <p class="sm muted" style="margin:6px 0 10px">Encontrei <b>${res.riscos.length} risco(s)</b> em <b>${res.setores.size||0} setor(es)</b>. Os itens sem setor identificado ficam desmarcados. Corrija o que precisar. <b>Severidade e probabilidade com "~"</b> vieram do catálogo, não do PGR: confirme.</p>
+  <div class="row" style="gap:8px;margin-bottom:8px"><button type="button" class="btn s g" id="pi_all">Marcar todos</button><button type="button" class="btn s g" id="pi_none">Desmarcar todos</button><label class="chk" style="margin-left:auto"><input type="checkbox" id="pi_dup" checked> Pular os que a empresa já tem</label></div>
+  <div style="overflow:auto;max-height:52vh"><table class="tbl" style="min-width:720px"><thead><tr><th></th><th>Setor / GHE</th><th>Funções</th><th>Risco (lido do PGR)</th><th>Categoria</th><th>S</th><th>P</th></tr></thead><tbody>${res.riscos.map((r,i)=>`<tr data-i="${i}"><td><input type="checkbox" class="pi_ck" ${r.marcar?'checked':''} aria-label="Importar"></td><td><input class="pi_setor" style="min-width:130px" value="${esc(r.setor||'')}" placeholder="Setor"></td><td><input class="pi_func" style="min-width:170px" value="${esc(r.funcoes||'')}"></td><td><b>${esc(r.perigo)}</b>${r.aval?'<br><span class="sm">'+esc(r.aval)+'</span>':''}<br><span class="sm muted">${esc(r.snip||'')}</span></td><td><select class="pi_cat" style="min-width:150px">${Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${k===r.cat?'selected':''}>${esc(v)}</option>`).join('')}</select>${r.revisarCat?'<br><span class="sm" style="color:var(--laranja,#F26B1D)">confira</span>':''}</td><td><select class="pi_sev" style="width:64px">${[1,2,3,4,5].map(v=>`<option ${String(v)===r.sev?'selected':''}>${v}</option>`).join('')}</select>${r.estimado?'~':''}</td><td><select class="pi_prob" style="width:64px">${[1,2,3,4,5].map(v=>`<option ${String(v)===r.prob?'selected':''}>${v}</option>`).join('')}</select>${r.estimado?'~':''}</td></tr>`).join('')}</tbody></table></div>`;
+  $('#pi_all').onclick=()=>box.querySelectorAll('.pi_ck').forEach(c=>c.checked=true);
+  $('#pi_none').onclick=()=>box.querySelectorAll('.pi_ck').forEach(c=>c.checked=false);
+ };
+}
+function pgrImportaGravar(res){
+ const box=$('#pi_2'),emp=$('#pi_emp').value;let eid=emp;
+ const sel=[...box.querySelectorAll('tbody tr')].filter(tr=>tr.querySelector('.pi_ck').checked);
+ if(!sel.length){toast('Marque pelo menos um risco para importar.');return}
+ if(sel.some(tr=>!tr.querySelector('.pi_setor').value.trim())){toast('Preencha o setor dos riscos marcados (ou desmarque-os).',5000);return}
+ if(emp==='__nova'){
+  const blq=pgrPodeCriarEmpresa();if(blq){toast(blq,6000);return}
+  const c=res.empresa;if(!c.razao){toast('Não achei a razão social no PGR. Cadastre a empresa primeiro (Empresas → Nova empresa) e escolha-a na lista.',7000);return}
+  const rec=Object.assign({grau:'2'},c);const sv=save('empresas',rec,true);eid=(sv&&sv.id)||rec.id;
+  if(!eid){const f=L('empresas').find(e=>e.razao===c.razao);eid=f&&f.id}
+ }
+ if(!eid){toast('Escolha a empresa.');return}
+ const pular=$('#pi_dup').checked,ja=L('riscos').filter(r=>r.empresaId===eid);let n=0,p=0;
+ sel.forEach(tr=>{const r=res.riscos[+tr.dataset.i],setor=tr.querySelector('.pi_setor').value.trim();
+  if(pular&&ja.some(x=>PGR_NORM(x.setor)===PGR_NORM(setor)&&PGR_NORM(x.perigo).slice(0,40)===PGR_NORM(r.perigo).slice(0,40))){p++;return}
+  save('riscos',{empresaId:eid,setor,funcoes:tr.querySelector('.pi_func').value.trim()||'todas',atividades:r.atividades||'',cat:tr.querySelector('.pi_cat').value,exposicao:r.exposicao,perigo:r.perigo,fonte:r.fonte,danos:r.danos,aval:r.aval||'',medidas:r.medidas,sev:tr.querySelector('.pi_sev').value,prob:tr.querySelector('.pi_prob').value,per:r.per||'',exames:r.exames||['clinico']},true);n++});
+ S.emp=eid;closeForm();render();
+ toast(n+' risco(s) importado(s)'+(p?' ('+p+' já existiam)':'')+'. Revise o inventário e a classificação antes de emitir o PGR.',7000);
+}
+
 VIEWS.riscos=()=>{
  const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O inventário de riscos pertence a uma empresa.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`,'shield');
  const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
  const sets=[...new Set(rs.flatMap(setoresDe))];
- return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn g" data-a="expRiscos" data-id="${e.id}">${ic('down')}CSV</button><button class="btn g" data-a="gerenciarSetores" data-id="${e.id}">Setores/funções</button><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn" data-a="riscoLote" data-id="${e.id}">${ic('plus')}Adicionar vários</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
+ return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn g" data-a="expRiscos" data-id="${e.id}">${ic('down')}CSV</button><button class="btn g" data-a="gerenciarSetores" data-id="${e.id}">Setores/funções</button><button class="btn" data-a="pgrImp">${ic('up')}Importar PGR existente</button><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn" data-a="riscoLote" data-id="${e.id}">${ic('plus')}Adicionar vários</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
  <div class="card" style="margin-bottom:16px"><div class="row sb" style="margin-bottom:8px"><b>${rs.length} risco(s) · ${sets.length} setor(es)</b><div class="legend"><span class="chip low">Baixo 1–4</span><span class="chip med">Médio 5–9</span><span class="chip high">Alto 10–15</span><span class="chip crit">Crítico 16–25</span></div></div>${rs.length?distBar(rs):'<span class="muted sm">Nenhum risco cadastrado ainda. Use o catálogo de modelos para agilizar.</span>'}</div>`+
  sets.map(s=>`<h2 style="font-size:17px;margin:20px 0 10px">${esc(s)}</h2><div class="grid">${rs.filter(r=>setoresDe(r).includes(s)).map(r=>{const n=nivel(r.sev,r.prob);return `<div class="card"><div class="row sb"><span class="chip ${n.k}">${n.n} · ${n.v}</span><span class="chip gray">${CATS[r.cat]||''}</span></div><h3 style="margin:10px 0 4px;font-size:15.5px">${esc(r.perigo)}</h3>${r.fonte?`<p class="sm muted" style="margin:0 0 4px">Fonte: ${esc(r.fonte)}</p>`:''}<p class="sm" style="margin:0 0 8px">Funções: ${esc(r.funcoes||'todo o setor')}</p><div class="row" style="gap:5px;margin-bottom:10px">${(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div><div class="row"><button class="btn s" data-a="editRisco" data-id="${r.id}">${ic('edit')}Editar</button><button class="btn s g" data-a="dupRisco" data-id="${r.id}">Duplicar</button><button class="btn s g d" data-a="delRisco" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`).join('');
 };
@@ -4681,6 +4821,7 @@ fichaTrein(d){const c=G('colaboradores',d.id);abrirTreinamento(null,{empresaId:c
 expCol(d){exportColaboradores(d.id)},expRiscos(d){exportRiscos(d.id)},expAcoes(d){exportAcoes(d.id)},
 newColabImport(){abrirColaboradorImport()},
 fichaImp(d){abrirFichaImport(d.e)},
+pgrImp(){abrirPgrImport()},
 resumoSemana(){openDoc({title:'Resumo da semana',html:docResumoSemana(),filename:'resumo-semana-'+today()+'.html',assunto:'Resumo semanal de pendências',corpo:'Segue o resumo semanal de exames e ações pendentes.'})},
 irClinicas(){closeForm();S.view='clinicas';render();setTimeout(()=>abrirEnt('clinica'),30)},
 solTodos(){mostrarTodosExames()},

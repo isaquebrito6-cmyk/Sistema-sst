@@ -215,3 +215,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Links individuais do psicossocial: quem não tem celular/e-mail (ou está ausente) recebe por "Informar celular", "Copiar link" ou QR para escanear.
 - Psicossocial: ata de devolutiva dos resultados (com lista de presença assinável) e texto de ciência/consentimento na lista de participação.
 - Riscos psicossociais agrupados como "Ergonômico — psicossocial" (NR-1 item 1.5.3.1.4), ao lado dos ergonômicos.
+- Importar PGR existente (Riscos): cola texto ou envia PDF/Word/foto; lê empresa, setores/GHE, funções e riscos, com tela de conferência antes de gravar.
