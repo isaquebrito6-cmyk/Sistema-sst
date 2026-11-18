@@ -2113,6 +2113,69 @@ function abrirCat(id,pre){
  save:v=>{
   Object.assign(rec,v);const r=save('cats',rec);toast('CAT salva.');return r}})
 }
+/* ====================== CARTEIRINHA COM QR + LEITOR + CONFIRMAÇÃO DE ENTREGA ======================
+   QR da carteirinha = só um código opaco do colaborador ("SST1:<id>"): sem CPF, nome ou dado de saúde. Sozinho não abre nada: a leitura só
+   funciona dentro do sistema, com login. A conferência de identidade na entrega de EPI é feita por PIN de 4 dígitos (guardado só como hash)
+   e/ou assinatura eletrônica simples, mais foto de evidência opcional. NÃO há reconhecimento facial nem coleta de biometria. */
+const QR_PREFIXO='SST1:';
+async function carteirinhaQR(a){const b=Object.assign({},a);try{b._qr=await psiQR(QR_PREFIXO+b.colabId)}catch(e){b._qr=''}return b}
+const JSQR_URL='https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+function sha256(s){ /* SHA-256 síncrono (o formulário salva de forma síncrona) */
+ const K=[];for(let i=2,n=0;n<64;i++){let p=1;for(let j=2;j*j<=i;j++)if(i%j==0){p=0;break}if(p){K[n++]=(Math.pow(i,1/3)%1)*4294967296|0}}
+ const H=[];for(let i=2,n=0;n<8;i++){let p=1;for(let j=2;j*j<=i;j++)if(i%j==0){p=0;break}if(p){H[n++]=(Math.pow(i,.5)%1)*4294967296|0}}
+ const b=unescape(encodeURIComponent(s)),l=b.length,w=new Array((((l+8)>>6)+1)*16).fill(0);
+ for(let i=0;i<l;i++)w[i>>2]|=b.charCodeAt(i)<<(24-(i%4)*8);
+ w[l>>2]|=0x80<<(24-(l%4)*8);w[(((l+8)>>6)<<4)+15]=l*8;
+ for(let o=0;o<w.length;o+=16){const x=w.slice(o,o+16),a=H.slice();
+  for(let i=16;i<64;i++){const s0=((x[i-15]>>>7)|(x[i-15]<<25))^((x[i-15]>>>18)|(x[i-15]<<14))^(x[i-15]>>>3),s1=((x[i-2]>>>17)|(x[i-2]<<15))^((x[i-2]>>>19)|(x[i-2]<<13))^(x[i-2]>>>10);x[i]=(x[i-16]+s0+x[i-7]+s1)|0}
+  let[A,B,C,D,E,F,G_,Hh]=a;
+  for(let i=0;i<64;i++){const S1=((E>>>6)|(E<<26))^((E>>>11)|(E<<21))^((E>>>25)|(E<<7)),ch=(E&F)^(~E&G_),t1=(Hh+S1+ch+K[i]+x[i])|0,S0=((A>>>2)|(A<<30))^((A>>>13)|(A<<19))^((A>>>22)|(A<<10)),mj=(A&B)^(A&C)^(B&C),t2=(S0+mj)|0;
+   Hh=G_;G_=F;F=E;E=(D+t1)|0;D=C;C=B;B=A;A=(t1+t2)|0}
+  [A,B,C,D,E,F,G_,Hh].forEach((v,i)=>H[i]=(H[i]+v)|0)}
+ return H.map(v=>('00000000'+(v>>>0).toString(16)).slice(-8)).join('');
+}
+const pinHash=(c,pin,salt)=>sha256(salt+':'+c.id+':'+pin);
+/* abre a câmera e lê o QR da carteirinha */
+function abrirLeitor(){
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:520px" role="dialog" aria-modal="true" aria-label="Ler carteirinha"><header><h2>Ler carteirinha</h2><button type="button" class="btn g s" id="lq_x" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <div style="position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3"><video id="lq_v" playsinline muted style="width:100%;height:100%;object-fit:cover"></video></div>
+ <p class="sm muted" id="lq_st" style="margin:8px 0 0">Aponte a câmera para o QR do verso da carteirinha.</p></div>
+ <footer><button type="button" class="btn" id="lq_c">Cancelar</button></footer></div></div>`;
+ const v=$('#lq_v'),st=$('#lq_st');let stop=false,stream=null;
+ const fim=()=>{stop=true;try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(_){}};
+ const fechar=()=>{fim();$('#modal-root').innerHTML=''};$('#lq_x').onclick=$('#lq_c').onclick=fechar;
+ (async()=>{
+  try{
+   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não permite usar a câmera aqui.');
+   await carregaScript(JSQR_URL);
+   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});v.srcObject=stream;await v.play();
+   const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+   const tick=()=>{if(stop)return;
+    if(v.readyState>=2&&v.videoWidth){cv.width=v.videoWidth;cv.height=v.videoHeight;cx.drawImage(v,0,0);
+     const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'dontInvert'});
+     if(r&&r.data&&r.data.indexOf(QR_PREFIXO)===0){fim();const c=G('colaboradores',r.data.slice(QR_PREFIXO.length));
+      if(!c){st.textContent='Carteirinha não reconhecida neste cadastro.';toast('Carteirinha de outro cadastro ou colaborador removido.',5000);$('#modal-root').innerHTML='';return}
+      $('#modal-root').innerHTML='';leitorAcoes(c);return}}
+    requestAnimationFrame(tick)};
+   tick();
+  }catch(e){st.textContent=(e&&e.name==='NotAllowedError')?'Permita o uso da câmera no navegador e tente de novo.':(e.message||'Não consegui abrir a câmera.')}
+ })();
+}
+function leitorAcoes(c){
+ const d=document.createElement('div');d.className='overlay';d.style.zIndex=90;
+ d.innerHTML=`<div class="sheet" style="max-width:420px"><header><h2>${esc(c.nome)}</h2><button type="button" class="btn g s" data-lq="x" aria-label="Fechar">${ic('x')}</button></header><div class="bd"><p class="sm muted" style="margin:0 0 10px">${esc(c.funcao||'')}${c.setor?' · '+esc(c.setor):''} — ${esc(nEmp(c.empresaId))}</p>
+ <div style="display:grid;gap:8px"><button class="btn p" data-lq="epi">Entregar EPI</button><button class="btn" data-lq="trein">Novo treinamento</button><button class="btn" data-lq="pt">Nova permissão de trabalho</button><button class="btn g" data-lq="ficha">Abrir ficha do colaborador</button></div></div></div>`;
+ d.addEventListener('click',ev=>{const b=ev.target.closest('[data-lq]');if(!b)return;const k=b.dataset.lq;d.remove();if(k==='x')return;
+  S.emp=c.empresaId;
+  if(k==='epi')abrirEpi(null,{empresaId:c.empresaId,colabId:c.id,via:'carteirinha'});
+  else if(k==='trein')abrirTreinamento(null,{empresaId:c.empresaId,colabId:c.id});
+  else if(k==='pt')abrirPt(null,{empresaId:c.empresaId,colabId:c.id});
+  else{S.ficha=c.id;S.fichaTab='resumo';renderFicha()}});
+ document.body.appendChild(d);
+}
+/* foto de evidência da entrega (opcional, só comprova a entrega; nenhuma comparação de rosto) */
+function fotoEvidencia(file){return new Promise((res,rej)=>{const im=new Image,u=URL.createObjectURL(file);im.onload=()=>{const m=480,k=Math.min(1,m/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(u);res(cv.toDataURL('image/jpeg',.6))};im.onerror=()=>rej(new Error('Não consegui ler a foto.'));im.src=u})}
+
 /* EPI (entrega/troca por colaborador) */
 function abrirEpi(id,pre){
  const rec=id?clone(G('epis',id)):Object.assign({empresaId:S.role==='empresa'?S.rid:(S.emp||''),data:today()},pre||{});
@@ -2129,13 +2192,36 @@ function abrirEpi(id,pre){
   {t:'html',w:2,html:'<label>CA dos "Outros EPIs"</label><input type="text" id="epiOutrosCa" placeholder="Nº do CA">'},
   {k:'validade',l:'Validade / próxima troca',t:'date',w:3},
   {k:'assinado',l:'Colaborador assinou o recibo?',t:'select',o:['Não','Sim'],w:3},
+  {sec:'Confirmação do colaborador'},
+  {t:'html',w:6,html:'<div id="epiPinBox"></div>'},
+  {t:'html',w:6,html:'<label>Foto de evidência da entrega (opcional)</label><div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><img id="epiFotoPrev" alt="" style="max-height:64px;border-radius:6px;display:none"><button type="button" class="btn s" id="epiFotoBtn">Tirar / enviar foto</button><button type="button" class="btn s g" id="epiFotoRm" style="display:none">Remover foto</button><input type="file" id="epiFotoIn" accept="image/*" capture="environment" hidden></div><small>Só comprova a entrega (quem recebeu, o que e quando). O sistema <b>não compara rostos</b> nem guarda biometria. Informe o colaborador de que a foto será registrada.</small>'},
   {sec:'Assinatura'},
   {t:'html',w:6,html:'<label>Assinatura eletrônica do colaborador (opcional)</label><div class="sigpad"><canvas id="epiSigCv"></canvas></div><div class="row" style="margin-top:6px;gap:10px;align-items:center"><button type="button" class="btn s g" id="epiSigClear">Limpar assinatura</button><span class="sm muted" id="epiSigStatus"></span></div><small>Peça para o colaborador assinar acima com o dedo (celular/tablet) ou o mouse. Prefere colher no papel? Deixe em branco e use "Imprimir recibo" depois de salvar — o documento sai com uma linha para assinatura física.</small>'}],
  save:v=>{
-  Object.assign(rec,v);const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
+  const colab=G('colaboradores',v.colabId||rec.colabId);
+  const p1=($('#epiPin1')||{}).value||'',p2=($('#epiPin2')||{}).value||'',rd=!!($('#epiPinReset')&&$('#epiPinReset').checked);
+  if(colab&&p1){
+   if(!/^\d{4}$/.test(p1)){toast('O PIN tem 4 números.');return false}
+   const tem=colab.pinHash&&!rd;
+   if(tem){const k='pinf'+colab.id;window._pinF=window._pinF||{};if((window._pinF[k]||0)>=5){toast('PIN bloqueado nesta sessão por tentativas erradas. Peça ao responsável para redefinir ou recarregue a página.',6000);return false}
+    if(pinHash(colab,p1,colab.pinSalt||'')!==colab.pinHash){window._pinF[k]=(window._pinF[k]||0)+1;toast('PIN incorreto.',4000);return false}
+    rec.confirmacao='PIN';rec.confirmadoEm=Date.now()}
+   else{if(p1!==p2){toast('Os dois PINs digitados são diferentes.',5000);return false}
+    const c2=clone(colab);c2.pinSalt=uid();c2.pinHash=pinHash(c2,p1,c2.pinSalt);save('colaboradores',c2,true);rec.confirmacao='PIN';rec.confirmadoEm=Date.now()}
+  }
+  Object.assign(rec,v);if(rec.assinaturaImg&&!rec.confirmacao){rec.confirmacao='Assinatura eletrônica';rec.confirmadoEm=Date.now()}
+  const r=save('epis',rec);toast('Entrega de EPI salva.');return r}})
  setTimeout(()=>{
   initEpiList('epiList',rec);
   initSigPad('epiSigCv',rec,'epiSigStatus','epiSigClear','f_assinado');
+  const box=$('#epiPinBox'),cid=rec.colabId,c=cid&&G('colaboradores',cid),tem=!!(c&&c.pinHash);
+  const pinHtml=(tem)=>tem?'<label>PIN do colaborador (4 números)</label><input type="password" id="epiPin1" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" style="max-width:120px"><label class="chk" style="margin-top:6px"><input type="checkbox" id="epiPinReset"> Esqueceu o PIN? Cadastrar um novo agora</label><small>O próprio colaborador digita o PIN, sem ninguém olhar. Vale como confirmação da entrega.</small>':'<label>Criar PIN do colaborador (4 números)</label><div class="row" style="gap:8px"><input type="password" id="epiPin1" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN" style="max-width:110px"><input type="password" id="epiPin2" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Repita" style="max-width:110px"></div><small>Opcional. Na primeira vez o colaborador cria o PIN (digita duas vezes); nas próximas só digita. O PIN fica guardado só em forma de código (hash), nunca em texto. É uma confirmação simples — não substitui a assinatura quando a empresa exigir.</small>';
+  if(box)box.innerHTML=cid?pinHtml(tem):'<small>Escolha o colaborador para habilitar a confirmação por PIN (salve, edite e confirme).</small>';
+  const sc=$('#f_colabId');if(sc)sc.addEventListener('change',()=>{const c3=G('colaboradores',sc.value);const t3=!!(c3&&c3.pinHash);if(box)box.innerHTML=sc.value?pinHtml(t3):''});
+  const pv=$('#epiFotoPrev'),rm=$('#epiFotoRm'),fi=$('#epiFotoIn');
+  const pintaFoto=()=>{if(rec.fotoEv){pv.src=rec.fotoEv;pv.style.display='';rm.style.display=''}else{pv.style.display='none';rm.style.display='none'}};
+  $('#epiFotoBtn').onclick=()=>fi.click();rm.onclick=()=>{delete rec.fotoEv;delete rec.fotoEvData;pintaFoto()};
+  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{rec.fotoEv=await fotoEvidencia(f);rec.fotoEvData=Date.now();pintaFoto()}catch(e){toast(e.message,4000)}fi.value=''};pintaFoto();
  },30)
 }
 /* Treinamentos de NR com emissão de certificado (NR-6, 10, 10-SEP, 11, 12, 18, 20, 33, 34, 35) */
@@ -3651,6 +3737,7 @@ const DOC_CSS=`
 .idcard.back .ic-sigs{display:flex;gap:3mm;margin-top:auto}
 .idcard.back .ic-sigs div{flex:1;border-top:.6pt solid #0B5560;text-align:center;padding-top:.5mm;font-size:4.3pt;color:#445}
 .idcard.back .ic-foot{font-size:3.9pt;color:#889;margin-top:.3mm}
+.idcard.back .ic-qr{position:absolute;right:2.4mm;bottom:2.2mm;width:11mm;height:11mm;background:#fff;line-height:0}.idcard.back .ic-qr svg{width:100%;height:100%}.idcard.back.hasqr .ic-sigs,.idcard.back.hasqr .ic-foot{margin-right:12.5mm}
 @media print{.idcard-sheet{zoom:1!important;box-shadow:none}.idcard{box-shadow:none}}
 `;
 document.getElementById('doc-css').textContent=DOC_CSS;
@@ -3956,6 +4043,8 @@ function docEpi(a){
  {const itens=epiItensCa(a);
  h+=`<h2>Equipamento(s) entregue(s)</h2>${itens.length?`<table><tr><th>Item</th><th>CA (Certificado de Aprovação)</th></tr>${itens.map(it=>`<tr><td>${esc(it.nome)}</td><td>${it.ca?esc(it.ca):'<span class="blank"></span>'}</td></tr>`).join('')}</table>`:'<p><span class="blank l"></span></p>'}<p class="small" style="margin-top:6pt"><b>Validade / próxima troca:</b> ${a.validade?fd(a.validade):'—'}</p>`;}
  h+=`<div class="note">Declaro ter recebido o(s) equipamento(s) de proteção individual acima, em perfeito estado, e ter sido orientado sobre o uso correto, a guarda e a conservação, conforme a NR-6. Comprometo-me a usá-lo(s) e comunicar qualquer dano, extravio ou necessidade de troca.</div>`;
+ if(a.confirmacao)h+=`<p class="small"><b>Confirmação da entrega:</b> ${esc(a.confirmacao)}${a.confirmadoEm?' em '+new Date(a.confirmadoEm).toLocaleString('pt-BR'):''}${a.via==='carteirinha'?' (identificado pela carteirinha)':''}.</p>`;
+ if(a.fotoEv)h+=`<p class="small"><b>Foto de evidência da entrega</b> (registrada para comprovação, com ciência do colaborador${a.fotoEvData?' em '+new Date(a.fotoEvData).toLocaleString('pt-BR'):''}):</p><img src="${a.fotoEv}" alt="Foto de evidência da entrega" style="max-width:150px;max-height:110px;border:1px solid #bbb">`;
  if(a.assinaturaImg)h+=`<h2>Assinatura eletrônica</h2><img src="${a.assinaturaImg}" alt="Assinatura do colaborador" style="max-width:320px;max-height:110px;border-bottom:1px solid #999"><p class="small">${esc(c.nome||'')} — assinatura eletrônica simples (desenhada na tela) em ${a.assinaturaData?fd(a.assinaturaData):'—'}</p>`;
  else h+=`<div class="sig"><div>Assinatura do colaborador<span>${esc(c.nome||'Nome')}</span></div><div>Data<span>____/____/______</span></div></div>`;
  return h;
@@ -4232,7 +4321,7 @@ function docCarteirinha(a){
    </div>
   </div>
  </div>`;
- const back=`<div class="idcard back">
+ const back=`<div class="idcard back${a._qr?' hasqr':''}">
   <div class="ic-head" style="background:${cat.hex}">${logoBox}
    <div class="ic-head-mid"><span>${esc(e.razao||cf.nome||'—')}</span></div>
    <div class="ic-head-right"><b>NR-26 · ${esc(cat.nome.split(' ')[0]).toUpperCase()}</b><span>${esc(cat.desc)}</span></div>
@@ -4245,7 +4334,7 @@ function docCarteirinha(a){
    <div class="ic-note">Portar durante a atividade. Pessoal e intransferível. Válida só com ASO e treinamento em dia.</div>
    <div class="ic-sigs"><div>Assinatura do colaborador</div><div>Responsável / Segurança do Trabalho</div></div>
    <div class="ic-foot">Emitida em ${fd(today())} · Cód. ${esc(String(a.id||'').slice(-6).toUpperCase()||'—')}</div>
-  </div>
+  </div>${a._qr?`<div class="ic-qr" title="Identificação do colaborador no sistema">${a._qr}</div>`:''}
  </div>`;
  return `<div class="idcard-sheet">${front}${back}</div>`;
 }
@@ -4728,7 +4817,7 @@ function shell(){
  const al=alertas();
  const grp={empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
  const navHTML=nav.map(n=>(grp[n[0]]?`<div class="navgroup">${grp[n[0]]}</div>`:'')+`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${NR26[n[0]]?icc(NAVIC[n[0]]||n[2],NR26[n[0]],NAVAN[n[0]]||'','xs'):ic(NAVIC[n[0]]||n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('');
- return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1>${buscaPodeUsar()?`<button type="button" class="btn s busca-btn" data-a="busca" aria-label="Buscar documentos, colaboradores e telas" title="Buscar (Ctrl+K)">${ic('search')}<span>Buscar</span></button>`:''}<div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1>${buscaPodeUsar()?`<button type="button" class="btn s busca-btn" data-a="busca" aria-label="Buscar documentos, colaboradores e telas" title="Buscar (Ctrl+K)">${ic('search')}<span>Buscar</span></button><button type="button" class="btn s busca-btn" data-a="leitor" aria-label="Ler QR da carteirinha com a câmera" title="Ler carteirinha (QR)">${ic('idcard')}<span>Ler carteirinha</span></button>`:''}<div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
 }
 /* Faixa de aviso para o administrador de UMA consultoria quando o pagamento está pendente ou suspenso. */
 /* Empresa/clínica/colaborador não têm tela de Configurações: o contato de suporte delas é a própria consultoria. */
@@ -4821,6 +4910,7 @@ fichaTrein(d){const c=G('colaboradores',d.id);abrirTreinamento(null,{empresaId:c
 expCol(d){exportColaboradores(d.id)},expRiscos(d){exportRiscos(d.id)},expAcoes(d){exportAcoes(d.id)},
 newColabImport(){abrirColaboradorImport()},
 fichaImp(d){abrirFichaImport(d.e)},
+leitor(){abrirLeitor()},
 pgrImp(){abrirPgrImport()},
 resumoSemana(){openDoc({title:'Resumo da semana',html:docResumoSemana(),filename:'resumo-semana-'+today()+'.html',assunto:'Resumo semanal de pendências',corpo:'Segue o resumo semanal de exames e ações pendentes.'})},
 irClinicas(){closeForm();S.view='clinicas';render();setTimeout(()=>abrirEnt('clinica'),30)},
@@ -4900,8 +4990,8 @@ docPt(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PT — '+nCol(a.cola
 docPet(d){const a=G('pts',d.id);if(!a)return;openDoc({title:'PET — '+nCol(a.colabId),html:docPet(a),filename:'pet-'+slug(nCol(a.colabId))+'.html',assunto:'Permissão de Entrada e Trabalho (PET) — '+nCol(a.colabId),corpo:'Segue a PET de '+nCol(a.colabId)+'.'})},
 async docCert(d){const a0=G('treinamentos',d.id);if(!a0)return;const a=(await certPrepara([a0]))[0];const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'Treinamento'};openDoc({title:'Certificado — '+nCol(a.colabId),html:docCertificado(a),filename:'certificado-'+slug(nCol(a.colabId))+'.html',assunto:'Certificado de '+tn.l+' — '+nCol(a.colabId),corpo:'Segue o certificado de '+tn.l+' de '+nCol(a.colabId)+'.'})},
 async docCertTurma(d){const turma0=L('treinamentos').filter(a=>a.turmaId===d.id).sort((a,b)=>nCol(a.colabId).localeCompare(nCol(b.colabId)));if(!turma0.length)return;const turma=await certPrepara(turma0);const tn=TREIN_NRS[turma[0].tipo]||{l:turma[0].tipo||'Treinamento'};openDoc({title:'Certificados da turma — '+tn.l,html:turma.map(docCertificado).join('<div class="pb"></div>'),filename:'certificados-turma-'+slug(tn.l)+'.html',assunto:'Certificados de '+tn.l+' — turma de '+turma.length+' colaborador(es)',corpo:'Seguem os certificados de '+tn.l+' da turma ('+turma.length+' colaborador(es)).'})},
-docCarteirinha(d){const a=G('treinamentos',d.id);if(!a)return;const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'Treinamento'};openDoc({title:'Carteirinha — '+nCol(a.colabId),html:docCarteirinha(a),filename:'carteirinha-'+slug(nCol(a.colabId))+'.html',assunto:'Carteira de operador — '+tn.l+' — '+nCol(a.colabId),corpo:'Segue a carteira de operador de '+tn.l+' de '+nCol(a.colabId)+'.'})},
-docCarteirinhaTurma(d){const turma=L('treinamentos').filter(a=>a.turmaId===d.id).sort((a,b)=>nCol(a.colabId).localeCompare(nCol(b.colabId)));if(!turma.length)return;const tn=TREIN_NRS[turma[0].tipo]||{l:turma[0].tipo||'Treinamento'};openDoc({title:'Carteirinhas da turma — '+tn.l,html:turma.map(docCarteirinha).join(''),filename:'carteirinhas-turma-'+slug(tn.l)+'.html',assunto:'Carteiras de operador — '+tn.l+' — turma de '+turma.length+' colaborador(es)',corpo:'Seguem as carteiras de operador de '+tn.l+' da turma ('+turma.length+' colaborador(es)).'})},
+async docCarteirinha(d){const a0=G('treinamentos',d.id);if(!a0)return;const a=await carteirinhaQR(a0);const tn=TREIN_NRS[a.tipo]||{l:a.tipo||'Treinamento'};openDoc({title:'Carteirinha — '+nCol(a.colabId),html:docCarteirinha(a),filename:'carteirinha-'+slug(nCol(a.colabId))+'.html',assunto:'Carteira de operador — '+tn.l+' — '+nCol(a.colabId),corpo:'Segue a carteira de operador de '+tn.l+' de '+nCol(a.colabId)+'.'})},
+async docCarteirinhaTurma(d){let turma=L('treinamentos').filter(a=>a.turmaId===d.id).sort((a,b)=>nCol(a.colabId).localeCompare(nCol(b.colabId)));if(!turma.length)return;turma=await Promise.all(turma.map(carteirinhaQR));const tn=TREIN_NRS[turma[0].tipo]||{l:turma[0].tipo||'Treinamento'};openDoc({title:'Carteirinhas da turma — '+tn.l,html:turma.map(docCarteirinha).join(''),filename:'carteirinhas-turma-'+slug(tn.l)+'.html',assunto:'Carteiras de operador — '+tn.l+' — turma de '+turma.length+' colaborador(es)',corpo:'Seguem as carteiras de operador de '+tn.l+' da turma ('+turma.length+' colaborador(es)).'})},
 psico(d){abrirPsico(d.id,false)},aso(d){abrirAso(d.id)},
 pickAso(){const i=$('#aso-f');if(i)i.click()},
 async getAso(d){const s=G('solicitacoes',d.id);audit('baixar','solicitacoes',d.id,s,'arquivo do ASO');try{toast('Preparando arquivo…',1500);const b=await getFile(s.arquivo);await saveAs(s.arquivo.nome,b)}catch(e){toast(e.message||'Não foi possível abrir o arquivo.')}},

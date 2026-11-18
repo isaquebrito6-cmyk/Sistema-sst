@@ -216,3 +216,5 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Psicossocial: ata de devolutiva dos resultados (com lista de presença assinável) e texto de ciência/consentimento na lista de participação.
 - Riscos psicossociais agrupados como "Ergonômico — psicossocial" (NR-1 item 1.5.3.1.4), ao lado dos ergonômicos.
 - Importar PGR existente (Riscos): cola texto ou envia PDF/Word/foto; lê empresa, setores/GHE, funções e riscos, com tela de conferência antes de gravar.
+- QR de identificação no verso da carteirinha (código opaco, sem dados pessoais) e botão "Ler carteirinha" (câmera, jsQR): abre ações rápidas (entregar EPI, treinamento, PT, ficha).
+- Entrega de EPI com confirmação por PIN de 4 dígitos (guardado só como hash SHA-256 com sal), assinatura eletrônica simples e foto de evidência opcional; recibo mostra a confirmação. Sem reconhecimento facial nem biometria (Política de Privacidade atualizada).
