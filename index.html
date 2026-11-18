@@ -2138,7 +2138,8 @@ const pinHash=(c,pin,salt)=>sha256(salt+':'+c.id+':'+pin);
 /* abre a câmera e lê o QR da carteirinha */
 function abrirLeitor(){
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:520px" role="dialog" aria-modal="true" aria-label="Ler carteirinha"><header><h2>Ler carteirinha</h2><button type="button" class="btn g s" id="lq_x" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
- <div style="position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3"><video id="lq_v" playsinline muted style="width:100%;height:100%;object-fit:cover"></video></div>
+ <div style="position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3"><video id="lq_v" playsinline muted style="width:100%;height:100%;object-fit:cover;transform-origin:center"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><div style="width:52%;aspect-ratio:1;border:3px solid rgba(255,255,255,.85);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div></div></div>
+ <div class="row" style="gap:8px;align-items:center;margin-top:8px"><span class="sm">Zoom</span><button type="button" class="btn s g" id="lq_zm" aria-label="Diminuir zoom">−</button><input type="range" id="lq_z" min="1" max="4" step="0.1" value="1" style="flex:1" aria-label="Zoom"><button type="button" class="btn s g" id="lq_zp" aria-label="Aumentar zoom">+</button><span class="sm muted" id="lq_zv" style="min-width:34px;text-align:right">1×</span></div>
  <p class="sm muted" id="lq_st" style="margin:8px 0 0">Aponte a câmera para o QR do verso da carteirinha (cerca de 15–25 cm, com boa luz).</p>
  <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn s g" id="lq_f">Ler QR de uma foto</button><button type="button" class="btn s g" id="lq_b">Buscar colaborador pelo nome</button><input type="file" id="lq_fi" accept="image/*" hidden></div></div>
  <footer><button type="button" class="btn" id="lq_c">Cancelar</button></footer></div></div>`;
@@ -2157,12 +2158,22 @@ function abrirLeitor(){
   try{
    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não permite usar a câmera aqui.');
    await carregaScript(JSQR_URL);
-   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});v.srcObject=stream;await v.play();
+   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}},audio:false});v.srcObject=stream;await v.play();
+   /* zoom: o da câmera (quando o aparelho oferece) ou digital; foco contínuo quando disponível */
+   const tr=stream.getVideoTracks()[0];let caps={};try{caps=(tr.getCapabilities&&tr.getCapabilities())||{}}catch(_){}
+   try{if(caps.focusMode&&caps.focusMode.includes('continuous'))await tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(_){}
+   const zr=$('#lq_z'),zv=$('#lq_zv');let zd=1,manual=false;const hw=!!caps.zoom;
+   if(hw){zr.min=caps.zoom.min||1;zr.max=Math.min(caps.zoom.max||4,8);zr.step=caps.zoom.step||0.1}
+   const setZ=z=>{z=Math.max(+zr.min,Math.min(+zr.max,z));zr.value=z;zv.textContent=(Math.round(z*10)/10)+'×';
+    if(hw){tr.applyConstraints({advanced:[{zoom:z}]}).catch(()=>{});zd=1}else{zd=z;v.style.transform='scale('+z+')'}};
+   zr.oninput=()=>{manual=true;setZ(+zr.value)};$('#lq_zp').onclick=()=>{manual=true;setZ(+zr.value+.5)};$('#lq_zm').onclick=()=>{manual=true;setZ(+zr.value-.5)};
    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
    const bd=('BarcodeDetector' in window)?new BarcodeDetector({formats:['qr_code']}):null;
    const acha=async()=>{
-    if(bd){try{const r=await bd.detect(v);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(_){}}
-    const k=Math.min(1,720/v.videoWidth);cv.width=Math.round(v.videoWidth*k);cv.height=Math.round(v.videoHeight*k);cx.drawImage(v,0,0,cv.width,cv.height);
+    const vw=v.videoWidth,vh=v.videoHeight,sw=vw/zd,sh=vh/zd,sx=(vw-sw)/2,sy=(vh-sh)/2;
+    if(bd&&zd===1){try{const r=await bd.detect(v);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(_){}}
+    const k=Math.min(1,720/sw);cv.width=Math.round(sw*k);cv.height=Math.round(sh*k);cx.drawImage(v,sx,sy,sw,sh,0,0,cv.width,cv.height);
+    if(bd&&zd>1){try{const r=await bd.detect(cv);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(_){}}
     const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});return r&&r.data};
    let ocup=false,n=0;
    const tick=async()=>{if(stop)return;
@@ -2170,7 +2181,8 @@ function abrirLeitor(){
      if(d&&d.indexOf(QR_PREFIXO)===0){const c=G('colaboradores',d.slice(QR_PREFIXO.length));fim();$('#modal-root').innerHTML='';
       if(!c){toast('QR de outro cadastro ou colaborador removido.',5000);return}
       leitorAcoes(c);return}
-     if(n===40)st.textContent='Ainda procurando o QR… aproxime a carteirinha (15–25 cm), com boa luz e sem reflexo.'}
+     if(n===40)st.textContent='Ainda procurando o QR… aproxime a carteirinha (15–25 cm), com boa luz e sem reflexo, ou use o zoom.';
+     if(!manual&&n%45===0)setZ(+zr.value>=2.4?1:(+zr.value<1.6?1.6:2.4))}
     requestAnimationFrame(tick)};
    tick();
   }catch(e){st.textContent=(e&&e.name==='NotAllowedError')?'Permita o uso da câmera no navegador e tente de novo.':(e.message||'Não consegui abrir a câmera.')}

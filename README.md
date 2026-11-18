@@ -218,3 +218,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Importar PGR existente (Riscos): cola texto ou envia PDF/Word/foto; lê empresa, setores/GHE, funções e riscos, com tela de conferência antes de gravar.
 - QR de identificação no verso da carteirinha (código opaco, sem dados pessoais) e botão "Ler carteirinha" (câmera, jsQR): abre ações rápidas (entregar EPI, treinamento, PT, ficha).
 - Entrega de EPI com confirmação por PIN de 4 dígitos (guardado só como hash SHA-256 com sal), assinatura eletrônica simples e foto de evidência opcional; recibo mostra a confirmação. Sem reconhecimento facial nem biometria (Política de Privacidade atualizada).
+- Leitor de carteirinha: busca automática do QR com moldura de mira, zoom (da câmera quando o aparelho oferece, senão digital), foco contínuo e varredura automática de zoom.
