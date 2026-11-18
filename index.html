@@ -2118,7 +2118,7 @@ function abrirCat(id,pre){
    funciona dentro do sistema, com login. A conferência de identidade na entrega de EPI é feita por PIN de 4 dígitos (guardado só como hash)
    e/ou assinatura eletrônica simples, mais foto de evidência opcional. NÃO há reconhecimento facial nem coleta de biometria. */
 const QR_PREFIXO='SST1:';
-async function carteirinhaQR(a){const b=Object.assign({},a);try{b._qr=await psiQR(QR_PREFIXO+b.colabId)}catch(e){b._qr=''}return b}
+async function carteirinhaQR(a){const b=Object.assign({},a);try{b._qr=await psiQR(QR_PREFIXO+b.colabId,4)}catch(e){b._qr=''}return b}
 const JSQR_URL='https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
 function sha256(s){ /* SHA-256 síncrono (o formulário salva de forma síncrona) */
  const K=[];for(let i=2,n=0;n<64;i++){let p=1;for(let j=2;j*j<=i;j++)if(i%j==0){p=0;break}if(p){K[n++]=(Math.pow(i,1/3)%1)*4294967296|0}}
@@ -2139,23 +2139,38 @@ const pinHash=(c,pin,salt)=>sha256(salt+':'+c.id+':'+pin);
 function abrirLeitor(){
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:520px" role="dialog" aria-modal="true" aria-label="Ler carteirinha"><header><h2>Ler carteirinha</h2><button type="button" class="btn g s" id="lq_x" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
  <div style="position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3"><video id="lq_v" playsinline muted style="width:100%;height:100%;object-fit:cover"></video></div>
- <p class="sm muted" id="lq_st" style="margin:8px 0 0">Aponte a câmera para o QR do verso da carteirinha.</p></div>
+ <p class="sm muted" id="lq_st" style="margin:8px 0 0">Aponte a câmera para o QR do verso da carteirinha (cerca de 15–25 cm, com boa luz).</p>
+ <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn s g" id="lq_f">Ler QR de uma foto</button><button type="button" class="btn s g" id="lq_b">Buscar colaborador pelo nome</button><input type="file" id="lq_fi" accept="image/*" hidden></div></div>
  <footer><button type="button" class="btn" id="lq_c">Cancelar</button></footer></div></div>`;
  const v=$('#lq_v'),st=$('#lq_st');let stop=false,stream=null;
  const fim=()=>{stop=true;try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(_){}};
  const fechar=()=>{fim();$('#modal-root').innerHTML=''};$('#lq_x').onclick=$('#lq_c').onclick=fechar;
+ $('#lq_b').onclick=()=>{fechar();abrirBusca()};
+ $('#lq_f').onclick=()=>$('#lq_fi').click();
+ $('#lq_fi').onchange=async()=>{const f=$('#lq_fi').files[0];if(!f)return;try{await carregaScript(JSQR_URL);const im=new Image,u=URL.createObjectURL(f);await new Promise((ok,er)=>{im.onload=ok;im.onerror=er;im.src=u});
+  const k=Math.min(1,1600/Math.max(im.width,im.height)),c2=document.createElement('canvas');c2.width=Math.round(im.width*k);c2.height=Math.round(im.height*k);const x2=c2.getContext('2d');x2.drawImage(im,0,0,c2.width,c2.height);URL.revokeObjectURL(u);
+  const r=jsQR(x2.getImageData(0,0,c2.width,c2.height).data,c2.width,c2.height,{inversionAttempts:'attemptBoth'});
+  if(!r||r.data.indexOf(QR_PREFIXO)!==0){st.textContent='Não achei um QR de carteirinha nessa foto. Tente de mais perto, com boa luz.';return}
+  const c=G('colaboradores',r.data.slice(QR_PREFIXO.length));if(!c){toast('QR de outro cadastro ou colaborador removido.',5000);return}
+  fim();$('#modal-root').innerHTML='';leitorAcoes(c)}catch(e){st.textContent='Não consegui ler a foto.'}};
  (async()=>{
   try{
    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Este navegador não permite usar a câmera aqui.');
    await carregaScript(JSQR_URL);
    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});v.srcObject=stream;await v.play();
    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
-   const tick=()=>{if(stop)return;
-    if(v.readyState>=2&&v.videoWidth){cv.width=v.videoWidth;cv.height=v.videoHeight;cx.drawImage(v,0,0);
-     const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'dontInvert'});
-     if(r&&r.data&&r.data.indexOf(QR_PREFIXO)===0){fim();const c=G('colaboradores',r.data.slice(QR_PREFIXO.length));
-      if(!c){st.textContent='Carteirinha não reconhecida neste cadastro.';toast('Carteirinha de outro cadastro ou colaborador removido.',5000);$('#modal-root').innerHTML='';return}
-      $('#modal-root').innerHTML='';leitorAcoes(c);return}}
+   const bd=('BarcodeDetector' in window)?new BarcodeDetector({formats:['qr_code']}):null;
+   const acha=async()=>{
+    if(bd){try{const r=await bd.detect(v);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(_){}}
+    const k=Math.min(1,720/v.videoWidth);cv.width=Math.round(v.videoWidth*k);cv.height=Math.round(v.videoHeight*k);cx.drawImage(v,0,0,cv.width,cv.height);
+    const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});return r&&r.data};
+   let ocup=false,n=0;
+   const tick=async()=>{if(stop)return;
+    if(!ocup&&v.readyState>=2&&v.videoWidth){ocup=true;let d=null;try{d=await acha()}catch(_){}ocup=false;n++;
+     if(d&&d.indexOf(QR_PREFIXO)===0){const c=G('colaboradores',d.slice(QR_PREFIXO.length));fim();$('#modal-root').innerHTML='';
+      if(!c){toast('QR de outro cadastro ou colaborador removido.',5000);return}
+      leitorAcoes(c);return}
+     if(n===40)st.textContent='Ainda procurando o QR… aproxime a carteirinha (15–25 cm), com boa luz e sem reflexo.'}
     requestAnimationFrame(tick)};
    tick();
   }catch(e){st.textContent=(e&&e.name==='NotAllowedError')?'Permita o uso da câmera no navegador e tente de novo.':(e.message||'Não consegui abrir a câmera.')}
@@ -3168,7 +3183,7 @@ function psiIniciaAuto(){setTimeout(()=>{['trabalhadores','responsavel','respond
 const PSI_QR_LIB='https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
 const psiLink=a=>location.origin+location.pathname+'?psi='+a.onlineToken;
 const psiQ=x=>x.q.replace(/\s*\(resposta desfavorável[^)]*\)\.?$/,'.');
-async function psiQR(txt){await carregaScript(PSI_QR_LIB);const q=qrcode(0,'M');q.addData(txt);q.make();return q.createSvgTag({cellSize:4,margin:0,scalable:true})}
+async function psiQR(txt,margemMod){await carregaScript(PSI_QR_LIB);const q=qrcode(0,'M');q.addData(txt);q.make();return q.createSvgTag({cellSize:4,margin:(margemMod||0)*4,scalable:true})}
 function psiSetoresEmp(emp){
  const ativos=L('colaboradores').filter(c=>c.empresaId===emp&&c.status!=='Desligado');
  return [...new Set([...ativos.flatMap(c=>setoresDe({setor:c.setor})),...L('riscos').filter(r=>r.empresaId===emp).flatMap(setoresDe)].filter(x=>x!=='Sem setor'))].sort((a,b)=>norm(a).localeCompare(norm(b)))}
@@ -3737,7 +3752,7 @@ const DOC_CSS=`
 .idcard.back .ic-sigs{display:flex;gap:3mm;margin-top:auto}
 .idcard.back .ic-sigs div{flex:1;border-top:.6pt solid #0B5560;text-align:center;padding-top:.5mm;font-size:4.3pt;color:#445}
 .idcard.back .ic-foot{font-size:3.9pt;color:#889;margin-top:.3mm}
-.idcard.back .ic-qr{position:absolute;right:2.4mm;bottom:2.2mm;width:11mm;height:11mm;background:#fff;line-height:0}.idcard.back .ic-qr svg{width:100%;height:100%}.idcard.back.hasqr .ic-sigs,.idcard.back.hasqr .ic-foot{margin-right:12.5mm}
+.idcard.back .ic-qr{position:absolute;right:1.6mm;bottom:1.4mm;width:17mm;height:17mm;background:#fff;line-height:0}.idcard.back .ic-qr svg{width:100%;height:100%}.idcard.back.hasqr .ic-sigs,.idcard.back.hasqr .ic-foot{margin-right:18.5mm}
 @media print{.idcard-sheet{zoom:1!important;box-shadow:none}.idcard{box-shadow:none}}
 `;
 document.getElementById('doc-css').textContent=DOC_CSS;
