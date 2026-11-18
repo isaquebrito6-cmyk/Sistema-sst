@@ -2117,7 +2117,7 @@ function abrirCat(id,pre){
    QR da carteirinha = só um código opaco do colaborador ("SST1:<id>"): sem CPF, nome ou dado de saúde. Sozinho não abre nada: a leitura só
    funciona dentro do sistema, com login. A conferência de identidade na entrega de EPI é feita por PIN de 4 dígitos (guardado só como hash)
    e/ou assinatura eletrônica simples, mais foto de evidência opcional. NÃO há reconhecimento facial nem coleta de biometria. */
-const QR_PREFIXO='SST1:';
+const QR_PREFIXO='SST1:',LEITOR_VER='leitor 3';
 async function carteirinhaQR(a){const b=Object.assign({},a);try{b._qr=await psiQR(QR_PREFIXO+b.colabId,4)}catch(e){b._qr=''}return b}
 const JSQR_URL='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
 function sha256(s){ /* SHA-256 síncrono (o formulário salva de forma síncrona) */
@@ -2140,7 +2140,7 @@ function abrirLeitor(){
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:520px" role="dialog" aria-modal="true" aria-label="Ler carteirinha"><header><h2>Ler carteirinha</h2><button type="button" class="btn g s" id="lq_x" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
  <div style="position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3"><video id="lq_v" playsinline muted style="width:100%;height:100%;object-fit:cover;transform-origin:center"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><div style="width:52%;aspect-ratio:1;border:3px solid rgba(255,255,255,.85);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div></div></div>
  <div class="row" style="gap:8px;align-items:center;margin-top:8px"><span class="sm">Zoom</span><button type="button" class="btn s g" id="lq_zm" aria-label="Diminuir zoom">−</button><input type="range" id="lq_z" min="1" max="4" step="0.1" value="1" style="flex:1" aria-label="Zoom"><button type="button" class="btn s g" id="lq_zp" aria-label="Aumentar zoom">+</button><span class="sm muted" id="lq_zv" style="min-width:34px;text-align:right">1×</span></div>
- <p class="sm muted" id="lq_st" style="margin:8px 0 0">Aponte a câmera para o QR do verso da carteirinha (cerca de 15–25 cm, com boa luz).</p>
+ <p class="sm muted" id="lq_dg" style="margin:6px 0 0;font-size:11px"></p><p class="sm muted" id="lq_st" style="margin:8px 0 0">Aponte a câmera para o QR do verso da carteirinha (cerca de 15–25 cm, com boa luz).</p>
  <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn s g" id="lq_f">Ler QR de uma foto</button><button type="button" class="btn s g" id="lq_b">Buscar colaborador pelo nome</button><input type="file" id="lq_fi" accept="image/*" hidden></div></div>
  <footer><button type="button" class="btn" id="lq_c">Cancelar</button></footer></div></div>`;
  const v=$('#lq_v'),st=$('#lq_st');let stop=false,stream=null;
@@ -2175,14 +2175,17 @@ function abrirLeitor(){
     const k=Math.min(1,720/sw);cv.width=Math.round(sw*k);cv.height=Math.round(sh*k);cx.drawImage(v,sx,sy,sw,sh,0,0,cv.width,cv.height);
     if(bd&&zd>1){try{const r=await bd.detect(cv);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(_){}}
     if(!temJsqr)return null;const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});return r&&r.data};
-   let ocup=false,n=0;
+   let ocup=false,n=0,tr0=Date.now();const dg=$('#lq_dg');
+   const diag=()=>{if(dg)dg.textContent=LEITOR_VER+' · câmera '+(v.videoWidth?v.videoWidth+'×'+v.videoHeight:'sem imagem')+' · leitor '+(bd?'nativo':'')+(bd&&temJsqr?'+':'')+(temJsqr?'jsQR':'')+' · tentativas '+n};
    const tick=async()=>{if(stop)return;
     if(!ocup&&v.readyState>=2&&v.videoWidth){ocup=true;let d=null;try{d=await acha()}catch(_){}ocup=false;n++;
      if(d&&d.indexOf(QR_PREFIXO)===0){const c=G('colaboradores',d.slice(QR_PREFIXO.length));fim();$('#modal-root').innerHTML='';
       if(!c){toast('QR de outro cadastro ou colaborador removido.',5000);return}
       leitorAcoes(c);return}
+     if(n%20===0)diag();
      if(n===40)st.textContent='Ainda procurando o QR… aproxime a carteirinha (15–25 cm), com boa luz e sem reflexo, ou use o zoom.';
      if(!manual&&n%45===0)setZ(+zr.value>=2.4?1:(+zr.value<1.6?1.6:2.4))}
+    if(!v.videoWidth&&Date.now()-tr0>3500){st.textContent='A câmera abriu mas não enviou imagem. Feche outros apps que usam a câmera, confira a permissão do site e tente de novo.';diag()}
     requestAnimationFrame(tick)};
    tick();
   }catch(e){st.textContent=(e&&e.name==='NotAllowedError')?'Permita o uso da câmera no navegador e tente de novo.':(e.message||'Não consegui abrir a câmera.')}
