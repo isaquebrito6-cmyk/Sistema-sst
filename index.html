@@ -2117,7 +2117,7 @@ function abrirCat(id,pre){
    QR da carteirinha = só um código opaco do colaborador ("SST1:<id>"): sem CPF, nome ou dado de saúde. Sozinho não abre nada: a leitura só
    funciona dentro do sistema, com login. A conferência de identidade na entrega de EPI é feita por PIN de 4 dígitos (guardado só como hash)
    e/ou assinatura eletrônica simples, mais foto de evidência opcional. NÃO há reconhecimento facial nem coleta de biometria. */
-const QR_PREFIXO='SST1:',LEITOR_VER='leitor 4';
+const QR_PREFIXO='SST1:',LEITOR_VER='leitor 5';
 /* o QR é um link do próprio sistema (?cart=<código opaco>): a câmera do celular abre o sistema; dentro do sistema, o leitor aceita o link e o formato antigo */
 const cartLink=id=>location.origin+location.pathname+'?cart='+encodeURIComponent(id);
 function cartId(d){d=String(d||'').trim();if(d.indexOf(QR_PREFIXO)===0)return d.slice(QR_PREFIXO.length);try{return new URL(d).searchParams.get('cart')||''}catch(_){return ''}}
@@ -2172,12 +2172,19 @@ function abrirLeitor(){
    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
    const bd=('BarcodeDetector' in window)?new BarcodeDetector({formats:['qr_code']}):null;
    let temJsqr=true;try{await carregaScript(JSQR_URL)}catch(_){temJsqr=false;if(!bd)throw new Error('Não consegui carregar o leitor de QR. Verifique a conexão com a internet e tente de novo.')}
+   let alt=0;
+   const jsq=(x,w,h)=>{const r=jsQR(x.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'attemptBoth'});return r&&r.data};
    const acha=async()=>{
-    const vw=v.videoWidth,vh=v.videoHeight,sw=vw/zd,sh=vh/zd,sx=(vw-sw)/2,sy=(vh-sh)/2;
+    const vw=v.videoWidth,vh=v.videoHeight;
     if(bd&&zd===1){try{const r=await bd.detect(v);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(_){}}
-    const k=Math.min(1,720/sw);cv.width=Math.round(sw*k);cv.height=Math.round(sh*k);cx.drawImage(v,sx,sy,sw,sh,0,0,cv.width,cv.height);
+    if(!temJsqr)return null;
+    /* alterna: quadro inteiro (até 1600 px) e recorte central em resolução cheia; o QR da carteirinha é pequeno e precisa de detalhe */
+    alt++;const centro=alt%2===0;
+    let sw=vw/zd,sh=vh/zd,sx=(vw-sw)/2,sy=(vh-sh)/2;
+    if(centro){const f=.6;sx+=sw*(1-f)/2;sy+=sh*(1-f)/2;sw*=f;sh*=f}
+    const k=Math.min(1,1600/sw);cv.width=Math.round(sw*k);cv.height=Math.round(sh*k);cx.drawImage(v,sx,sy,sw,sh,0,0,cv.width,cv.height);
     if(bd&&zd>1){try{const r=await bd.detect(cv);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(_){}}
-    if(!temJsqr)return null;const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});return r&&r.data};
+    return jsq(cx,cv.width,cv.height)};
    let ocup=false,n=0,tr0=Date.now();const dg=$('#lq_dg');
    const diag=()=>{if(dg)dg.textContent=LEITOR_VER+' · câmera '+(v.videoWidth?v.videoWidth+'×'+v.videoHeight:'sem imagem')+' · leitor '+(bd?'nativo':'')+(bd&&temJsqr?'+':'')+(temJsqr?'jsQR':'')+' · tentativas '+n};
    const tick=async()=>{if(stop)return;
