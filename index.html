@@ -1350,8 +1350,8 @@ const FICHA_ROTULOS={
   telefone:['telefone','celular','whatsapp','fones','fone','tel'],email:['e-mail','emails','email'],
   empresaNome:['empresa terceira','razao social do empregador','razao social','empregador','empresa']},
  empresa:{
-  razao:['razao social','nome empresarial','nome da empresa','empresa','razao'],fantasia:['nome fantasia','fantasia'],
-  cnpj:['cnpj'],cnae:['cnae principal','cnae','atividade principal'],grau:['grau de risco','grau risco'],porte:['porte da empresa','porte'],
+  razao:['razao social','nome empresarial','nome da empresa','empresa contratante','empresa','razao','cliente','contratante','estabelecimento'],fantasia:['nome fantasia','fantasia'],
+  cnpj:['cnpj','cnpj mf','cnpj n','cnpj no','c n p j'],cnae:['cnae principal','cnae','atividade principal'],grau:['grau de risco','grau risco'],porte:['porte da empresa','porte'],
   funcionarios:['numero de funcionarios','numero de trabalhadores','total de funcionarios','quantidade de funcionarios','n de funcionarios','n de trabalhadores','qtd funcionarios','funcionarios','trabalhadores'],
   jornada:['jornada de trabalho','horario de trabalho','jornada','turnos'],cep:['cep'],
   endereco:['endereco','logradouro'],cidade:['cidade','municipio'],uf:['uf','estado'],
@@ -2772,7 +2772,16 @@ async function pgrDocxTexto(file){
 }
 function pgrInterpretar(texto){
  const linhas=String(texto||'').replace(/\r/g,'').replace(/ /g,' ').split('\n').map(l=>l.replace(/[ \t]+$/,'')).filter(l=>l.trim());
- const out={riscos:[],setores:new Set(),empresa:fichaInterpretar(linhas.slice(0,300).join('\n'),'empresa')};
+ const out={riscos:[],setores:new Set(),empresa:fichaInterpretar(linhas.slice(0,600).join('\n'),'empresa')};
+ {/* reforços por formato, para PGR em que o rótulo vem separado do valor ou não existe */
+  const E=out.empresa,T=linhas.slice(0,600).join('\n');
+  if(!E.cnpj){const m=T.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);if(m){const d=m[0].replace(/\D/g,'');if(d.length===14)E.cnpj=mask.cnpj(d)}}
+  if(!E.cep){const m=T.match(/\b\d{2}\.?\d{3}-?\d{3}\b/);if(m){const d=m[0].replace(/\D/g,'');if(d.length===8)E.cep=mask.cep(d)}}
+  if(!E.endereco){const m=T.match(/^\s*((?:rua|av\.?|avenida|rodovia|estrada|alameda|travessa|r\.|rod\.|pra[cç]a|via)\s[^\n]{4,100})$/im);if(m)E.endereco=m[1].trim().replace(/\s{2,}/g,' ')}
+  if(!E.cidade||!E.uf){const m=T.match(/\b\d{2}\.?\d{3}-?\d{3}\b[\s,\-–]*([A-Za-zÀ-ÿ' ]{3,40}?)\s*[\/\-–,]\s*([A-Z]{2})\b/)||T.match(/([A-ZÀ-Ý][A-Za-zÀ-ÿ' ]{2,35}?)\s*[\/\-–]\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/);if(m){if(!E.cidade)E.cidade=m[1].trim();if(!E.uf)E.uf=m[2]}}
+  if(!E.telefone){const m=T.match(/\(\d{2}\)\s?9?\d{4}-?\d{4}/);if(m)E.telefone=m[0]}
+ }
+ out.amostra=linhas.slice(0,45).join('\n');
  const cels=l=>l.split(/\t| {2,}|\|/).map(c=>c.trim()).filter((c,i,a)=>c!==''||(i>0&&i<a.length-1)||false);
  const HDR=[['setor',/^(setor|ghe|ges|g\.?h\.?e|area|departamento|unidade)\b/],['funcao',/^(funcao|funcoes|cargo|cargos)\b/],['perigo',/^(perigo|agente|fator|risco|agente\/fator|fatores?)\b/],['fonte',/^(fonte|origem|fonte geradora)\b/],['danos',/^(dano|danos|lesao|consequencia|efeito|possiveis danos)/],['medidas',/^(medida|medidas|controle|controles|epi|epc|prevencao)/],['sev',/^(severidade|gravidade)/],['prob',/^(probabilidade|frequencia)/],['aval',/^(avaliacao|medicao|intensidade|resultado)/],['exposicao',/^(exposicao|tipo de exposicao)/]];
  let setor='',funcao='',ativ='',hdr=null,prevRow={},secao='';
@@ -2834,7 +2843,7 @@ function pgrPodeCriarEmpresa(){
 const PGR_EF=[['razao','Razão social'],['fantasia','Nome fantasia'],['cnpj','CNPJ'],['cnae','CNAE principal'],['grau','Grau de risco'],['porte','Porte'],['funcionarios','Nº de trabalhadores'],['jornada','Jornada e turnos'],['cipa','CIPA'],['cep','CEP'],['endereco','Endereço'],['cidade','Cidade'],['uf','UF'],['telefone','Telefone'],['resp_nome','Responsável pela empresa'],['resp_cargo','Cargo do responsável'],['medico_nome','Médico coordenador do PCMSO'],['medico_crm','CRM'],['tec_nome','Responsável técnico do PGR'],['tec_reg','Registro profissional'],['atividades','Atividades / processo produtivo'],['instal','Instalações'],['emerg','Recursos de emergência']];
 function pgrEmpresaHtml(res,eid){
  const atual=eid&&eid!=='__nova'?(G('empresas',eid)||{}):{},ach=PGR_EF.filter(([k])=>res.empresa[k]);
- if(!ach.length)return '<div class="card" style="margin-bottom:10px"><b>Dados da empresa</b><p class="sm muted" style="margin:4px 0 0">Não achei dados da empresa (razão social, CNPJ etc.) no texto do PGR.</p></div>';
+ if(!ach.length)return '<div class="card" style="margin-bottom:10px"><b>Dados da empresa</b><p class="sm muted" style="margin:4px 0 0">Não achei dados da empresa (razão social, CNPJ etc.) no texto do PGR. Veja abaixo as primeiras linhas que o sistema leu — se a capa não aparece, o PDF pode ser imagem: envie como foto/scanner ou cole o texto da capa.</p><details style="margin-top:6px"><summary class="sm">Primeiras linhas lidas</summary><pre class="sm" style="white-space:pre-wrap;max-height:200px;overflow:auto">'+esc(res.amostra||'')+'</pre></details></div>';
  return `<div class="card" style="margin-bottom:10px"><b>Dados da empresa lidos do PGR</b><p class="sm muted" style="margin:4px 0 6px">${eid==='__nova'?'Serão usados para cadastrar a nova empresa.':'Marque o que deve ser atualizado no cadastro. Os campos vazios no cadastro já vêm marcados; os que diferem vêm desmarcados.'}</p>
  <div style="overflow:auto;max-height:34vh"><table class="tbl" style="min-width:560px"><thead><tr><th></th><th>Campo</th><th>Valor lido do PGR (editável)</th>${eid==='__nova'?'':'<th>No cadastro hoje</th>'}</tr></thead><tbody>${ach.map(([k,l])=>{const at=atual[k]||'',v=res.empresa[k],dif=at&&String(at)!==String(v);return `<tr><td><input type="checkbox" class="pi_efc" data-k="${k}" ${!at||eid==='__nova'?'checked':''} aria-label="Usar ${esc(l)}"></td><td>${esc(l)}</td><td><input class="pi_efv" data-k="${k}" value="${esc(v)}" style="width:100%;min-width:180px"></td>${eid==='__nova'?'':`<td class="sm ${dif?'':'muted'}">${esc(at)||'—'}${dif?' <b>(diferente)</b>':''}</td>`}</tr>`}).join('')}</tbody></table></div></div>`}
 function abrirPgrImport(){
