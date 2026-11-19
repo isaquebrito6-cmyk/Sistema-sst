@@ -2803,7 +2803,15 @@ function pgrInterpretar(texto){
   if((m=l.match(/^(?:fun[cç][aã]o|fun[cç][oõ]es|cargos?)\s*[:\-–]\s*(.{2,120})$/i))){funcao=m[1].trim();continue}
   if((m=l.match(/^(?:atividades?|descri[cç][aã]o das atividades|descri[cç][aã]o da atividade)\s*[:\-–]\s*(.{4,400})$/i))){ativ=m[1].trim();continue}
   // palavras-chave do catálogo (só quando o PGR não tem tabela de inventário)
-  if(out.modo==='tabela')continue;
+  if(out.modo==='tabela'){
+   /* PGR com tabela de inventário: fora da tabela só entram os fatores psicossociais (costumam vir em seção/parágrafo à parte) */
+   if(/^(metodologia|crit[eé]rios?|defini[cç][oõ]es|conceitos|legisla[cç][aã]o|refer[eê]ncias|objetivo|introdu[cç][aã]o|plano de a[cç][aã]o|conclus|considera[cç][oõ]es|glossario|anexos?\b|classifica[cç][aã]o d[eo]s? risco|matriz)/.test(n)&&l.length<90){secao='excl';continue}
+   if(l.length<90&&/psicossociais?/.test(n)&&!/^(metodologia|crit)/.test(n)){secao='inv';setor='';funcao='';continue}
+   if(secao==='excl'||l.length>260)continue;
+   const psi=PGR_KW.filter(([re,id])=>/^psi-/.test(id)&&re.test(n));
+   if(psi.length>3)continue;
+   psi.forEach(([re,id])=>{const rr=novo(id,{setor:setor||'',funcoes:funcao||'todas',atividades:ativ,snip:ctx(l),marcar:true,psiGeral:!setor});if(rr.setor)add(rr);else{(out._psiGeral=out._psiGeral||[]).push(rr)}});
+   continue}
   if(/^(metodologia|crit[eé]rios?|defini[cç][oõ]es|conceitos|legisla[cç][aã]o|refer[eê]ncias|objetivo|introdu[cç][aã]o|plano de a[cç][aã]o|conclus|considera[cç][oõ]es|glossario|anexos?\b|classifica[cç][aã]o d[eo]s? risco|matriz)/.test(n)){secao='excl';continue}
   if(/(invent[aá]rio|reconhecimento|identifica[cç][aã]o) (de|dos) (perigos|riscos)|riscos? ocupacionais? (por|do) (setor|ghe)|quadro de riscos/.test(n))secao='inv';
   if(secao==='excl'||!setor)continue;
@@ -2812,6 +2820,8 @@ function pgrInterpretar(texto){
   if(achados.length>3)continue; /* lista genérica de vários agentes: não é um risco do setor */
   achados.forEach(([re,id])=>{add(novo(id,{setor,funcoes:funcao||'todas',atividades:ativ,aval:aval(l),snip:ctx(l),marcar:true}))});
  }
+ /* fatores psicossociais citados sem setor: valem para todos os setores do PGR (a conferência permite desmarcar) */
+ (out._psiGeral||[]).forEach(r=>{[...out.setores].forEach(st=>add(Object.assign({},r,{setor:st})))});
  return out;
 }
 function pgrEmpDados(box){const o={};box.querySelectorAll('.pi_efc').forEach(c=>{if(c.checked){const v=box.querySelector('.pi_efv[data-k="'+c.dataset.k+'"]').value.trim();if(v)o[c.dataset.k]=v}});return o}
