@@ -2768,7 +2768,10 @@ function pgrInterpretar(texto){
  const out={riscos:[],setores:new Set(),empresa:fichaInterpretar(linhas.slice(0,80).join('\n'),'empresa')};
  const cels=l=>l.split(/\t| {2,}|\|/).map(c=>c.trim()).filter((c,i,a)=>c!==''||(i>0&&i<a.length-1)||false);
  const HDR=[['setor',/^(setor|ghe|ges|g\.?h\.?e|area|departamento|unidade)\b/],['funcao',/^(funcao|funcoes|cargo|cargos)\b/],['perigo',/^(perigo|agente|fator|risco|agente\/fator|fatores?)\b/],['fonte',/^(fonte|origem|fonte geradora)\b/],['danos',/^(dano|danos|lesao|consequencia|efeito|possiveis danos)/],['medidas',/^(medida|medidas|controle|controles|epi|epc|prevencao)/],['sev',/^(severidade|gravidade)/],['prob',/^(probabilidade|frequencia)/],['aval',/^(avaliacao|medicao|intensidade|resultado)/],['exposicao',/^(exposicao|tipo de exposicao)/]];
- let setor='',funcao='',ativ='',hdr=null,prevRow={};
+ let setor='',funcao='',ativ='',hdr=null,prevRow={},secao='';
+ const ehHdr=cs=>{if(cs.length<4)return null;const mp={};cs.forEach((c,i)=>{const cn=PGR_NORM(c).replace(/[^a-z\/\. ]/g,'').trim();const h=HDR.find(([k,re])=>re.test(cn)&&!(k in mp));if(h)mp[h[0]]=i});return(Object.keys(mp).length>=3&&mp.perigo!==undefined&&(mp.sev!==undefined||mp.fonte!==undefined||mp.medidas!==undefined))?mp:null};
+ /* se o PGR tem tabela de inventário, SÓ ela vale: o resto do texto (metodologia, legendas, catálogos de agentes) não vira risco */
+ out.modo=linhas.some(l=>ehHdr(cels(l)))?'tabela':'palavras';
  const ctx=l=>l.slice(0,220);
  const novo=(id,extra)=>{const h=HAZ.find(x=>x.id===id);return Object.assign({hazId:id,cat:h.cat,perigo:h.perigo,fonte:h.fonte,danos:h.danos,medidas:h.medidas,sev:String(h.s),prob:String(h.p),exames:(h.ex||[]).slice(),per:'',exposicao:'Habitual e permanente',estimado:true},extra)};
  const aval=l=>{const m=[...l.matchAll(/(\d{1,3}(?:[.,]\d+)?)\s*(dB\s*\(?A?\)?|ibutg|°\s*c|mg\/m[³3]|ppm|lux|m\/s[²2]?)/gi)].map(x=>x[0].replace(/\s+/g,' ').trim());return m.slice(0,4).join('; ')};
@@ -2777,15 +2780,14 @@ function pgrInterpretar(texto){
   const l=raw.trim(),n=PGR_NORM(l);
   // cabeçalho de tabela de inventário
   const cs=cels(l);
-  if(cs.length>=4){const mp={};cs.forEach((c,i)=>{const cn=PGR_NORM(c).replace(/[^a-z\/\. ]/g,'').trim();const h=HDR.find(([k,re])=>re.test(cn)&&!(k in mp));if(h)mp[h[0]]=i});
-   if(Object.keys(mp).length>=3&&mp.perigo!==undefined&&(mp.sev!==undefined||mp.fonte!==undefined||mp.medidas!==undefined)){hdr={n:cs.length,mp};prevRow={};continue}}
+  {const mp=ehHdr(cs);if(mp){hdr={n:cs.length,mp};prevRow={};continue}}
   if(hdr&&cs.length===hdr.n){
    const g=k=>hdr.mp[k]!==undefined?cs[hdr.mp[k]]:'';
    const per=g('perigo');if(!per||PGR_NORM(per).length<3)continue;
    if(g('setor'))prevRow.setor=g('setor');if(g('funcao'))prevRow.funcao=g('funcao');
    const kw=PGR_KW.find(([re])=>re.test(PGR_NORM(cs.join(' '))));const h=kw&&HAZ.find(x=>x.id===kw[1]);
    const dig=v=>{const m=String(v||'').match(/[1-5]/);return m?m[0]:''};
-   add(novo(h?h.id:'ruido',{hazId:h?h.id:null,cat:h?h.cat:'acidente',perigo:per,fonte:g('fonte')||(h?h.fonte:''),danos:g('danos')||(h?h.danos:''),medidas:g('medidas')||(h?h.medidas:''),aval:g('aval')||aval(l),
+   add(novo(h?h.id:'ruido',{hazId:h?h.id:null,cat:h?h.cat:'acidente',perigo:per,fonte:g('fonte'),danos:g('danos'),medidas:g('medidas'),aval:g('aval')||aval(l),
     setor:prevRow.setor||setor||'',funcoes:prevRow.funcao||funcao||'todas',atividades:ativ,sev:dig(g('sev'))||(h?String(h.s):'3'),prob:dig(g('prob'))||(h?String(h.p):'3'),estimado:!(dig(g('sev'))&&dig(g('prob'))),snip:ctx(l),revisarCat:!h,marcar:true}));
    continue}
   // contexto: setor / função / atividades
@@ -2793,9 +2795,15 @@ function pgrInterpretar(texto){
   if((m=l.match(/^(?:setor|ghe|g\.h\.e\.?|ges|departamento|[áa]rea|unidade|posto de trabalho)\b[^:\-–]{0,14}[:\-–]\s*(.{2,80})$/i))||(m=l.match(/^(?:ghe|ges)\s*\d*\s*[\-–:]\s*(.{2,80})$/i))){setor=m[1].replace(/\s{2,}.*/,'').trim();funcao='';ativ='';hdr=null;continue}
   if((m=l.match(/^(?:fun[cç][aã]o|fun[cç][oõ]es|cargos?)\s*[:\-–]\s*(.{2,120})$/i))){funcao=m[1].trim();continue}
   if((m=l.match(/^(?:atividades?|descri[cç][aã]o das atividades|descri[cç][aã]o da atividade)\s*[:\-–]\s*(.{4,400})$/i))){ativ=m[1].trim();continue}
-  // palavras-chave do catálogo
-  if(l.length>260)continue;
-  PGR_KW.forEach(([re,id])=>{if(re.test(n)){add(novo(id,{setor,funcoes:funcao||'todas',atividades:ativ,aval:aval(l),snip:ctx(l),marcar:!!setor&&l.length<200}))}});
+  // palavras-chave do catálogo (só quando o PGR não tem tabela de inventário)
+  if(out.modo==='tabela')continue;
+  if(/^(metodologia|crit[eé]rios?|defini[cç][oõ]es|conceitos|legisla[cç][aã]o|refer[eê]ncias|objetivo|introdu[cç][aã]o|plano de a[cç][aã]o|conclus|considera[cç][oõ]es|glossario|anexos?\b|classifica[cç][aã]o d[eo]s? risco|matriz)/.test(n)){secao='excl';continue}
+  if(/(invent[aá]rio|reconhecimento|identifica[cç][aã]o) (de|dos) (perigos|riscos)|riscos? ocupacionais? (por|do) (setor|ghe)|quadro de riscos/.test(n))secao='inv';
+  if(secao==='excl'||!setor)continue;
+  if(l.length>160)continue;
+  const achados=PGR_KW.filter(([re])=>re.test(n));
+  if(achados.length>3)continue; /* lista genérica de vários agentes: não é um risco do setor */
+  achados.forEach(([re,id])=>{add(novo(id,{setor,funcoes:funcao||'todas',atividades:ativ,aval:aval(l),snip:ctx(l),marcar:true}))});
  }
  return out;
 }
@@ -2834,7 +2842,7 @@ function abrirPgrImport(){
   const rz=res.empresa.razao;
   const opEmp=emps.map(e=>`<option value="${e.id}" ${e.id===atual?'selected':''}>${esc(e.razao)}</option>`).join('');
   box.innerHTML=`<div class="fld w6"><label for="pi_emp">Importar para a empresa</label><select id="pi_emp">${opEmp}<option value="__nova" ${!emps.length?'selected':''}>➕ Nova empresa${rz?' — '+esc(rz):' (dados lidos do PGR)'}</option></select></div>
-  <p class="sm muted" style="margin:6px 0 10px">Encontrei <b>${res.riscos.length} risco(s)</b> em <b>${res.setores.size||0} setor(es)</b>. Os itens sem setor identificado ficam desmarcados. Corrija o que precisar. <b>Severidade e probabilidade com "~"</b> vieram do catálogo, não do PGR: confirme.</p>
+  ${res.modo==='palavras'?'<p class="sm" style="margin:6px 0;color:var(--laranja,#F26B1D)"><b>Atenção:</b> este PGR não tem uma tabela de inventário que eu reconheça; os riscos abaixo foram deduzidos por palavras dentro dos setores. Desmarque o que não for do PGR.</p>':'<p class="sm muted" style="margin:6px 0">Riscos lidos da <b>tabela do inventário</b> do PGR (o restante do texto foi ignorado).</p>'}<p class="sm muted" style="margin:6px 0 10px">Encontrei <b>${res.riscos.length} risco(s)</b> em <b>${res.setores.size||0} setor(es)</b>. Os itens sem setor identificado ficam desmarcados. Corrija o que precisar. <b>Severidade e probabilidade com "~"</b> vieram do catálogo, não do PGR: confirme.</p>
   <div class="card" style="margin-bottom:10px"><b>Setores / GHE encontrados no PGR</b><div id="pi_sets" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0">${[...res.setores].map(st=>`<label class="chk"><input type="checkbox" class="pi_set" data-s="${esc(st)}" checked> ${esc(st)} <span class="muted sm">(${res.riscos.filter(r=>r.setor===st).length})</span></label>`).join('')||'<span class="sm muted">Nenhum setor identificado: preencha o setor de cada risco na tabela.</span>'}</div>
   <label class="chk"><input type="checkbox" id="pi_only" checked> <b>Manter somente os setores/GHE deste PGR</b> — remove do inventário da empresa os riscos de setores que não estão no PGR importado</label><p class="sm muted" style="margin:4px 0 0">Colaboradores e outros cadastros não são alterados. Antes de remover, o sistema mostra o que será apagado e pede confirmação.</p></div>
   <div class="row" style="gap:8px;margin-bottom:8px"><button type="button" class="btn s g" id="pi_all">Marcar todos</button><button type="button" class="btn s g" id="pi_none">Desmarcar todos</button><label class="chk" style="margin-left:auto"><input type="checkbox" id="pi_dup" checked> Pular os que a empresa já tem</label></div>
