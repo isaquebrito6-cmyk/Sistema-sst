@@ -2792,7 +2792,7 @@ function pgrInterpretar(texto){
    continue}
   // contexto: setor / função / atividades
   let m;
-  if((m=l.match(/^(?:setor|ghe|g\.h\.e\.?|ges|departamento|[áa]rea|unidade|posto de trabalho)\b[^:\-–]{0,14}[:\-–]\s*(.{2,80})$/i))||(m=l.match(/^(?:ghe|ges)\s*\d*\s*[\-–:]\s*(.{2,80})$/i))){setor=m[1].replace(/\s{2,}.*/,'').trim();funcao='';ativ='';hdr=null;continue}
+  if((m=l.match(/^(?:setor|ghe|g\.h\.e\.?|ges|departamento|[áa]rea|unidade|posto de trabalho)\b[^:\-–]{0,14}[:\-–]\s*(.{2,80})$/i))||(m=l.match(/^(?:ghe|ges)\s*\d*\s*[\-–:]\s*(.{2,80})$/i))){setor=m[1].replace(/\s{2,}.*/,'').trim();funcao='';ativ='';hdr=null;secao='';continue}
   if((m=l.match(/^(?:fun[cç][aã]o|fun[cç][oõ]es|cargos?)\s*[:\-–]\s*(.{2,120})$/i))){funcao=m[1].trim();continue}
   if((m=l.match(/^(?:atividades?|descri[cç][aã]o das atividades|descri[cç][aã]o da atividade)\s*[:\-–]\s*(.{4,400})$/i))){ativ=m[1].trim();continue}
   // palavras-chave do catálogo (só quando o PGR não tem tabela de inventário)
