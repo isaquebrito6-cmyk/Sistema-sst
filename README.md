@@ -220,3 +220,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Entrega de EPI com confirmação por PIN de 4 dígitos (guardado só como hash SHA-256 com sal), assinatura eletrônica simples e foto de evidência opcional; recibo mostra a confirmação. Sem reconhecimento facial nem biometria (Política de Privacidade atualizada).
 - Leitor de carteirinha: busca automática do QR com moldura de mira, zoom (da câmera quando o aparelho oferece, senão digital), foco contínuo e varredura automática de zoom.
 - Importar PGR: lista de setores/GHE do PGR com marcação e opção "Manter somente os setores/GHE deste PGR" (remove do inventário os riscos de setores fora do PGR, com confirmação).
+- Importar PGR existente também lê os dados da empresa (razão, CNPJ, CNAE, endereço, responsáveis etc.): você marca o que aplicar, atualizando o cadastro ou criando a empresa nova.

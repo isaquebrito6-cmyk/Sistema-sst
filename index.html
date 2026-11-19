@@ -2765,7 +2765,7 @@ async function pgrDocxTexto(file){
 }
 function pgrInterpretar(texto){
  const linhas=String(texto||'').replace(/\r/g,'').replace(/ /g,' ').split('\n').map(l=>l.replace(/[ \t]+$/,'')).filter(l=>l.trim());
- const out={riscos:[],setores:new Set(),empresa:fichaInterpretar(linhas.slice(0,80).join('\n'),'empresa')};
+ const out={riscos:[],setores:new Set(),empresa:fichaInterpretar(linhas.slice(0,300).join('\n'),'empresa')};
  const cels=l=>l.split(/\t| {2,}|\|/).map(c=>c.trim()).filter((c,i,a)=>c!==''||(i>0&&i<a.length-1)||false);
  const HDR=[['setor',/^(setor|ghe|ges|g\.?h\.?e|area|departamento|unidade)\b/],['funcao',/^(funcao|funcoes|cargo|cargos)\b/],['perigo',/^(perigo|agente|fator|risco|agente\/fator|fatores?)\b/],['fonte',/^(fonte|origem|fonte geradora)\b/],['danos',/^(dano|danos|lesao|consequencia|efeito|possiveis danos)/],['medidas',/^(medida|medidas|controle|controles|epi|epc|prevencao)/],['sev',/^(severidade|gravidade)/],['prob',/^(probabilidade|frequencia)/],['aval',/^(avaliacao|medicao|intensidade|resultado)/],['exposicao',/^(exposicao|tipo de exposicao)/]];
  let setor='',funcao='',ativ='',hdr=null,prevRow={},secao='';
@@ -2807,12 +2807,19 @@ function pgrInterpretar(texto){
  }
  return out;
 }
+function pgrEmpDados(box){const o={};box.querySelectorAll('.pi_efc').forEach(c=>{if(c.checked){const v=box.querySelector('.pi_efv[data-k="'+c.dataset.k+'"]').value.trim();if(v)o[c.dataset.k]=v}});return o}
 function pgrPodeCriarEmpresa(){
  if(S.role==='consultoria'&&!isSuper()){const c=G('consultorias',CFG_ID())||{};
   if(c.statusPagamento==='suspenso')return 'Assinatura suspensa: não é possível cadastrar novas empresas.';
   if(c.limiteEmpresas&&L('empresas').length>=c.limiteEmpresas)return 'Limite de '+c.limiteEmpresas+' empresa(s) do seu plano atingido.'}
  return '';
 }
+const PGR_EF=[['razao','Razão social'],['fantasia','Nome fantasia'],['cnpj','CNPJ'],['cnae','CNAE principal'],['grau','Grau de risco'],['porte','Porte'],['funcionarios','Nº de trabalhadores'],['jornada','Jornada e turnos'],['cipa','CIPA'],['cep','CEP'],['endereco','Endereço'],['cidade','Cidade'],['uf','UF'],['telefone','Telefone'],['resp_nome','Responsável pela empresa'],['resp_cargo','Cargo do responsável'],['medico_nome','Médico coordenador do PCMSO'],['medico_crm','CRM'],['tec_nome','Responsável técnico do PGR'],['tec_reg','Registro profissional'],['atividades','Atividades / processo produtivo'],['instal','Instalações'],['emerg','Recursos de emergência']];
+function pgrEmpresaHtml(res,eid){
+ const atual=eid&&eid!=='__nova'?(G('empresas',eid)||{}):{},ach=PGR_EF.filter(([k])=>res.empresa[k]);
+ if(!ach.length)return '<div class="card" style="margin-bottom:10px"><b>Dados da empresa</b><p class="sm muted" style="margin:4px 0 0">Não achei dados da empresa (razão social, CNPJ etc.) no texto do PGR.</p></div>';
+ return `<div class="card" style="margin-bottom:10px"><b>Dados da empresa lidos do PGR</b><p class="sm muted" style="margin:4px 0 6px">${eid==='__nova'?'Serão usados para cadastrar a nova empresa.':'Marque o que deve ser atualizado no cadastro. Os campos vazios no cadastro já vêm marcados; os que diferem vêm desmarcados.'}</p>
+ <div style="overflow:auto;max-height:34vh"><table class="tbl" style="min-width:560px"><thead><tr><th></th><th>Campo</th><th>Valor lido do PGR (editável)</th>${eid==='__nova'?'':'<th>No cadastro hoje</th>'}</tr></thead><tbody>${ach.map(([k,l])=>{const at=atual[k]||'',v=res.empresa[k],dif=at&&String(at)!==String(v);return `<tr><td><input type="checkbox" class="pi_efc" data-k="${k}" ${!at||eid==='__nova'?'checked':''} aria-label="Usar ${esc(l)}"></td><td>${esc(l)}</td><td><input class="pi_efv" data-k="${k}" value="${esc(v)}" style="width:100%;min-width:180px"></td>${eid==='__nova'?'':`<td class="sm ${dif?'':'muted'}">${esc(at)||'—'}${dif?' <b>(diferente)</b>':''}</td>`}</tr>`}).join('')}</tbody></table></div></div>`}
 function abrirPgrImport(){
  const emps=L('empresas').sort(byN),atual=(empAtual()||{}).id||'';
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:860px" role="dialog" aria-modal="true" aria-label="Importar PGR existente"><header><h2>Importar PGR existente</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
@@ -2842,6 +2849,7 @@ function abrirPgrImport(){
   const rz=res.empresa.razao;
   const opEmp=emps.map(e=>`<option value="${e.id}" ${e.id===atual?'selected':''}>${esc(e.razao)}</option>`).join('');
   box.innerHTML=`<div class="fld w6"><label for="pi_emp">Importar para a empresa</label><select id="pi_emp">${opEmp}<option value="__nova" ${!emps.length?'selected':''}>➕ Nova empresa${rz?' — '+esc(rz):' (dados lidos do PGR)'}</option></select></div>
+  <div id="pi_empdados"></div>
   ${res.modo==='palavras'?'<p class="sm" style="margin:6px 0;color:var(--laranja,#F26B1D)"><b>Atenção:</b> este PGR não tem uma tabela de inventário que eu reconheça; os riscos abaixo foram deduzidos por palavras dentro dos setores. Desmarque o que não for do PGR.</p>':'<p class="sm muted" style="margin:6px 0">Riscos lidos da <b>tabela do inventário</b> do PGR (o restante do texto foi ignorado).</p>'}<p class="sm muted" style="margin:6px 0 10px">Encontrei <b>${res.riscos.length} risco(s)</b> em <b>${res.setores.size||0} setor(es)</b>. Os itens sem setor identificado ficam desmarcados. Corrija o que precisar. <b>Severidade e probabilidade com "~"</b> vieram do catálogo, não do PGR: confirme.</p>
   <div class="card" style="margin-bottom:10px"><b>Setores / GHE encontrados no PGR</b><div id="pi_sets" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0">${[...res.setores].map(st=>`<label class="chk"><input type="checkbox" class="pi_set" data-s="${esc(st)}" checked> ${esc(st)} <span class="muted sm">(${res.riscos.filter(r=>r.setor===st).length})</span></label>`).join('')||'<span class="sm muted">Nenhum setor identificado: preencha o setor de cada risco na tabela.</span>'}</div>
   <label class="chk"><input type="checkbox" id="pi_only" checked> <b>Manter somente os setores/GHE deste PGR</b> — remove do inventário da empresa os riscos de setores que não estão no PGR importado</label><p class="sm muted" style="margin:4px 0 0">Colaboradores e outros cadastros não são alterados. Antes de remover, o sistema mostra o que será apagado e pede confirmação.</p></div>
@@ -2849,21 +2857,23 @@ function abrirPgrImport(){
   <div style="overflow:auto;max-height:52vh"><table class="tbl" style="min-width:720px"><thead><tr><th></th><th>Setor / GHE</th><th>Funções</th><th>Risco (lido do PGR)</th><th>Categoria</th><th>S</th><th>P</th></tr></thead><tbody>${res.riscos.map((r,i)=>`<tr data-i="${i}"><td><input type="checkbox" class="pi_ck" ${r.marcar?'checked':''} aria-label="Importar"></td><td><input class="pi_setor" style="min-width:130px" value="${esc(r.setor||'')}" placeholder="Setor"></td><td><input class="pi_func" style="min-width:170px" value="${esc(r.funcoes||'')}"></td><td><b>${esc(r.perigo)}</b>${r.aval?'<br><span class="sm">'+esc(r.aval)+'</span>':''}<br><span class="sm muted">${esc(r.snip||'')}</span></td><td><select class="pi_cat" style="min-width:150px">${Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${k===r.cat?'selected':''}>${esc(v)}</option>`).join('')}</select>${r.revisarCat?'<br><span class="sm" style="color:var(--laranja,#F26B1D)">confira</span>':''}</td><td><select class="pi_sev" style="width:64px">${[1,2,3,4,5].map(v=>`<option ${String(v)===r.sev?'selected':''}>${v}</option>`).join('')}</select>${r.estimado?'~':''}</td><td><select class="pi_prob" style="width:64px">${[1,2,3,4,5].map(v=>`<option ${String(v)===r.prob?'selected':''}>${v}</option>`).join('')}</select>${r.estimado?'~':''}</td></tr>`).join('')}</tbody></table></div>`;
   $('#pi_all').onclick=()=>box.querySelectorAll('.pi_ck').forEach(c=>c.checked=true);
   $('#pi_none').onclick=()=>box.querySelectorAll('.pi_ck').forEach(c=>c.checked=false);
-  box.querySelectorAll('.pi_set').forEach(cb=>cb.onchange=()=>box.querySelectorAll('tbody tr').forEach(tr=>{if(res.riscos[+tr.dataset.i].setor===cb.dataset.s)tr.querySelector('.pi_ck').checked=cb.checked}));
+  const pintaEmp=()=>{$('#pi_empdados').innerHTML=pgrEmpresaHtml(res,$('#pi_emp').value)};pintaEmp();$('#pi_emp').onchange=pintaEmp;
+  box.querySelectorAll('.pi_set').forEach(cb=>cb.onchange=()=>box.querySelectorAll('tbody tr[data-i]').forEach(tr=>{if(res.riscos[+tr.dataset.i].setor===cb.dataset.s)tr.querySelector('.pi_ck').checked=cb.checked}));
  };
 }
 function pgrImportaGravar(res){
  const box=$('#pi_2'),emp=$('#pi_emp').value;let eid=emp;
- const sel=[...box.querySelectorAll('tbody tr')].filter(tr=>tr.querySelector('.pi_ck').checked);
+ const sel=[...box.querySelectorAll('tbody tr[data-i]')].filter(tr=>tr.querySelector('.pi_ck').checked);
  if(!sel.length){toast('Marque pelo menos um risco para importar.');return}
  if(sel.some(tr=>!tr.querySelector('.pi_setor').value.trim())){toast('Preencha o setor dos riscos marcados (ou desmarque-os).',5000);return}
  if(emp==='__nova'){
   const blq=pgrPodeCriarEmpresa();if(blq){toast(blq,6000);return}
-  const c=res.empresa;if(!c.razao){toast('Não achei a razão social no PGR. Cadastre a empresa primeiro (Empresas → Nova empresa) e escolha-a na lista.',7000);return}
+  const c=pgrEmpDados(box);if(!c.razao){toast('Para cadastrar a empresa nova, marque a razão social (ou cadastre a empresa antes em Empresas → Nova empresa e escolha-a na lista).',7000);return}
   const rec=Object.assign({grau:'2'},c);const sv=save('empresas',rec,true);eid=(sv&&sv.id)||rec.id;
   if(!eid){const f=L('empresas').find(e=>e.razao===c.razao);eid=f&&f.id}
  }
  if(!eid){toast('Escolha a empresa.');return}
+ if(emp!=='__nova'){const d=pgrEmpDados(box);if(Object.keys(d).length){const e2=clone(G('empresas',eid));Object.assign(e2,d);save('empresas',e2,true)}}
  const pular=$('#pi_dup').checked,ja=L('riscos').filter(r=>r.empresaId===eid);let n=0,p=0,rem=0;
  if($('#pi_only').checked&&emp!=='__nova'){
   const mantem=new Set(sel.map(tr=>PGR_NORM(tr.querySelector('.pi_setor').value.trim())));
