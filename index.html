@@ -1684,6 +1684,28 @@ function abrirColaboradorImport(){
  }
  renderModal();
 }
+function abrirRiscoPsi(empId){
+ const sets=distVals(empId,'setor').sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ const hz=HAZ.filter(h=>h.cat==='psicossocial');
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:720px" role="dialog" aria-modal="true" aria-label="Riscos psicossociais"><header><h2>Incluir riscos psicossociais no PGR</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
+ <p class="muted sm" style="margin-top:0">Os fatores psicossociais integram os riscos ergonômicos (NR-1, item 1.5.3.1.4) e entram no inventário e no PGR. Marque os perigos e os setores/GHE onde se aplicam; cada combinação vira um risco já preenchido (severidade e probabilidade ajustáveis depois).</p>
+ <div class="fld"><label>Perigos psicossociais</label><div class="checks" id="rp_haz" style="max-height:230px;overflow:auto">${hz.map(h=>`<label class="chk"><input type="checkbox" value="${h.id}"><span>${esc(h.perigo)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:6px"><button type="button" class="btn s g" id="rp_hall">Marcar todos</button></div></div>
+ <div class="fld" style="margin-top:10px"><label>Setores / GHE</label><div class="checks" id="rp_set">${sets.map(x=>`<label class="chk"><input type="checkbox" value="${esc(x)}"><span>${esc(x)}</span></label>`).join('')||'<span class="sm muted">Nenhum setor cadastrado ainda — digite abaixo.</span>'}</div>
+ <div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><button type="button" class="btn s g" id="rp_sall">Marcar todos os setores</button><input id="rp_outro" placeholder="Outro setor (opcional)" style="flex:1;min-width:180px"></div></div>
+ </div><footer><button type="button" class="btn" data-a="closeForm">Cancelar</button><button type="button" class="btn p" id="rp_ok">${ic('plus')}Incluir no inventário</button></footer></div></div>`;
+ $('#rp_hall').onclick=()=>document.querySelectorAll('#rp_haz input').forEach(c=>c.checked=true);
+ $('#rp_sall').onclick=()=>document.querySelectorAll('#rp_set input').forEach(c=>c.checked=true);
+ $('#rp_ok').onclick=()=>{
+  const ids=[...document.querySelectorAll('#rp_haz input:checked')].map(x=>x.value);
+  const st=[...document.querySelectorAll('#rp_set input:checked')].map(x=>x.value);const o=$('#rp_outro').value.trim();if(o&&!st.includes(o))st.push(o);
+  if(!ids.length){toast('Marque ao menos um perigo psicossocial.');return}
+  if(!st.length){toast('Marque ao menos um setor/GHE (ou digite um).');return}
+  const ja=L('riscos').filter(r=>r.empresaId===empId);let n=0,p=0;
+  st.forEach(setor=>ids.forEach(id=>{const h=HAZ.find(x=>x.id===id);if(!h)return;
+   if(ja.some(r=>PGR_NORM(r.setor)===PGR_NORM(setor)&&(r.hazId===id||PGR_NORM(r.perigo)===PGR_NORM(h.perigo)))){p++;return}
+   save('riscos',{empresaId:empId,hazId:id,setor,funcoes:'todas',cat:'psicossocial',exposicao:'Habitual e permanente',perigo:h.perigo,fonte:h.fonte,danos:h.danos,medidas:h.medidas,sev:String(h.s),prob:String(h.p),per:'',exames:h.ex.slice()},true);n++}));
+  closeForm();render();toast(n+' risco(s) psicossocial(is) incluído(s) no inventário'+(p?' ('+p+' já existiam)':'')+'. Eles aparecem no PGR.',6000)};
+}
 function abrirRiscoLote(empId){
  const setoresExistentes=distVals(empId,'setor');
  $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:720px" role="dialog" aria-modal="true"><header><h2>Adicionar vários riscos de uma vez</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd">
@@ -2919,7 +2941,7 @@ VIEWS.riscos=()=>{
  const e=empAtual();if(!e)return emptyBox('Cadastre uma empresa primeiro','O inventário de riscos pertence a uma empresa.',`<button class="btn p" data-a="new" data-e="empresa">${ic('plus')}Nova empresa</button>`,'shield');
  const rs=L('riscos').filter(r=>r.empresaId===e.id).sort((a,b)=>norm(a.setor).localeCompare(norm(b.setor))||nivel(b.sev,b.prob).v-nivel(a.sev,a.prob).v);
  const sets=[...new Set(rs.flatMap(setoresDe))];
- return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn g" data-a="expRiscos" data-id="${e.id}">${ic('down')}CSV</button><button class="btn g" data-a="gerenciarSetores" data-id="${e.id}">Setores/funções</button><button class="btn" data-a="pgrImp">${ic('up')}Importar PGR existente</button><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn" data-a="riscoLote" data-id="${e.id}">${ic('plus')}Adicionar vários</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
+ return `<div class="bar">${empSel()}<div class="grow"></div><button class="btn g" data-a="expRiscos" data-id="${e.id}">${ic('down')}CSV</button><button class="btn g" data-a="gerenciarSetores" data-id="${e.id}">Setores/funções</button><button class="btn" data-a="pgrImp">${ic('up')}Importar PGR existente</button><button class="btn" data-a="impAcoes">Importar propostas para o plano</button><button class="btn" data-a="riscoPsi" data-id="${e.id}">${ic('plus')}Riscos psicossociais</button><button class="btn" data-a="riscoLote" data-id="${e.id}">${ic('plus')}Adicionar vários</button><button class="btn p" data-a="newRisco">${ic('plus')}Novo risco</button></div>
  <div class="card" style="margin-bottom:16px"><div class="row sb" style="margin-bottom:8px"><b>${rs.length} risco(s) · ${sets.length} setor(es)</b><div class="legend"><span class="chip low">Baixo 1–4</span><span class="chip med">Médio 5–9</span><span class="chip high">Alto 10–15</span><span class="chip crit">Crítico 16–25</span></div></div>${rs.length?distBar(rs):'<span class="muted sm">Nenhum risco cadastrado ainda. Use o catálogo de modelos para agilizar.</span>'}</div>`+
  sets.map(s=>`<h2 style="font-size:17px;margin:20px 0 10px">${esc(s)}</h2><div class="grid">${rs.filter(r=>setoresDe(r).includes(s)).map(r=>{const n=nivel(r.sev,r.prob);return `<div class="card"><div class="row sb"><span class="chip ${n.k}">${n.n} · ${n.v}</span><span class="chip gray">${CATS[r.cat]||''}</span></div><h3 style="margin:10px 0 4px;font-size:15.5px">${esc(r.perigo)}</h3>${r.fonte?`<p class="sm muted" style="margin:0 0 4px">Fonte: ${esc(r.fonte)}</p>`:''}<p class="sm" style="margin:0 0 8px">Funções: ${esc(r.funcoes||'todo o setor')}</p><div class="row" style="gap:5px;margin-bottom:10px">${(r.exames||[]).map(k=>`<span class="chip gray">${esc((EXAMES[k]||{n:k}).n.split(' (')[0])}</span>`).join('')}</div><div class="row"><button class="btn s" data-a="editRisco" data-id="${r.id}">${ic('edit')}Editar</button><button class="btn s g" data-a="dupRisco" data-id="${r.id}">Duplicar</button><button class="btn s g d" data-a="delRisco" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button></div></div>`}).join('')}</div>`).join('');
 };
@@ -5017,7 +5039,7 @@ formPGR(){abrirFormPGR(S.emp||null)},
 pgrClose(){pgrClose()},pgrSave(){pgrSave()},pgrAddRow(){pgrAddRow()},pgrBulkAdd(){pgrBulkAdd()},pgrRemRow(d){pgrRemRow(d.row)},
 new(d){abrirEnt(d.e)},
 edit(d){abrirEnt(d.e,d.id)},
-newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},gerenciarSetores(d){abrirGerenciarSetores(d.id)},geRenomear(d){geRenomear(d.emp,d.campo,d.old,d.in)},geExcluir(d){geExcluir(d.emp,d.campo,d.val)},
+newRisco(){abrirRisco()},editRisco(d){abrirRisco(d.id)},riscoLote(d){abrirRiscoLote(d.id)},riscoPsi(d){abrirRiscoPsi(d.id)},riscoLoteSalvar(d){riscoLoteSalvar(d.id)},gerenciarSetores(d){abrirGerenciarSetores(d.id)},geRenomear(d){geRenomear(d.emp,d.campo,d.old,d.in)},geExcluir(d){geExcluir(d.emp,d.campo,d.val)},
 doLogout(){doLogout()},esqueciSenha(){esqueciSenha()},novoUsuario(){if(S.verTodas){toast('Escolha uma consultoria específica (menu Consultorias) antes de criar um usuário.',5000);return}abrirNovoUsuario()},editUsuario(d){abrirEditarUsuario(d.id)},delUsuario(d){excluirUsuario(d.id)},trocarSenha(){abrirTrocarSenha()},
 dupRisco(d){const r=clone(G('riscos',d.id));delete r.id;r.perigo+=' (cópia)';save('riscos',r);toast('Risco duplicado.')},
 delRisco(d){ask('Excluir este risco do inventário?','Excluir',()=>del('riscos',d.id))},
@@ -5072,6 +5094,7 @@ psiParaInv(d){const a=G('avpsicos',d.id);if(!a)return;let n=0,at=0;
   const rec=ja?clone(ja):{empresaId:a.empresaId,setor:a.grupo||'Todos os setores',funcoes:'Todas',cat:'psicossocial',exposicao:'Habitual e permanente',perigo:x.n,fonte:h?h.fonte:'Organização do trabalho',danos:h?h.danos:'Estresse ocupacional, adoecimento, afastamentos',per:'',exames:['clinico','psicossocial'],fatorPsi:x.id};
   rec.sev='3';rec.prob=prob;rec.medidas=a['med_'+x.id]||x.m;rec.aval='Avaliação coletiva '+fd(a.data)+': '+p+'% de respostas desfavoráveis ('+nv[1]+').';
   save('riscos',rec,true);ja?at++:n++});
+ if(!n&&!at){toast('Nenhum fator chegou ao nível mínimo (20% desfavorável) para virar risco. Para incluir riscos psicossociais direto no PGR, use Riscos → Riscos psicossociais.',8000);return}
  toast(n+' risco(s) incluído(s) e '+at+' atualizado(s) no inventário (probabilidade pelo nível; severidade 3, ajuste se necessário).',6000)},
 newPt(){abrirPt()},editPt(d){abrirPt(d.id)},delPt(d){ask('Excluir esta Permissão de Trabalho? Atenção: a PET de espaço confinado deve ser arquivada por 5 anos (NR-33, item 33.3.3, alínea j).','Excluir',()=>del('pts',d.id))},
 newTrein(){abrirTreinamento()},editTrein(d){abrirTreinamento(d.id)},delTrein(d){ask('Excluir este registro de treinamento?','Excluir',()=>del('treinamentos',d.id))},
