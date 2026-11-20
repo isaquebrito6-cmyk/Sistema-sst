@@ -1733,7 +1733,7 @@ function riscoLoteSalvar(empId){
 }
 function abrirRisco(id,pre){
  const rec=id?clone(G('riscos',id)):Object.assign({empresaId:S.emp,cat:'fisico',exposicao:'Habitual e permanente',sev:'3',prob:'3',per:'12',exames:['clinico']},pre||{});
- const pre_=`<div class="fld" style="margin-bottom:12px"><label for="modelo">Começar de um modelo do catálogo</label><select id="modelo" data-c="modelo"><option value="">Selecione um perigo comum para preencher automaticamente…</option>${Object.entries(CATS).map(([k,n])=>`<optgroup label="${n}">${HAZ.filter(h=>h.cat===k).map(h=>`<option value="${h.id}">${esc(h.perigo)}</option>`).join('')}</optgroup>`).join('')}</select></div><div id="nvl" style="margin-bottom:12px"></div>`;
+ const pre_=`<div class="fld" style="margin-bottom:12px"><label for="modelo">Começar de um modelo do catálogo</label><div class="row" style="gap:6px;margin-bottom:6px;flex-wrap:wrap"><input id="modelo_q" type="search" placeholder="Buscar no catálogo (ex.: psicossocial, assédio, ruído)" oninput="modeloBusca(this.value)" style="flex:1;min-width:200px"><button type="button" class="btn s g" onclick="document.getElementById('modelo_q').value='psicossocial';modeloBusca('psicossocial')">Só psicossociais</button></div><select id="modelo" data-c="modelo"><option value="">Selecione um perigo comum para preencher automaticamente…</option>${Object.entries(CATS).map(([k,n])=>`<optgroup label="${n}">${HAZ.filter(h=>h.cat===k).map(h=>`<option value="${h.id}">${esc(h.perigo)}</option>`).join('')}</optgroup>`).join('')}</select></div><div id="nvl" style="margin-bottom:12px"></div>`;
  const setoresExistentes=rec.empresaId?distVals(rec.empresaId,'setor'):[],funcsExistentes=rec.empresaId?distVals(rec.empresaId,'funcao'):[];
  const valForm=Object.assign({},rec,{
   setor_arr:setoresDe(rec).filter(s=>s!=='Sem setor'&&setoresExistentes.includes(s)),
@@ -1755,6 +1755,12 @@ function abrirRisco(id,pre){
 function nvlUpd(){
  const el=$('#nvl');if(!el)return;const s=$('#f_sev'),p=$('#f_prob');if(!s||!p)return;
  const n=nivel(s.value,p.value);el.innerHTML=`<span class="chip ${n.k}">Nível de risco: ${n.n} (${n.v})</span> <span class="muted sm">severidade × probabilidade</span>`;
+}
+function modeloBusca(q){
+ const sel=document.getElementById('modelo');if(!sel)return;const t=PGR_NORM(q).trim().split(/\s+/).filter(Boolean);
+ const ok=h=>!t.length||t.every(w=>PGR_NORM(h.perigo+' '+h.fonte+' '+h.danos+' '+(CATS[h.cat]||'')).includes(w));
+ const n=HAZ.filter(ok).length;
+ sel.innerHTML='<option value="">'+(t.length?n+' perigo(s) encontrado(s) — selecione para preencher…':'Selecione um perigo comum para preencher automaticamente…')+'</option>'+Object.entries(CATS).map(([k,nm])=>{const l=HAZ.filter(h=>h.cat===k&&ok(h));return l.length?'<optgroup label="'+esc(nm)+'">'+l.map(h=>'<option value="'+h.id+'">'+esc(h.perigo)+'</option>').join('')+'</optgroup>':''}).join('');
 }
 function aplicarModelo(id){
  const h=HAZ.find(x=>x.id===id);if(!h)return;
