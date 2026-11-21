@@ -224,3 +224,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Catálogo de riscos psicossociais ampliado (apoio social, reconhecimento, trabalho emocional, insegurança, monotonia, turnos, teletrabalho) e reconhecido na importação do PGR.
 - Riscos → "Riscos psicossociais": marca perigos e setores/GHE e inclui direto no inventário/PGR.
 - Novo risco: busca no catálogo e botão "Só psicossociais" para achar os perigos psicossociais.
+- PGR com cores: tipo de risco no padrão do mapa de riscos (físico verde, químico vermelho, biológico marrom, ergonômico/psicossocial amarelo, acidente azul) e nível (verde/amarelo/laranja/vermelho).
