@@ -233,6 +233,18 @@ service cloud.firestore {
       allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
+    // ---------- RH (férias, afastamentos, contrato de experiência, admissão, desligamento) ----------
+    // Dados de pessoal: só a consultoria (admin) e a própria empresa leem e gravam. Clínica e colaborador não têm acesso.
+    match /rh/{id} {
+      allow get, list: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
+      allow create: if podeAdmin(request.resource.data)
+        || (ehEmpresa(request.resource.data.empresaId) && request.resource.data.consultoriaId == minhaConsultoria());
+      allow update: if podeAdmin(resource.data)
+        || (ehEmpresa(resource.data.empresaId) && request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.consultoriaId == resource.data.consultoriaId);
+      allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
+    }
+
     // ---------- Avaliação psicossocial online (NR-1): link público e respostas anônimas ----------
     // psipub/{token}: dados mínimos da pesquisa para a página do trabalhador (empresa, setores, aberta/encerrada).
     // O id é um token aleatório de 32 caracteres; só se lê por id (sem listagem). Só o admin escreve.

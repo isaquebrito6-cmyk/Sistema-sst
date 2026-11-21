@@ -229,3 +229,13 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - Matriz de riscos do PGR colorida pelos níveis e com a contagem de riscos da empresa em cada célula.
 - PGR: cada setor/GHE mostra no cabeçalho as cores dos tipos de risco e dos níveis; linhas do inventário ficaram mais limpas.
 - PGR: linhas da tabela do inventário tingidas com a cor do tipo de risco (nível segue colorido).
+
+## Módulo RH (separado do SST)
+Seletor **SST | RH** no topo do menu (consultoria e empresa). Usa o mesmo cadastro de colaboradores, sem misturar telas:
+- **Painel do RH:** férias vencendo, experiência vencendo, admissões em andamento, afastados, desligamentos e aniversariantes.
+- **Admissão:** checklist (documentos, contrato, eSocial S-2200 etc.); ASO admissional, EPI e treinamentos são conferidos automaticamente com o SST.
+- **Férias:** períodos aquisitivo/concessivo (CLT arts. 129–145), faltas que reduzem o direito, fracionamento em até 3 parcelas (uma ≥14 dias, demais ≥5), abono de 1/3, avisos de início em véspera de feriado/DSR, prazo de aviso (30 dias) e pagamento (2 dias antes), férias em dobro.
+- **Afastamentos e atestados:** tipos, dias, aviso de INSS a partir do 16º dia e de exame de retorno (NR-7) a partir de 30 dias; sincroniza a situação "Afastado" do colaborador.
+- **Contrato de experiência:** até 90 dias com 1 prorrogação, aviso para decidir prorrogar/efetivar.
+- **Desligamento:** checklist e prazos de 10 dias (TRCT e S-2299), aviso prévio proporcional (Lei 12.506), regra do exame demissional (NR-7: 135/90 dias conforme grau de risco). Ao concluir, o colaborador passa a "Desligado".
+- Dados em uma coleção única `rh` (regras em `firestore.rules`: só consultoria e a própria empresa; clínica e colaborador não acessam). Sem custo extra no plano gratuito.

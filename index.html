@@ -53,6 +53,7 @@ a{color:var(--brand)}
 #install-btn.show{display:flex}
 .navbadge.warn{background:var(--acc);color:#11262B}
 .side .sp{flex:1}
+.modsw{display:flex;gap:4px;margin:0 0 6px;background:rgba(255,255,255,.1);border-radius:10px;padding:3px}.modsw button{flex:1;border:0;background:none;color:rgba(255,255,255,.75);font:600 13px inherit;padding:7px 4px;border-radius:8px;cursor:pointer}.modsw button.on{background:#fff;color:var(--brand,#12423f)}
 .navgroup{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.4);padding:16px 12px 5px;letter-spacing:.01em}
 .navgroup:first-child{padding-top:2px}
 .side small{opacity:.6;padding:8px 12px;font-size:11.5px;line-height:1.35}
@@ -653,10 +654,10 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos','cipas','avpsicos'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos','cipas','avpsicos','rh'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
-const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos','cipas','avpsicos'];
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos','cipas','avpsicos','rh'];
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
@@ -2994,7 +2995,7 @@ function cipaDim(grau,n){
   ef=q.ef[j];su=q.su[j];faixa=CIPA_FAIXAS[i][0]+' a '+CIPA_FAIXAS[i][1]+' empregados'}
  return {tipo:'cipa',ef,su,faixa,grau,n};
 }
-const addD=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const addD=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+Number(n));return d.toISOString().slice(0,10)};
 const diaUtilApos=iso=>{let d=addD(iso,1);for(;;){const w=new Date(d+'T12:00:00').getDay();if(w!==0&&w!==6)return d;d=addD(d,1)}};
 const diaUtilOuAntes=iso=>{let d=iso;for(;;){const w=new Date(d+'T12:00:00').getDay();if(w!==0&&w!==6)return d;d=addD(d,-1)}};
 const cipaFimPadrao=ini=>ini?addD(addM(ini,12),-1):'';
@@ -3534,6 +3535,333 @@ VIEWS.documentos=()=>{
  <div class="card"><h3>Modelos em branco</h3><p class="sm muted" style="margin:0 0 10px">Para imprimir e preencher à mão.</p><div class="row"><button class="btn s" data-a="blank" data-t="aso">ASO</button><button class="btn s" data-a="blank" data-t="psico">Checklist psicossocial</button></div></div></div>
  <h2 style="font-size:17px;margin:22px 0 10px">Histórico de emissões</h2>`+(hist.length?tbl([{h:'Documento',f:d=>d.tipo+' — Rev. '+String(d.rev).padStart(2,'0')},{h:'Emissão',f:d=>fd(d.emissao)},{h:'Revisar até',f:d=>fd(addM(d.emissao,d.tipo==='PGR'?24:12))},{h:'',a:1,f:d=>`<button class="btn s" data-a="reabrirDoc" data-id="${d.id}">Abrir</button>`}],hist):'<p class="muted">Nenhum documento emitido ainda.</p>');
 };
+/* ===================== MÓDULO RH (separado do SST; usa o mesmo cadastro de colaboradores) =====================
+   Coleção única "rh": cada documento tem tipo = ferias | afast | exp | adm | desl. Só a consultoria e a própria empresa leem. */
+const NAVRH=[['rhpainel','Painel do RH','home'],['rhadm','Admissão','worker'],['rhferias','Férias','clock'],['rhafast','Afastamentos e atestados','pulse'],['rhexp','Contrato de experiência','file'],['rhdesl','Desligamento','lock']];
+const rhPode=()=>S.role==='consultoria'||S.role==='empresa';
+const rhNavAtual=()=>S.mod==='rh'&&rhPode()?NAVRH:NAV[S.role];
+const difD=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
+const rhEid=()=>{const e=empAtual();return e?e.id:''};
+const rhDocs=(t,eid)=>L('rh').filter(r=>r.tipo===t&&r.empresaId===(eid||rhEid()));
+const rhAtivos=eid=>L('colaboradores').filter(c=>c.empresaId===eid&&c.status!=='Desligado').sort(byN);
+const rhColOpts=(eid,incl)=>L('colaboradores').filter(c=>c.empresaId===eid&&(c.status!=='Desligado'||c.id===incl)).sort(byN).map(c=>[c.id,c.nome+(c.funcao?' — '+c.funcao:'')]);
+const rhChip=(t,cor)=>`<span class="chip ${cor||'gray'}">${esc(t)}</span>`;
+const rhPrazoChip=(d,rot)=>{if(!d)return '';const n=dias(d);return rhChip((rot?rot+' ':'')+(n<0?'atrasado '+(-n)+' d':n===0?'hoje':n===1?'amanhã':'em '+n+' d')+' · '+fd(d),n<0?'crit':n<=7?'high':n<=30?'med':'low')};
+const rhSemEmp=()=>emptyBox('Cadastre uma empresa primeiro','O RH usa as empresas e os colaboradores já cadastrados. Volte ao SST para cadastrá-los.',`<button class="btn p" data-a="mod" data-m="sst">${ic('plus')}Ir para o SST</button>`,'empresa');
+const rhBarra=btn=>`<div class="bar">${empSel()}<div class="grow"></div>${btn||''}</div>`;
+const rhNota=t=>`<p class="sm muted" style="margin:0 0 14px">${t}</p>`;
+const MESES_FERIADO=['01-01','04-21','05-01','09-07','10-12','11-02','11-15','11-20','12-25'];
+const SEMANA=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+
+/* ---------- Férias (CLT arts. 129 a 145) ---------- */
+const FER_FAIXAS=[[5,30],[14,24],[23,18],[32,12]];
+const rhDireito=f=>{f=+f||0;if(f>32)return 0;const x=FER_FAIXAS.find(y=>f<=y[0]);return x?x[1]:0};
+function rhFerias(c){
+ if(!c.admissao)return null;
+ const docs=L('rh').filter(r=>r.tipo==='ferias'&&r.colabId===c.id);
+ let n=0;while(addM(c.admissao,12*(n+1))<=today())n++;
+ const per=k=>{const ds=docs.filter(d=>+d.periodo===k);const faltas=ds.reduce((m,d)=>Math.max(m,+d.faltas||0),0);const direito=rhDireito(faltas);
+  const usado=ds.reduce((s,d)=>s+(+d.dias||0)+(d.abono==='Sim'?(+d.abonoDias||0):0),0);
+  return{k,aqIni:addM(c.admissao,12*(k-1)),aqFim:addD(addM(c.admissao,12*k),-1),conc:addD(addM(c.admissao,12*(k+1)),-1),faltas,direito,usado,saldo:direito-usado,ds}};
+ for(let k=1;k<=n;k++){const p=per(k);if(p.saldo>0){const d=dias(p.conc);
+  p.sit=d<0?'Vencidas — pagar em dobro (art. 137)':d<=60?'Vencem em '+d+' dias':'A gozar';p.cor=d<0?'crit':d<=60?'high':d<=150?'med':'low';p.n=n;return p}}
+ if(n===0)return{k:1,n,aqIni:c.admissao,aqFim:addD(addM(c.admissao,12),-1),conc:'',direito:30,usado:0,saldo:0,sit:'Em aquisição — direito em '+fd(addM(c.admissao,12)),cor:'gray',ds:[]};
+ const p=per(n);p.sit='Em dia';p.cor='low';p.n=n;p.prox=addM(c.admissao,12*(n+1));return p;
+}
+function rhFeriasAviso(inicio){
+ const av=[];const d=new Date(inicio+'T12:00:00'),wd=d.getDay();
+ if(wd===5||wd===6)av.push('o início cai em '+SEMANA[wd]+' (a CLT veda iniciar férias nos 2 dias que antecedem o repouso semanal ou feriado — art. 134, §3º)');
+ for(let i=1;i<=2;i++){const x=addD(inicio,i).slice(5);if(MESES_FERIADO.includes(x)){av.push('há feriado nacional em '+fd(addD(inicio,i))+', logo após o início');break}}
+ return av;
+}
+VIEWS.rhferias=()=>{
+ const e=empAtual();if(!e)return rhSemEmp();
+ const cs=rhAtivos(e.id);
+ const linhas=cs.map(c=>({c,f:rhFerias(c)})).filter(o=>o.f);
+ const prog=rhDocs('ferias',e.id).sort((a,b)=>(b.inicio||'').localeCompare(a.inicio||''));
+ return rhBarra(`<button class="btn p" data-a="rhNovaFerias">${ic('plus')}Programar férias</button>`)+
+ rhNota('Controle dos períodos aquisitivos e concessivos (CLT, arts. 129 a 145). As férias devem ser concedidas nos 12 meses seguintes ao período aquisitivo; passado esse prazo, são pagas em dobro. O aviso ao empregado é de no mínimo 30 dias e o pagamento sai até 2 dias antes do início. Confirme com seu contador os casos específicos (convenção coletiva, férias coletivas etc.).')+
+ (linhas.length?`<h3 style="margin:0 0 8px">Situação por colaborador</h3>`+tbl([
+  {h:'Colaborador',f:o=>esc(o.c.nome)+'<br><span class="muted sm">'+esc(o.c.funcao||'')+'</span>'},
+  {h:'Admissão',f:o=>fd(o.c.admissao)},
+  {h:'Período aquisitivo',f:o=>fd(o.f.aqIni)+' a '+fd(o.f.aqFim)},
+  {h:'Direito / saldo',f:o=>o.f.conc?o.f.direito+' d / <b>'+Math.max(o.f.saldo,0)+' d</b>':'—'},
+  {h:'Gozar até',f:o=>o.f.conc&&o.f.saldo>0?fd(o.f.conc):'—'},
+  {h:'Situação',f:o=>rhChip(o.f.sit,o.f.cor)},
+  {h:'',a:1,f:o=>`<button class="btn s g" data-a="rhNovaFerias" data-col="${o.c.id}">${ic('plus')}Programar</button>`}],linhas.sort((a,b)=>(a.f.conc||'9').localeCompare(b.f.conc||'9')))
+ :emptyBox('Nenhum colaborador com data de admissão','Informe a data de admissão no cadastro do colaborador para o sistema calcular os períodos de férias.',`<button class="btn p" data-a="mod" data-m="sst">Abrir o cadastro</button>`,'worker'))+
+ `<h3 style="margin:22px 0 8px">Férias programadas e gozadas</h3>`+
+ (prog.length?tbl([
+  {h:'Colaborador',f:d=>esc(nCol(d.colabId))},
+  {h:'Período aquisitivo',f:d=>{const c=G('colaboradores',d.colabId);return c&&c.admissao?fd(addM(c.admissao,12*(+d.periodo-1)))+' a '+fd(addD(addM(c.admissao,12*(+d.periodo)),-1)):'—'}},
+  {h:'Gozo',f:d=>fd(d.inicio)+' a '+fd(addD(d.inicio,(+d.dias||1)-1))+' <span class="muted sm">('+d.dias+' d'+(d.abono==='Sim'?' + abono '+(d.abonoDias||0)+' d':'')+')</span>'},
+  {h:'Avisar até',f:d=>fd(addD(d.inicio,-30))},{h:'Pagar até',f:d=>fd(addD(d.inicio,-2))},
+  {h:'Situação',f:d=>{const fim=addD(d.inicio,(+d.dias||1)-1);return d.inicio>today()?rhChip('Programada','med'):fim>=today()?rhChip('Em gozo','low'):rhChip('Concluída','gray')}},
+  {h:'',a:1,f:d=>`<button class="btn s g" data-a="rhEditFerias" data-id="${d.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="rhDel" data-id="${d.id}" aria-label="Excluir">${ic('trash')}</button>`}],prog)
+ :'<p class="muted">Nenhuma férias programada ainda.</p>');
+};
+function abrirRhFerias(id,colabId){
+ const e=empAtual();if(!e)return;
+ const rec=id?clone(G('rh',id)):{tipo:'ferias',empresaId:e.id,colabId:colabId||'',inicio:'',dias:'30',abono:'Não',abonoDias:'',faltas:'0',periodo:''};
+ if(!id&&rec.colabId){const c=G('colaboradores',rec.colabId),f=c&&rhFerias(c);if(f&&f.saldo>0){rec.periodo=String(f.k);rec.dias=String(Math.min(30,f.saldo))}}
+ openForm({title:id?'Editar férias':'Programar férias',btn:'Salvar',val:rec,
+ fields:[
+  {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>rhColOpts(e.id,rec.colabId),w:6,ph:'Selecione'},
+  {k:'periodo',l:'Nº do período aquisitivo',t:'number',r:1,w:3,inp:'numeric',h:'1 = primeiros 12 meses de empresa, 2 = seguintes... (a tela de Férias mostra qual está pendente)'},
+  {k:'faltas',l:'Faltas injustificadas no período',t:'number',w:3,inp:'numeric',h:'Até 5: 30 dias · 6 a 14: 24 · 15 a 23: 18 · 24 a 32: 12 · mais de 32: perde o direito'},
+  {k:'inicio',l:'Início das férias',t:'date',r:1,w:3},
+  {k:'dias',l:'Dias de gozo',t:'number',r:1,w:3,inp:'numeric',h:'Mínimo de 5 dias por parcela; uma delas com 14 dias ou mais (máx. 3 parcelas)'},
+  {k:'abono',l:'Venda de 1/3 (abono pecuniário)?',t:'select',o:['Não','Sim'],w:3},
+  {k:'abonoDias',l:'Dias vendidos',t:'number',w:3,inp:'numeric',h:'Até 1/3 do direito (10 dias em 30)'},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{
+  const c=G('colaboradores',v.colabId);if(!c)return false;
+  const k=+v.periodo,dias=+v.dias,ab=v.abono==='Sim'?(+v.abonoDias||0):0,faltas=+v.faltas||0;
+  if(!(dias>=5)){toast('Cada parcela de férias tem no mínimo 5 dias.',4500);return false}
+  const dir=rhDireito(faltas);if(dir===0){toast('Com mais de 32 faltas injustificadas o empregado perde o direito às férias do período.',5000);return false}
+  const outros=L('rh').filter(r=>r.tipo==='ferias'&&r.colabId===c.id&&+r.periodo===k&&r.id!==rec.id);
+  const usado=outros.reduce((s,d)=>s+(+d.dias||0)+(d.abono==='Sim'?(+d.abonoDias||0):0),0);
+  if(ab>Math.floor(dir/3)){toast('O abono pecuniário é de no máximo 1/3 do direito ('+Math.floor(dir/3)+' dias).',4500);return false}
+  if(usado+dias+ab>dir){toast('Passa do direito do período: restam '+(dir-usado)+' dia(s) (direito de '+dir+' dias).',5000);return false}
+  if(outros.length>=3){toast('A CLT permite fracionar as férias em até 3 períodos.',4500);return false}
+  const resta=dir-usado-dias-ab,temLongo=dias>=14||outros.some(d=>+d.dias>=14);
+  if(!temLongo&&resta<14){toast('Uma das parcelas precisa ter pelo menos 14 dias corridos. Aumente esta parcela ou deixe saldo para outra.',5500);return false}
+  if(resta>0&&resta<5&&outros.length>=1){toast('Sobraria saldo de '+resta+' dia(s), abaixo do mínimo de 5 por parcela. Ajuste os dias.',5500);return false}
+  const gravar=()=>{Object.assign(rec,v,{periodo:String(k)});save('rh',rec);toast('Férias salvas.');closeForm()};
+  const av=rhFeriasAviso(v.inicio);
+  if(av.length){ask('Atenção: '+av.join('; ')+'. Deseja salvar mesmo assim?','Salvar mesmo assim',gravar);return false}
+  gravar();return false}})
+}
+
+/* ---------- Contrato de experiência (CLT arts. 443 e 445: até 90 dias, 1 prorrogação) ---------- */
+function rhExpInfo(d){
+ const fim1=addD(d.inicio,(+d.dias1||45)-1),fim2=+d.dias2?addD(fim1,+d.dias2):'';
+ return{fim1,fim2,fim:fim2||fim1,total:(+d.dias1||0)+(+d.dias2||0)};
+}
+VIEWS.rhexp=()=>{
+ const e=empAtual();if(!e)return rhSemEmp();
+ const l=rhDocs('exp',e.id).sort((a,b)=>rhExpInfo(a).fim.localeCompare(rhExpInfo(b).fim));
+ return rhBarra(`<button class="btn p" data-a="rhNovaExp">${ic('plus')}Novo contrato de experiência</button>`)+
+ rhNota('O contrato de experiência dura no máximo 90 dias e só pode ser prorrogado uma vez, dentro desse limite (CLT, arts. 443, §2º, e 445, parágrafo único). Se o empregado continuar trabalhando depois do prazo final, o contrato passa a ser por prazo indeterminado. Decida a prorrogação ou o desligamento antes do fim do primeiro período.')+
+ (l.length?tbl([
+  {h:'Colaborador',f:d=>esc(nCol(d.colabId))},
+  {h:'Início',f:d=>fd(d.inicio)},
+  {h:'1º período',f:d=>(+d.dias1||45)+' d · até '+fd(rhExpInfo(d).fim1)},
+  {h:'Prorrogação',f:d=>+d.dias2?d.dias2+' d · até '+fd(rhExpInfo(d).fim2):'<span class="muted">—</span>'},
+  {h:'Situação',f:d=>{if(d.status==='Efetivado')return rhChip('Efetivado','low');if(d.status==='Encerrado')return rhChip('Encerrado','gray');const i=rhExpInfo(d);
+    if(!+d.dias2&&(+d.dias1||45)<90&&dias(i.fim1)>=0&&dias(i.fim1)<=10)return rhPrazoChip(i.fim1,'decidir prorrogação');return rhPrazoChip(i.fim,'vence')}},
+  {h:'',a:1,f:d=>(d.status!=='Efetivado'&&d.status!=='Encerrado'?`<button class="btn s g" data-a="rhExpEfetiva" data-id="${d.id}" title="Passa a prazo indeterminado">${ic('check')}Efetivar</button>`:'')+`<button class="btn s g" data-a="rhEditExp" data-id="${d.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="rhDel" data-id="${d.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhum contrato de experiência','Registre o contrato para receber o aviso do fim do prazo e da hora de prorrogar ou efetivar.',`<button class="btn p" data-a="rhNovaExp">${ic('plus')}Novo contrato de experiência</button>`,'file'));
+};
+function abrirRhExp(id){
+ const e=empAtual();if(!e)return;
+ const rec=id?clone(G('rh',id)):{tipo:'exp',empresaId:e.id,colabId:'',inicio:today(),dias1:'45',dias2:'45',status:'Em andamento'};
+ openForm({title:id?'Editar contrato de experiência':'Novo contrato de experiência',btn:'Salvar',val:rec,
+ fields:[
+  {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>rhColOpts(e.id,rec.colabId),w:6,ph:'Selecione'},
+  {k:'inicio',l:'Início do contrato',t:'date',r:1,w:3},
+  {k:'dias1',l:'1º período (dias)',t:'select',o:['30','45','60','90'],w:3},
+  {k:'dias2',l:'Prorrogação (dias)',t:'select',o:[['0','Sem prorrogação'],['15','15'],['30','30'],['45','45'],['60','60']],w:3,h:'1º período + prorrogação: no máximo 90 dias'},
+  {k:'status',l:'Situação',t:'select',o:['Em andamento','Efetivado','Encerrado'],w:3},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{if((+v.dias1||0)+(+v.dias2||0)>90){toast('O contrato de experiência não pode passar de 90 dias (1º período + prorrogação).',4500);return false}
+  Object.assign(rec,v);const r=save('rh',rec);toast('Contrato de experiência salvo.');return r}})
+}
+
+/* ---------- Afastamentos e atestados ---------- */
+const AFAST_TIPOS=['Atestado médico','Auxílio-doença (INSS)','Auxílio por acidente de trabalho (INSS)','Licença-maternidade','Licença-paternidade','Casamento','Luto (falecimento de familiar)','Doação de sangue','Serviço militar / júri / outras obrigações','Outro'];
+const AFAST_DOENCA=['Atestado médico','Auxílio-doença (INSS)','Auxílio por acidente de trabalho (INSS)'];
+const AFAST_LONGO=['Auxílio-doença (INSS)','Auxílio por acidente de trabalho (INSS)','Licença-maternidade'];
+const afastDias=d=>d.inicio?(d.retorno?Math.max(difD(d.inicio,d.retorno),0):difD(d.inicio,today())+1):0;
+const afastEmCurso=d=>d.inicio&&d.inicio<=today()&&(!d.retorno||d.retorno>today());
+VIEWS.rhafast=()=>{
+ const e=empAtual();if(!e)return rhSemEmp();
+ const l=rhDocs('afast',e.id).sort((a,b)=>(b.inicio||'').localeCompare(a.inicio||''));
+ const cur=l.filter(afastEmCurso);
+ return rhBarra(`<button class="btn p" data-a="rhNovoAfast">${ic('plus')}Registrar afastamento ou atestado</button>`)+
+ rhNota('Registro de atestados, afastamentos e licenças. Nos afastamentos por doença, a empresa paga os primeiros 15 dias e o INSS assume a partir do 16º. Quando o afastamento por doença ou acidente chega a 30 dias, o exame clínico de retorno ao trabalho é obrigatório no primeiro dia de volta (NR-7, item 7.5.9). A informação de CID é opcional e sensível (LGPD): registre só se for realmente necessária.')+
+ (cur.length?`<div class="kpis" style="margin-bottom:14px"><div class="kpi">${icc('pulse','am','pulse')}<div><b>${cur.length}</b><span>Afastado(s) agora</span></div></div></div>`:'')+
+ (l.length?tbl([
+  {h:'Colaborador',f:d=>esc(nCol(d.colabId))},
+  {h:'Tipo',f:d=>esc(d.subtipo||'')},
+  {h:'Período',f:d=>fd(d.inicio)+(d.retorno?' a '+fd(addD(d.retorno,-1)):' em diante')},
+  {h:'Dias',f:d=>afastDias(d)+' d'},
+  {h:'Situação',f:d=>{const n=afastDias(d);const ch=[afastEmCurso(d)?rhChip('Em curso','med'):rhChip('Encerrado','gray')];
+    if(AFAST_DOENCA.includes(d.subtipo)&&d.subtipo!=='Atestado médico'&&n>15)ch.push(rhChip('INSS a partir do 16º dia','gray'));
+    if(AFAST_DOENCA.includes(d.subtipo)&&n>=30)ch.push(rhChip('Exame de retorno (NR-7)','high'));return ch.join(' ')}},
+  {h:'',a:1,f:d=>(afastEmCurso(d)?`<button class="btn s g" data-a="rhRetorno" data-id="${d.id}" title="Registrar retorno hoje">${ic('check')}Retorno</button>`:'')+((AFAST_DOENCA.includes(d.subtipo)&&afastDias(d)>=30)?`<button class="btn s g" data-a="rhExameRetorno" data-id="${d.id}" title="Solicitar exame de retorno ao trabalho">${ic('clip')}Exame</button>`:'')+`<button class="btn s g" data-a="rhEditAfast" data-id="${d.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="rhDel" data-id="${d.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhum afastamento registrado','Registre atestados, afastamentos pelo INSS e licenças para manter o histórico e os avisos de retorno.',`<button class="btn p" data-a="rhNovoAfast">${ic('plus')}Registrar</button>`,'pulse'));
+};
+function rhSincAfast(d){
+ /* mantém a situação do colaborador (Ativo/Afastado) coerente com o afastamento longo; o SST usa isso no alerta de retorno */
+ const c=G('colaboradores',d.colabId);if(!c||c.status==='Desligado')return;
+ if(AFAST_LONGO.includes(d.subtipo)&&afastEmCurso(d)&&c.status!=='Afastado'){const x=clone(c);x.status='Afastado';x.afastDesde=d.inicio;save('colaboradores',x,true)}
+ else if(c.status==='Afastado'&&c.afastDesde===d.inicio&&!afastEmCurso(d)&&d.retorno&&d.retorno<=today()){const x=clone(c);x.status='Ativo';x.afastDesde='';save('colaboradores',x,true)}
+}
+function abrirRhAfast(id){
+ const e=empAtual();if(!e)return;
+ const rec=id?clone(G('rh',id)):{tipo:'afast',empresaId:e.id,colabId:'',subtipo:'',inicio:today(),retorno:''};
+ openForm({title:id?'Editar afastamento':'Registrar afastamento ou atestado',btn:'Salvar',val:rec,
+ fields:[
+  {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>rhColOpts(e.id,rec.colabId),w:6,ph:'Selecione'},
+  {k:'subtipo',l:'Tipo',t:'select',r:1,o:AFAST_TIPOS,w:6,ph:'Selecione'},
+  {k:'inicio',l:'Primeiro dia de afastamento',t:'date',r:1,w:3},
+  {k:'retorno',l:'Retorno ao trabalho (1º dia de volta)',t:'date',w:3,h:'Deixe em branco se ainda não há data. Para atestado de 2 dias a partir de hoje, o retorno é daqui a 2 dias.'},
+  {k:'beneficio',l:'Nº do benefício INSS',w:3},
+  {k:'cid',l:'CID (opcional — dado sensível)',w:3,h:'Só preencha se for necessário. Fica visível apenas para a consultoria e a empresa.'},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{
+  if(v.retorno&&v.retorno<=v.inicio){toast('O retorno precisa ser depois do primeiro dia de afastamento.',4500);return false}
+  const d=Object.assign(rec,v);d.tipo='afast';const r=save('rh',d,true);rhSincAfast(r);render();toast('Afastamento salvo.');return r}})
+}
+
+/* ---------- Admissão ---------- */
+const ADM_ITENS=[
+ ['docs','Documentos pessoais recebidos (RG, CPF, CTPS digital, comprovante de residência, título de eleitor, reservista)','m'],
+ ['dep','Dependentes informados (salário-família e imposto de renda)','m'],
+ ['bco','Dados bancários / conta salário','m'],
+ ['vt','Vale-transporte: opção ou recusa assinada','m'],
+ ['ctto','Contrato de trabalho (e de experiência, se houver) assinado','m'],
+ ['aso','Exame admissional (ASO apto) — antes de iniciar as atividades','a'],
+ ['os','Ordem de serviço de SST e ciência dos riscos da função (NR-1)','m'],
+ ['epi','EPI entregue e ficha assinada','a'],
+ ['trein','Integração e treinamentos obrigatórios da função','a'],
+ ['esoc','Evento S-2200 (admissão) enviado ao eSocial — até o dia anterior ao início','m']];
+const asoDe=(cid,tipo)=>L('solicitacoes').filter(s=>s.colabId===cid&&s.tipo===tipo&&s.aso&&s.aso.data&&/apto/i.test(s.aso.resultado||'')&&!/inapto/i.test(s.aso.resultado||''));
+function rhAuto(cid,k){
+ if(k==='aso')return asoDe(cid,'Admissional').length>0;
+ if(k==='epi')return L('epis').some(x=>x.colabId===cid);
+ if(k==='trein')return L('treinamentos').some(x=>x.colabId===cid);
+ if(k==='asod')return asoDe(cid,'Demissional').length>0;
+ return false;
+}
+const rhItemOk=(d,it)=>it[2]==='a'?(rhAuto(d.colabId,it[0])||!!(d.chk||{})[it[0]]):!!(d.chk||{})[it[0]];
+const rhProg=(d,itens)=>{const n=itens.filter(it=>rhItemOk(d,it)).length;return{n,t:itens.length}};
+const rhBarraProg=p=>`<div style="display:flex;align-items:center;gap:8px;min-width:140px"><div style="flex:1;height:7px;background:var(--soft);border-radius:9px;overflow:hidden"><i style="display:block;height:100%;width:${p.t?p.n/p.t*100:0}%;background:var(--${p.n===p.t?'low':'brand'},#2e7d6b)"></i></div><span class="sm">${p.n}/${p.t}</span></div>`;
+VIEWS.rhadm=()=>{
+ const e=empAtual();if(!e)return rhSemEmp();
+ const l=rhDocs('adm',e.id).sort((a,b)=>(b.inicio||'').localeCompare(a.inicio||''));
+ return rhBarra(`<button class="btn" data-a="mod" data-m="sst" title="O cadastro do colaborador fica no SST">${ic('worker')}Cadastrar colaborador</button><button class="btn p" data-a="rhNovaAdm">${ic('plus')}Iniciar admissão</button>`)+
+ rhNota('Checklist da admissão, do contrato ao eSocial. Os itens de saúde e segurança (ASO admissional, EPI e treinamentos) são conferidos automaticamente com o que já está no SST. Primeiro cadastre o colaborador (com a data de admissão); depois inicie a admissão aqui.')+
+ (l.length?tbl([
+  {h:'Colaborador',f:d=>esc(nCol(d.colabId))+'<br><span class="muted sm">'+esc((G('colaboradores',d.colabId)||{}).funcao||'')+'</span>'},
+  {h:'Início',f:d=>fd(d.inicio)},
+  {h:'Andamento',f:d=>rhBarraProg(rhProg(d,ADM_ITENS))},
+  {h:'Situação',f:d=>{const p=rhProg(d,ADM_ITENS);return p.n===p.t?rhChip('Completa','low'):d.inicio&&dias(d.inicio)<0?rhChip('Início já passou — pendências','crit'):rhChip('Em andamento','med')}},
+  {h:'',a:1,f:d=>`<button class="btn s g" data-a="rhAbrirChk" data-id="${d.id}">${ic('tasks')}Checklist</button><button class="btn s g d" data-a="rhDel" data-id="${d.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhuma admissão em andamento','Inicie a admissão de um colaborador já cadastrado para acompanhar documentos, exame, EPI, treinamentos e eSocial.',`<button class="btn p" data-a="rhNovaAdm">${ic('plus')}Iniciar admissão</button>`,'worker'));
+};
+function abrirRhAdm(){
+ const e=empAtual();if(!e)return;
+ const ja=new Set(rhDocs('adm',e.id).map(d=>d.colabId));
+ const op=rhAtivos(e.id).filter(c=>!ja.has(c.id)).map(c=>[c.id,c.nome+(c.funcao?' — '+c.funcao:'')]);
+ if(!op.length){toast('Todos os colaboradores ativos já têm admissão aberta. Cadastre o novo colaborador no SST primeiro.',5500);return}
+ openForm({title:'Iniciar admissão',btn:'Iniciar',val:{colabId:''},fields:[{k:'colabId',l:'Colaborador (já cadastrado)',t:'select',r:1,o:op,ph:'Selecione',w:12}],
+ save:v=>{const c=G('colaboradores',v.colabId);const r=save('rh',{tipo:'adm',empresaId:e.id,colabId:v.colabId,inicio:(c&&c.admissao)||today(),chk:{},status:'Em andamento'},true);closeForm();render();abrirRhChk(r.id);return false}})
+}
+function rhChkModal(d,titulo,itens,sub){
+ const p=rhProg(d,itens);
+ $('#modal-root').innerHTML=`<div class="overlay"><div class="sheet" style="max-width:680px" role="dialog" aria-modal="true" aria-label="${esc(titulo)}"><header><h2>${esc(titulo)}</h2><button type="button" class="btn g s" data-a="closeForm" aria-label="Fechar">${ic('x')}</button></header><div class="bd"><p class="muted sm" style="margin-top:0"><b>${esc(nCol(d.colabId))}</b> · ${esc(sub||'')}</p>${rhBarraProg(p)}<div style="margin-top:10px">${itens.map(it=>{const auto=it[2]==='a'&&rhAuto(d.colabId,it[0]);const ok=rhItemOk(d,it);
+  return `<label class="chk" style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);cursor:${auto?'default':'pointer'}"><input type="checkbox" ${ok?'checked':''} ${auto?'disabled':''} data-a="rhChk" data-id="${d.id}" data-k="${it[0]}" style="margin-top:3px"><span style="flex:1">${esc(it[1])}${auto?' <span class="chip low">conferido no SST</span>':it[2]==='a'?' <span class="chip gray">marque se feito fora do sistema</span>':''}</span></label>`}).join('')}</div></div><footer><button type="button" class="btn p" data-a="closeForm">Fechar</button></footer></div></div>`;
+}
+function abrirRhChk(id){const d=G('rh',id);if(!d)return;if(d.tipo==='desl')rhChkModal(d,'Checklist de desligamento',DESL_ITENS,'término em '+fd(d.ultimoDia));else rhChkModal(d,'Checklist de admissão',ADM_ITENS,'início em '+fd(d.inicio))}
+
+/* ---------- Desligamento ---------- */
+const DESL_ITENS=[
+ ['aviso','Aviso prévio comunicado e assinado (ou pedido de demissão / acordo assinado)','m'],
+ ['asod','Exame demissional (ASO) realizado ou dispensado pela regra da NR-7','a'],
+ ['epi','EPI, uniforme, crachá e ferramentas devolvidos','m'],
+ ['trct','TRCT elaborado e verbas rescisórias pagas (até 10 dias do término do contrato)','m'],
+ ['esoc','Evento S-2299 (desligamento) enviado ao eSocial (até 10 dias do desligamento)','m'],
+ ['docs','Baixa na CTPS digital e entrega de documentos (guias do FGTS e seguro-desemprego, quando devidos)','m'],
+ ['ppp','PPP entregue, se o trabalhador foi exposto a agentes nocivos (NR-9 / Lei 8.213)','m'],
+ ['ben','Benefícios cancelados (vale-transporte, plano de saúde, etc.)','m']];
+const DESL_TIPOS=['Sem justa causa','Pedido de demissão','Acordo (art. 484-A)','Justa causa','Término do contrato de experiência','Término de contrato por prazo determinado','Aposentadoria','Falecimento'];
+function rhAvisoDias(c,ate){if(!c||!c.admissao)return 30;const f=ate||today();let a=0;while(addM(c.admissao,12*(a+1))<=f)a++;return Math.min(90,30+3*Math.min(a,20))}
+function rhDemissional(c,fim,empr){
+ const u=ultimoAso(c.id);const gr=+((empr||{}).grau||2);const lim=gr<=2?135:90;
+ if(!u||!u.aso||!u.aso.data)return{exige:true,txt:'Exigido: não há ASO registrado para este colaborador. Realizar até '+fd(addD(fim,10))+'.'};
+ const idade=difD(u.aso.data,fim);
+ return idade>lim?{exige:true,txt:'Exigido: o último exame ocupacional foi há '+idade+' dias (limite de '+lim+' para grau de risco '+gr+'). Realizar até '+fd(addD(fim,10))+'.'}:{exige:false,txt:'Dispensado pela NR-7: o último exame ocupacional foi há '+idade+' dias (limite de '+lim+' para grau de risco '+gr+').'};
+}
+VIEWS.rhdesl=()=>{
+ const e=empAtual();if(!e)return rhSemEmp();
+ const l=rhDocs('desl',e.id).sort((a,b)=>(b.ultimoDia||'').localeCompare(a.ultimoDia||''));
+ return rhBarra(`<button class="btn p" data-a="rhNovoDesl">${ic('plus')}Iniciar desligamento</button>`)+
+ rhNota('Checklist de saída com os prazos legais: pagamento das verbas e envio do S-2299 em até 10 dias do término do contrato (CLT, art. 477, §6º), e exame demissional conforme a NR-7. Ao concluir, o colaborador passa para "Desligado" no cadastro e sai das listas de exames e EPI.')+
+ (l.length?tbl([
+  {h:'Colaborador',f:d=>esc(nCol(d.colabId))+'<br><span class="muted sm">'+esc(d.motivo||'')+'</span>'},
+  {h:'Último dia',f:d=>fd(d.ultimoDia)},
+  {h:'Andamento',f:d=>rhBarraProg(rhProg(d,DESL_ITENS))},
+  {h:'Prazo das verbas / S-2299',f:d=>d.status==='Concluído'?'—':rhPrazoChip(addD(d.ultimoDia,10))},
+  {h:'Situação',f:d=>d.status==='Concluído'?rhChip('Concluído','gray'):rhChip('Em andamento','med')},
+  {h:'',a:1,f:d=>(d.status!=='Concluído'?`<button class="btn s g" data-a="rhAbrirChk" data-id="${d.id}">${ic('tasks')}Checklist</button><button class="btn s g" data-a="rhConcluiDesl" data-id="${d.id}">${ic('check')}Concluir</button>`:'')+`<button class="btn s g" data-a="rhEditDesl" data-id="${d.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="rhDel" data-id="${d.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhum desligamento em andamento','Inicie o desligamento para acompanhar o aviso prévio, o exame demissional, o TRCT e o eSocial.',`<button class="btn p" data-a="rhNovoDesl">${ic('plus')}Iniciar desligamento</button>`,'lock'));
+};
+function abrirRhDesl(id){
+ const e=empAtual();if(!e)return;
+ const rec=id?clone(G('rh',id)):{tipo:'desl',empresaId:e.id,colabId:'',motivo:'Sem justa causa',aviso:'Trabalhado',comunicado:today(),ultimoDia:'',chk:{},status:'Em andamento'};
+ const info=()=>{const c=G('colaboradores',$('#f_colabId')&&$('#f_colabId').value);const u=$('#f_ultimoDia')&&$('#f_ultimoDia').value;const h=$('#rh_info');if(!h)return;
+  if(!c){h.innerHTML='';return}
+  const fim=u||today();const dm=rhDemissional(c,fim,e);
+  h.innerHTML=`<div class="note" style="margin:0 0 10px"><b>Aviso prévio proporcional (Lei 12.506/2011):</b> ${rhAvisoDias(c,fim)} dias para quem é demitido sem justa causa.<br><b>Exame demissional:</b> ${esc(dm.txt)}<br><span class="muted sm">Confira a NR-7 vigente e o seu contador para casos específicos.</span></div>`};
+ openForm({title:id?'Editar desligamento':'Iniciar desligamento',btn:'Salvar',val:rec,pre:'<div id="rh_info"></div>',
+ fields:[
+  {k:'colabId',l:'Colaborador',t:'select',r:1,o:()=>rhColOpts(e.id,rec.colabId),w:6,ph:'Selecione'},
+  {k:'motivo',l:'Motivo',t:'select',o:DESL_TIPOS,w:6},
+  {k:'aviso',l:'Aviso prévio',t:'select',o:['Trabalhado','Indenizado','Dispensado pela empresa','Não se aplica'],w:4},
+  {k:'comunicado',l:'Data da comunicação',t:'date',w:4},
+  {k:'ultimoDia',l:'Último dia do contrato (término)',t:'date',r:1,w:4,h:'Base dos prazos de 10 dias'},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{Object.assign(rec,v);const r=save('rh',rec);toast('Desligamento salvo.');return r}});
+ setTimeout(()=>{['f_colabId','f_ultimoDia'].forEach(i=>{const x=document.getElementById(i);if(x)x.addEventListener('change',info)});info()},60);
+}
+
+/* ---------- Painel do RH ---------- */
+VIEWS.rhpainel=()=>{
+ const e=empAtual();if(!e)return rhSemEmp();
+ const cs=rhAtivos(e.id);const hoje=today();
+ const itens=[];
+ cs.forEach(c=>{const f=rhFerias(c);if(f&&f.saldo>0&&f.conc){const d=dias(f.conc);if(d<=120)itens.push({d,cor:f.cor,tit:c.nome,sub:'Férias — '+f.sit+' (gozar até '+fd(f.conc)+')',v:'rhferias'})}});
+ rhDocs('exp',e.id).filter(d=>d.status!=='Efetivado'&&d.status!=='Encerrado').forEach(d=>{const i=rhExpInfo(d);
+  if(!+d.dias2&&(+d.dias1||45)<90&&dias(i.fim1)>=-3&&dias(i.fim1)<=10)itens.push({d:dias(i.fim1),cor:dias(i.fim1)<0?'crit':'high',tit:nCol(d.colabId),sub:'Experiência — decidir prorrogação até '+fd(i.fim1),v:'rhexp'});
+  else if(dias(i.fim)<=15)itens.push({d:dias(i.fim),cor:dias(i.fim)<0?'crit':'high',tit:nCol(d.colabId),sub:'Experiência — vence em '+fd(i.fim)+' (efetivar ou desligar)',v:'rhexp'})});
+ rhDocs('adm',e.id).forEach(d=>{const p=rhProg(d,ADM_ITENS);if(p.n<p.t&&d.inicio&&dias(d.inicio)<=7)itens.push({d:dias(d.inicio),cor:dias(d.inicio)<0?'crit':'med',tit:nCol(d.colabId),sub:'Admissão — '+p.n+'/'+p.t+' itens (início '+fd(d.inicio)+')',v:'rhadm'})});
+ rhDocs('desl',e.id).filter(d=>d.status!=='Concluído'&&d.ultimoDia).forEach(d=>{const p=addD(d.ultimoDia,10);if(dias(p)<=7)itens.push({d:dias(p),cor:dias(p)<0?'crit':'high',tit:nCol(d.colabId),sub:'Desligamento — prazo do TRCT e do S-2299: '+fd(p),v:'rhdesl'})});
+ rhDocs('afast',e.id).filter(afastEmCurso).forEach(d=>{if(AFAST_DOENCA.includes(d.subtipo)&&afastDias(d)>=25)itens.push({d:0,cor:'med',tit:nCol(d.colabId),sub:'Afastamento — '+afastDias(d)+' dias: prever o exame de retorno (NR-7)',v:'rhafast'})});
+ itens.sort((a,b)=>a.d-b.d);
+ const ferV=cs.filter(c=>{const f=rhFerias(c);return f&&f.saldo>0&&f.conc&&dias(f.conc)<=60}).length;
+ const expV=rhDocs('exp',e.id).filter(d=>d.status!=='Efetivado'&&d.status!=='Encerrado'&&dias(rhExpInfo(d).fim)<=30).length;
+ const admA=rhDocs('adm',e.id).filter(d=>{const p=rhProg(d,ADM_ITENS);return p.n<p.t}).length;
+ const afA=rhDocs('afast',e.id).filter(afastEmCurso).length;
+ const desA=rhDocs('desl',e.id).filter(d=>d.status!=='Concluído').length;
+ const mes=hoje.slice(5,7);const niver=cs.filter(c=>c.nasc&&c.nasc.slice(5,7)===mes).sort((a,b)=>a.nasc.slice(8).localeCompare(b.nasc.slice(8)));
+ const kp=(v,ic2,cor,n,t,alerta)=>`<button type="button" class="kpi click" data-a="go" data-v="${v}" ${alerta&&n?'style="border-color:var(--high)"':''}>${icc(ic2,alerta&&n?'lj':cor,'float')}<div><b>${n}</b><span>${t}</span></div></button>`;
+ return `<div class="bar">${empSel()}<div class="grow"></div></div>
+ <div class="kpis">${kp('rhferias','clock','az',ferV,'Férias vencendo (60 dias)',1)}${kp('rhexp','file','am',expV,'Experiência vencendo (30 dias)',1)}${kp('rhadm','worker','vd',admA,'Admissões em andamento')}${kp('rhafast','pulse','am',afA,'Afastados agora')}${kp('rhdesl','lock','az',desA,'Desligamentos em andamento')}</div>
+ <div class="two"><div class="card"><h3 class="hic">${icc('alert','lj','','sm')}Atenção agora</h3>${itens.length?itens.slice(0,12).map(o=>`<div class="row sb click" data-a="go" data-v="${o.v}" style="padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer"><span>${esc(o.tit)}<br><span class="muted sm">${esc(o.sub)}</span></span>${rhChip(o.d<0?'atrasado '+(-o.d)+' d':o.d===0?'hoje':'em '+o.d+' d',o.cor)}</div>`).join(''):'<p class="muted">Nada pedindo atenção agora. Os avisos aparecem quando férias, contratos de experiência, admissões e desligamentos chegam perto do prazo.</p>'}</div>
+ <div class="card"><h3 class="hic">${icc('team','vd','','sm')}Aniversariantes do mês</h3>${niver.length?niver.slice(0,10).map(c=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${avatarColab(c,28)} ${esc(c.nome)}</span><span class="chip">${c.nasc.slice(8)}/${c.nasc.slice(5,7)}</span></div>`).join(''):'<p class="muted">Ninguém faz aniversário neste mês (ou as datas de nascimento ainda não foram cadastradas).</p>'}</div></div>
+ <p class="sm muted" style="margin-top:14px">O RH usa o mesmo cadastro de colaboradores do SST: o que você altera lá aparece aqui, sem digitar duas vezes. Dados de RH ficam visíveis só para a consultoria e para a própria empresa (LGPD).</p>`;
+};
+
+/* ---------- ações do RH ---------- */
+const RHA={
+ mod(d){S.mod=d.m==='rh'&&rhPode()?'rh':'sst';S.nav=false;S.view=(rhNavAtual()||NAV[S.role])[0][0];window.scrollTo(0,0);render()},
+ rhNovaFerias(d){abrirRhFerias('',d.col)},rhEditFerias(d){abrirRhFerias(d.id)},
+ rhNovaExp(){abrirRhExp()},rhEditExp(d){abrirRhExp(d.id)},
+ rhExpEfetiva(d){ask('Efetivar este colaborador? O contrato passa a prazo indeterminado e deixa de gerar avisos.','Efetivar',()=>{const x=clone(G('rh',d.id));x.status='Efetivado';save('rh',x);toast('Contrato efetivado.')})},
+ rhNovoAfast(){abrirRhAfast()},rhEditAfast(d){abrirRhAfast(d.id)},
+ rhRetorno(d){const x=clone(G('rh',d.id));x.retorno=today();save('rh',x,true);rhSincAfast(x);render();toast('Retorno registrado para hoje.')},
+ rhExameRetorno(d){const x=G('rh',d.id);if(!x)return;S.mod='sst';S.view='solicitacoes';render();if(typeof abrirSol==='function')abrirSol('',{colabId:x.colabId,tipo:'Retorno ao trabalho'});else toast('Abra Exames e ASO e solicite o exame de retorno ao trabalho.',5000)},
+ rhNovaAdm(){abrirRhAdm()},rhAbrirChk(d){abrirRhChk(d.id)},
+ rhChk(d){const x=clone(G('rh',d.id));x.chk=x.chk||{};x.chk[d.k]=!x.chk[d.k];save('rh',x,true);abrirRhChk(x.id);render()},
+ rhNovoDesl(){abrirRhDesl()},rhEditDesl(d){abrirRhDesl(d.id)},
+ rhConcluiDesl(d){const x=G('rh',d.id);if(!x)return;const p=rhProg(x,DESL_ITENS);
+  ask((p.n<p.t?'Ainda faltam '+(p.t-p.n)+' item(ns) no checklist. ':'')+'Concluir o desligamento? O colaborador passa para "Desligado" e a data de desligamento ('+fd(x.ultimoDia)+') é gravada no cadastro.','Concluir',()=>{
+   const y=clone(x);y.status='Concluído';save('rh',y,true);const c=G('colaboradores',x.colabId);if(c){const z=clone(c);z.status='Desligado';z.demissao=x.ultimoDia;save('colaboradores',z,true)}render();toast('Desligamento concluído.')})},
+ rhDel(d){ask('Excluir este registro de RH?','Excluir',()=>del('rh',d.id))}
+};
+
 VIEWS.config=()=>{
  const c=CFG();
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
@@ -4957,12 +5285,12 @@ function roleSel(){
  return h;
 }
 function shell(){
- const nav=NAV[S.role].filter(n=>n[0]!=='consultorias'||isSuper());if(!nav.some(n=>n[0]===S.view))S.view=nav[0][0];
+ const nav=rhNavAtual().filter(n=>n[0]!=='consultorias'||isSuper());if(!nav.some(n=>n[0]===S.view))S.view=nav[0][0];
  const tt=(nav.find(n=>n[0]===S.view)||[])[1]||'';
  const al=alertas();
- const grp={empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
+ const grp=S.mod==='rh'&&rhPode()?{rhadm:'Ciclo do colaborador',rhferias:'Acompanhamento',rhdesl:'Saída'}:{empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
  const navHTML=nav.map(n=>(grp[n[0]]?`<div class="navgroup">${grp[n[0]]}</div>`:'')+`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${NR26[n[0]]?icc(NAVIC[n[0]]||n[2],NR26[n[0]],NAVAN[n[0]]||'','xs'):ic(NAVIC[n[0]]||n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('');
- return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>Segurança e saúde no trabalho</span></div></div>${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1>${buscaPodeUsar()?`<button type="button" class="btn s busca-btn" data-a="busca" aria-label="Buscar documentos, colaboradores e telas" title="Buscar (Ctrl+K)">${ic('search')}<span>Buscar</span></button><button type="button" class="btn s busca-btn" data-a="leitor" aria-label="Ler QR da carteirinha com a câmera" title="Ler carteirinha (QR)">${ic('idcard')}<span>Ler carteirinha</span></button>`:''}<div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>${S.mod==='rh'&&rhPode()?'Recursos humanos':'Segurança e saúde no trabalho'}</span></div></div>${rhPode()?`<div class="modsw" role="group" aria-label="Módulo"><button type="button" class="${S.mod==='rh'?'':'on'}" data-a="mod" data-m="sst">SST</button><button type="button" class="${S.mod==='rh'?'on':''}" data-a="mod" data-m="rh">RH</button></div>`:''}${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1>${buscaPodeUsar()?`<button type="button" class="btn s busca-btn" data-a="busca" aria-label="Buscar documentos, colaboradores e telas" title="Buscar (Ctrl+K)">${ic('search')}<span>Buscar</span></button><button type="button" class="btn s busca-btn" data-a="leitor" aria-label="Ler QR da carteirinha com a câmera" title="Ler carteirinha (QR)">${ic('idcard')}<span>Ler carteirinha</span></button>`:''}<div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
 }
 /* Faixa de aviso para o administrador de UMA consultoria quando o pagamento está pendente ou suspenso. */
 /* Empresa/clínica/colaborador não têm tela de Configurações: o contato de suporte delas é a própria consultoria. */
@@ -5001,7 +5329,7 @@ function render(){
  if(S.det&&!S.form)renderDetalhe();else if(S.ficha&&!S.form&&!S.det)renderFicha();
 }
 function setRole(r){
- S.role=r;S.view=NAV[r][0][0];S.sst='Todas';S.q='';S.det=null;$('#modal-root').innerHTML='';
+ S.role=r;S.mod='sst';S.view=NAV[r][0][0];S.sst='Todas';S.q='';S.det=null;$('#modal-root').innerHTML='';
  S.rid=r==='clinica'?(L('clinicas').sort(byN)[0]||{}).id||'':r==='empresa'?(L('empresas').sort(byN)[0]||{}).id||'':'';
 }
 function docDe(s,kind){
@@ -5036,6 +5364,7 @@ nav(){S.nav=!S.nav;render()},
 ftGo(d){const el=document.getElementById(d.id);if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})},
 busca(){abrirBusca()},
 go(d){S.view=d.v;S.nav=false;S.q='';window.scrollTo(0,0);render()},
+...RHA,
 goEmp(d){S.emp=d.id;S.view=d.v;render()},
 closeForm(){closeForm()},
 closeDet(){S.det=null;$('#modal-root').innerHTML='';if(S.ficha)renderFicha()},
