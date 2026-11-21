@@ -228,3 +228,4 @@ Como o sistema não tem servidor próprio (só o site estático + Firebase), alg
 - PGR/PCMSO/LTCAT: avisos da minuta (caixa "Leia antes de usar" e "MINUTA") aparecem só na tela; não saem na impressão/PDF.
 - Matriz de riscos do PGR colorida pelos níveis e com a contagem de riscos da empresa em cada célula.
 - PGR: cada setor/GHE mostra no cabeçalho as cores dos tipos de risco e dos níveis; linhas do inventário ficaram mais limpas.
+- PGR: linhas da tabela do inventário tingidas com a cor do tipo de risco (nível segue colorido).
