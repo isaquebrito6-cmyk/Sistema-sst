@@ -239,3 +239,6 @@ Seletor **SST | RH** no topo do menu (consultoria e empresa). Usa o mesmo cadast
 - **Contrato de experiência:** até 90 dias com 1 prorrogação, aviso para decidir prorrogar/efetivar.
 - **Desligamento:** checklist e prazos de 10 dias (TRCT e S-2299), aviso prévio proporcional (Lei 12.506), regra do exame demissional (NR-7: 135/90 dias conforme grau de risco). Ao concluir, o colaborador passa a "Desligado".
 - Dados em uma coleção única `rh` (regras em `firestore.rules`: só consultoria e a própria empresa; clínica e colaborador não acessam). Sem custo extra no plano gratuito.
+
+## Módulo Financeiro (só consultoria)
+Chave **Financeiro** no menu lateral (ao lado de SST e RH). Contratos e honorários (geração mensal idempotente de cobranças), contas a receber e a pagar (baixa, repetição por N meses), fluxo de caixa, DRE gerencial, inadimplência por idade e por cliente, cobrança pelo WhatsApp com PIX, recibo e exportação CSV. Regime de caixa, valores em centavos, multa 2% + juros 1% a.m. editáveis. Gerencial: não emite nota fiscal nem concilia com banco. Coleção `fin` com regra só para administradores em `firestore.rules`.

@@ -53,7 +53,8 @@ a{color:var(--brand)}
 #install-btn.show{display:flex}
 .navbadge.warn{background:var(--acc);color:#11262B}
 .side .sp{flex:1}
-.modsw{display:flex;gap:4px;margin:0 0 6px;background:rgba(255,255,255,.1);border-radius:10px;padding:3px}.modsw button{flex:1;border:0;background:none;color:rgba(255,255,255,.75);font:600 13px inherit;padding:7px 4px;border-radius:8px;cursor:pointer}.modsw button.on{background:#fff;color:var(--brand,#12423f)}
+.modsw{display:flex;gap:4px;margin:0 0 6px;background:rgba(255,255,255,.1);border-radius:10px;padding:3px}.fchart{display:flex;gap:10px;align-items:flex-end;height:160px}.fc-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;min-width:0}.fc-bars{flex:1;display:flex;gap:3px;align-items:flex-end;width:100%;justify-content:center}.fc-bars i{display:block;width:42%;max-width:26px;border-radius:4px 4px 0 0;min-height:2px}.fc-r,.fc-rb{background:#2e9e6b}.fc-p,.fc-pb{background:#d9774a}.fc-col span{font-size:11px;color:var(--mut,#6b7a78);margin-top:4px}.fc-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin:0 4px 0 12px}.fc-dot:first-child{margin-left:0}
+.modsw button{flex:1;border:0;background:none;color:rgba(255,255,255,.75);font:600 13px inherit;padding:7px 4px;border-radius:8px;cursor:pointer}.modsw button.on{background:#fff;color:var(--brand,#12423f)}
 .navgroup{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.4);padding:16px 12px 5px;letter-spacing:.01em}
 .navgroup:first-child{padding-top:2px}
 .side small{opacity:.6;padding:8px 12px;font-size:11.5px;line-height:1.35}
@@ -166,6 +167,7 @@ input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(
 .kpi.click:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.12)}
 .shortcuts{display:flex;flex-wrap:wrap;gap:8px}
 .kpi b{font:700 28px 'Bricolage Grotesque',sans-serif;display:block;line-height:1.1}
+.kpis .kpi b{font-size:clamp(18px,2.1vw,26px);overflow-wrap:anywhere}
 .kpi span{color:var(--ink2);font-size:13px}
 .two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .card h3{font-size:15.5px;margin-bottom:10px;letter-spacing:-.01em}
@@ -654,10 +656,10 @@ function toCSV(headers,rows){
 }
 
 /* ====================== CAMADA DE DADOS ====================== */
-const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos','cipas','avpsicos','rh'];
+const COLS=['config','empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','cats','epis','pts','treinamentos','cipas','avpsicos','rh','fin'];
 const ADMIN_EMAIL='isaquebrito6@gmail.com';
 /* multi-tenant: toda consultoria tem um id (a "de sempre", do próprio administrador fixo, é 'main' — já existia antes do multi-tenant e não precisa migrar nada). */
-const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos','cipas','avpsicos','rh'];
+const TENANT_COLS=['empresas','clinicas','colaboradores','riscos','acoes','solicitacoes','documentos','psico','usuarios','cats','epis','pts','treinamentos','cipas','avpsicos','rh','fin'];
 const CFG_ID=()=>S.consultoriaId||'main';
 const PAG_NOME={ok:'Em dia',pendente:'Pendente',suspenso:'Suspenso'};
 const PAG_COR={ok:'low',pendente:'med',suspenso:'crit'};
@@ -3539,7 +3541,7 @@ VIEWS.documentos=()=>{
    Coleção única "rh": cada documento tem tipo = ferias | afast | exp | adm | desl. Só a consultoria e a própria empresa leem. */
 const NAVRH=[['rhpainel','Painel do RH','home'],['rhadm','Admissão','worker'],['rhferias','Férias','clock'],['rhafast','Afastamentos e atestados','pulse'],['rhexp','Contrato de experiência','file'],['rhdesl','Desligamento','lock']];
 const rhPode=()=>S.role==='consultoria'||S.role==='empresa';
-const rhNavAtual=()=>S.mod==='rh'&&rhPode()?NAVRH:NAV[S.role];
+const rhNavAtual=()=>S.mod==='rh'&&rhPode()?NAVRH:S.mod==='fin'&&S.role==='consultoria'?NAVFIN:NAV[S.role];
 const difD=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
 const rhEid=()=>{const e=empAtual();return e?e.id:''};
 const rhDocs=(t,eid)=>L('rh').filter(r=>r.tipo===t&&r.empresaId===(eid||rhEid()));
@@ -3846,7 +3848,7 @@ VIEWS.rhpainel=()=>{
 
 /* ---------- ações do RH ---------- */
 const RHA={
- mod(d){S.mod=d.m==='rh'&&rhPode()?'rh':'sst';S.nav=false;S.view=(rhNavAtual()||NAV[S.role])[0][0];window.scrollTo(0,0);render()},
+ mod(d){S.mod=d.m==='rh'&&rhPode()?'rh':d.m==='fin'&&S.role==='consultoria'?'fin':'sst';S.nav=false;S.view=(rhNavAtual()||NAV[S.role])[0][0];window.scrollTo(0,0);render()},
  rhNovaFerias(d){abrirRhFerias('',d.col)},rhEditFerias(d){abrirRhFerias(d.id)},
  rhNovaExp(){abrirRhExp()},rhEditExp(d){abrirRhExp(d.id)},
  rhExpEfetiva(d){ask('Efetivar este colaborador? O contrato passa a prazo indeterminado e deixa de gerar avisos.','Efetivar',()=>{const x=clone(G('rh',d.id));x.status='Efetivado';save('rh',x);toast('Contrato efetivado.')})},
@@ -3860,6 +3862,247 @@ const RHA={
   ask((p.n<p.t?'Ainda faltam '+(p.t-p.n)+' item(ns) no checklist. ':'')+'Concluir o desligamento? O colaborador passa para "Desligado" e a data de desligamento ('+fd(x.ultimoDia)+') é gravada no cadastro.','Concluir',()=>{
    const y=clone(x);y.status='Concluído';save('rh',y,true);const c=G('colaboradores',x.colabId);if(c){const z=clone(c);z.status='Desligado';z.demissao=x.ultimoDia;save('colaboradores',z,true)}render();toast('Desligamento concluído.')})},
  rhDel(d){ask('Excluir este registro de RH?','Excluir',()=>del('rh',d.id))}
+};
+
+/* ===================== MÓDULO FINANCEIRO (gestão financeira da consultoria) =====================
+   Coleção única "fin": tipo = cont (contrato/honorário) | rec (a receber) | pag (a pagar) | cfg (PIX, multa e juros).
+   Valores guardados em centavos (inteiros). Só o administrador da consultoria acessa (regras do Firestore). */
+const NAVFIN=[['finpainel','Painel financeiro','dash'],['fincont','Contratos e honorários','file'],['finrec','Contas a receber','up'],['finpag','Contas a pagar','down'],['fincaixa','Fluxo de caixa','pulse'],['finrel','Relatórios e DRE','tasks']];
+const finPode=()=>S.role==='consultoria';
+const REC_CATS=['Honorários mensais','Treinamentos','PGR / PCMSO / laudos','Visitas e consultoria avulsa','Intermediação de exames (ASO)','Outras receitas'];
+const PAG_CATS=['Impostos e taxas','Pessoal / pró-labore','Aluguel e condomínio','Software e internet','Deslocamento e combustível','Material e EPI','Contador','Marketing','Outras despesas'];
+const FORMAS=['PIX','Boleto','Transferência','Dinheiro','Cartão'];
+const MESN=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const brl=c=>((+c||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const parseBRL=t=>{let s=String(t==null?'':t).trim().replace(/[R$\s]/g,'');if(!s)return 0;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=parseFloat(s);return isNaN(n)?0:Math.round(n*100)};
+const brlIn=c=>c?(c/100).toFixed(2).replace('.',','):'';
+const addMes=(iso,n)=>{const p=iso.split('-').map(Number);const t=new Date(Date.UTC(p[0],p[1]-1+n,1));const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();return t.getUTCFullYear()+'-'+String(t.getUTCMonth()+1).padStart(2,'0')+'-'+String(Math.min(p[2]||1,last)).padStart(2,'0')};
+const finMesNome=ym=>MESN[+ym.slice(5,7)-1]+'/'+ym.slice(2,4);
+const finDocs=t=>L('fin').filter(r=>r.tipo===t);
+const finCfg=()=>finDocs('cfg')[0]||{tipo:'cfg',multa:2,juros:1,pix:'',pixNome:''};
+const finStatus=r=>r.status==='Pago'?'Pago':r.status==='Cancelado'?'Cancelado':(r.venc&&r.venc<today()?'Atrasado':'Aberto');
+const finCor={Pago:'low',Aberto:'gray',Atrasado:'crit',Cancelado:'gray'};
+function finAtual(r){
+ if(finStatus(r)!=='Atrasado')return{multa:0,juros:0,total:r.valor};
+ const cfg=finCfg(),d=-dias(r.venc),multa=Math.round(r.valor*(+cfg.multa||0)/100),juros=Math.round(r.valor*(+cfg.juros||0)/100*(d/30));
+ return{multa,juros,total:r.valor+multa+juros};
+}
+const finNomeCli=r=>r.empresaId?nEmp(r.empresaId):(r.cliente||r.fornecedor||'—');
+const finPago=r=>(+r.valorPago||+r.valor||0);
+const finDataPg=r=>r.pagoEm||r.venc||'';
+const sum=(a,f)=>a.reduce((s,x)=>s+f(x),0);
+function finMeses(ym0,n){
+ const rec=finDocs('rec').filter(r=>r.status!=='Cancelado'),pag=finDocs('pag').filter(r=>r.status!=='Cancelado'),out=[];
+ for(let i=0;i<n;i++){const ym=addMes(ym0+'-01',i).slice(0,7);
+  const m={ym,
+   rec:sum(rec.filter(r=>r.status==='Pago'&&finDataPg(r).slice(0,7)===ym),finPago),
+   aRec:sum(rec.filter(r=>r.status!=='Pago'&&(r.venc||'').slice(0,7)===ym),r=>+r.valor||0),
+   pag:sum(pag.filter(r=>r.status==='Pago'&&finDataPg(r).slice(0,7)===ym),finPago),
+   aPag:sum(pag.filter(r=>r.status!=='Pago'&&(r.venc||'').slice(0,7)===ym),r=>+r.valor||0)};
+  out.push(m)}
+ return out;
+}
+const finChart=ms=>{const mx=Math.max(1,...ms.flatMap(m=>[m.rec+m.aRec,m.pag+m.aPag]));
+ return `<div class="fchart" role="img" aria-label="Entradas e saídas por mês">${ms.map(m=>`<div class="fc-col"><div class="fc-bars"><i class="fc-r" style="height:${(m.rec+m.aRec)/mx*100}%" title="Entradas ${brl(m.rec+m.aRec)}"></i><i class="fc-p" style="height:${(m.pag+m.aPag)/mx*100}%" title="Saídas ${brl(m.pag+m.aPag)}"></i></div><span>${finMesNome(m.ym)}</span></div>`).join('')}</div><p class="sm muted" style="margin:6px 0 0"><i class="fc-dot fc-rb"></i>Entradas (recebidas + a receber)<i class="fc-dot fc-pb"></i>Saídas (pagas + a pagar)</p>`};
+const finKpi=(ico,cor,v,t,alerta)=>`<div class="kpi" ${alerta?'style="border-color:var(--high)"':''}>${icc(ico,alerta?'lj':cor,'float')}<div><b>${v}</b><span>${t}</span></div></div>`;
+const finSemAcesso=()=>emptyBox('Acesso restrito','O financeiro da consultoria é visível apenas para o administrador.',`<button class="btn p" data-a="mod" data-m="sst">Voltar ao SST</button>`,'lock');
+
+/* ---------- Painel ---------- */
+VIEWS.finpainel=()=>{
+ if(!finPode())return finSemAcesso();
+ const hj=today(),ym=hj.slice(0,7);
+ const rec=finDocs('rec').filter(r=>r.status!=='Cancelado'),pag=finDocs('pag').filter(r=>r.status!=='Cancelado');
+ const abR=rec.filter(r=>r.status!=='Pago'),abP=pag.filter(r=>r.status!=='Pago');
+ const atR=abR.filter(r=>finStatus(r)==='Atrasado'),atP=abP.filter(r=>finStatus(r)==='Atrasado');
+ const r30=abR.filter(r=>r.venc>=hj&&r.venc<=addD(hj,30)),p30=abP.filter(r=>r.venc>=hj&&r.venc<=addD(hj,30));
+ const recMes=sum(rec.filter(r=>r.status==='Pago'&&finDataPg(r).slice(0,7)===ym),finPago),pagMes=sum(pag.filter(r=>r.status==='Pago'&&finDataPg(r).slice(0,7)===ym),finPago);
+ const proxim=[...abR.map(r=>({r,t:'rec'})),...abP.map(r=>({r,t:'pag'}))].filter(o=>dias(o.r.venc)<=7).sort((a,b)=>a.r.venc.localeCompare(b.r.venc));
+ const serie=finMeses(addMes(ym+'-01',-5).slice(0,7),6);
+ const porCli={};atR.forEach(r=>{const k=finNomeCli(r);porCli[k]=(porCli[k]||0)+finAtual(r).total});
+ const inad=Object.entries(porCli).sort((a,b)=>b[1]-a[1]).slice(0,6);
+ const base=!rec.length&&!pag.length&&!finDocs('cont').length;
+ return (base?`<div class="card" style="margin-bottom:16px"><b>Comece pelos contratos.</b><p class="sm muted" style="margin:4px 0 0">Cadastre os honorários mensais de cada empresa em <b>Contratos e honorários</b> e use "Gerar cobranças do mês". Depois lance as despesas em <b>Contas a pagar</b>. O painel, o fluxo de caixa e o DRE se montam sozinhos.</p></div>`:'')+
+ `<div class="kpis">${finKpi('up','vd',brl(sum(r30,r=>r.valor)),'A receber nos próximos 30 dias')}${finKpi('down','az',brl(sum(p30,r=>r.valor)),'A pagar nos próximos 30 dias')}${finKpi('alert','lj',brl(sum(atR,r=>finAtual(r).total)),'Em atraso (a receber, com encargos)',atR.length)}${finKpi('check','vd',brl(recMes),'Recebido neste mês')}${finKpi('clock','am',brl(pagMes),'Pago neste mês')}${finKpi('dash','az',brl(recMes-pagMes),'Resultado do mês (caixa)',recMes-pagMes<0)}</div>
+ <div class="two"><div class="card"><h3 class="hic">${icc('pulse','vd','','sm')}Entradas e saídas — últimos 6 meses</h3>${finChart(serie)}</div>
+ <div class="card"><h3 class="hic">${icc('alert','lj','','sm')}Vence em até 7 dias (ou atrasado)</h3>${proxim.length?proxim.slice(0,10).map(o=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(finNomeCli(o.r))}<br><span class="muted sm">${o.t==='rec'?'A receber':'A pagar'} · ${esc(o.r.desc||'')} · <b>${brl(o.r.valor)}</b></span></span>${rhPrazoChip(o.r.venc)}</div>`).join(''):'<p class="muted">Nada vencendo nos próximos 7 dias.</p>'}</div>
+ <div class="card"><h3 class="hic">${icc('alert','vm','','sm')}Inadimplência por cliente</h3>${inad.length?inad.map(([k,v])=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(k)}</span><span class="chip crit">${brl(v)}</span></div>`).join('')+`<p class="sm muted" style="margin:8px 0 0"><button class="btn s g" data-a="go" data-v="finrec" data-st="Atrasado">Ver contas atrasadas</button></p>`:'<p class="muted">Nenhum cliente em atraso.</p>'}</div>
+ <div class="card"><h3 class="hic">${icc('file','az','','sm')}Contratos com reajuste próximo</h3>${(()=>{const l=finDocs('cont').filter(c=>c.status!=='Encerrado'&&+c.reajusteMes).map(c=>({c,d:finProxReajuste(c)})).filter(o=>o.d&&dias(o.d)<=60).sort((a,b)=>a.d.localeCompare(b.d));return l.length?l.map(o=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(nEmp(o.c.empresaId))}<br><span class="muted sm">${brl(o.c.valor)}/mês</span></span>${rhPrazoChip(o.d,'reajuste')}</div>`).join(''):'<p class="muted">Nenhum reajuste previsto nos próximos 60 dias.</p>'})()}</div></div>
+ <p class="sm muted" style="margin-top:14px">Valores em regime de caixa: entram no resultado quando são recebidos ou pagos. Este módulo é uma gestão gerencial; ele não emite nota fiscal nem concilia com o banco.</p>`;
+};
+function finProxReajuste(c){
+ const mes=+c.reajusteMes;if(!mes)return '';const hj=today();let y=+hj.slice(0,4);
+ let d=y+'-'+String(mes).padStart(2,'0')+'-'+String(Math.min(+c.diaVenc||1,28)).padStart(2,'0');
+ if(d<hj)d=(y+1)+d.slice(4);
+ if(c.inicio&&d<=c.inicio)d=(+c.inicio.slice(0,4)+1)+d.slice(4);
+ return d;
+}
+
+/* ---------- Contratos e honorários ---------- */
+VIEWS.fincont=()=>{
+ if(!finPode())return finSemAcesso();
+ const l=finDocs('cont').sort((a,b)=>nEmp(a.empresaId).localeCompare(nEmp(b.empresaId),'pt-BR'));
+ const ym=today().slice(0,7);
+ const ativos=l.filter(c=>c.status!=='Encerrado');
+ return `<div class="bar"><div class="grow"></div><label class="sm muted" for="finGerMes">Mês:</label><input type="month" id="finGerMes" value="${ym}" style="max-width:160px"><button class="btn" data-a="finGerar">${ic('plus')}Gerar cobranças do mês</button><button class="btn p" data-a="finNovoCont">${ic('plus')}Novo contrato</button></div>`+
+ rhNota('Um contrato por empresa cliente: valor mensal, dia de vencimento, vigência e mês de reajuste. "Gerar cobranças do mês" cria as contas a receber de todos os contratos ativos de uma vez, sem duplicar (rodar de novo no mesmo mês não repete).')+
+ (l.length?`<div class="kpis" style="margin-bottom:14px">${finKpi('empresa','az',ativos.length,'Contratos ativos')}${finKpi('up','vd',brl(sum(ativos,c=>+c.valor||0)),'Receita mensal recorrente')}</div>`+tbl([
+  {h:'Cliente',f:c=>esc(nEmp(c.empresaId))},{h:'Descrição',f:c=>esc(c.desc||'—')},
+  {h:'Valor mensal',f:c=>'<b>'+brl(c.valor)+'</b>'},{h:'Vence dia',f:c=>esc(c.diaVenc||'—')},
+  {h:'Vigência',f:c=>fd(c.inicio)+(c.fim?' a '+fd(c.fim):' em diante')},
+  {h:'Reajuste',f:c=>{const d=+c.reajusteMes?finProxReajuste(c):'';return d?'<span class="muted sm">'+MESN[+c.reajusteMes-1]+'</span> '+(dias(d)<=60?rhPrazoChip(d):''):'—'}},
+  {h:'Situação',f:c=>rhChip(c.status||'Ativo',c.status==='Encerrado'?'gray':'low')},
+  {h:'',a:1,f:c=>`<button class="btn s g" data-a="finEditCont" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="finDel" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>`}],l)
+ :emptyBox('Nenhum contrato','Cadastre o honorário mensal de cada empresa cliente para gerar as cobranças automaticamente.',`<button class="btn p" data-a="finNovoCont">${ic('plus')}Novo contrato</button>`,'file'));
+};
+function abrirFinCont(id){
+ const rec=id?clone(G('fin',id)):{tipo:'cont',empresaId:'',desc:'Honorários — Segurança do Trabalho',cat:'Honorários mensais',valor:0,diaVenc:'10',inicio:today(),fim:'',reajusteMes:'0',status:'Ativo'};
+ const v0=Object.assign({},rec,{valorTxt:brlIn(rec.valor)});
+ openForm({title:id?'Editar contrato':'Novo contrato de honorários',btn:'Salvar',val:v0,
+ fields:[
+  {k:'empresaId',l:'Empresa cliente',t:'select',r:1,o:()=>L('empresas').sort(byN).map(e=>[e.id,e.razao]),w:6,ph:'Selecione'},
+  {k:'desc',l:'Descrição',r:1,w:6},
+  {k:'valorTxt',l:'Valor mensal (R$)',r:1,w:3,h:'Ex.: 1.500,00'},
+  {k:'diaVenc',l:'Dia de vencimento',t:'number',w:3,inp:'numeric',h:'1 a 31 (em meses curtos vale o último dia)'},
+  {k:'inicio',l:'Início da vigência',t:'date',r:1,w:3},{k:'fim',l:'Fim da vigência',t:'date',w:3,h:'Em branco = sem data de término'},
+  {k:'reajusteMes',l:'Mês do reajuste',t:'select',o:[['0','Sem reajuste'],...MESN.map((m,i)=>[String(i+1),m])],w:3,h:'Só serve de lembrete: o valor novo você informa ao editar'},
+  {k:'status',l:'Situação',t:'select',o:['Ativo','Encerrado'],w:3},
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{const valor=parseBRL(v.valorTxt);if(valor<=0){toast('Informe o valor mensal.',3500);return false}
+  const dia=Math.min(31,Math.max(1,+v.diaVenc||10));delete v.valorTxt;Object.assign(rec,v,{valor,diaVenc:String(dia),cat:'Honorários mensais'});save('fin',rec);toast('Contrato salvo.');return true}})
+}
+function finGerar(){
+ const el=document.getElementById('finGerMes'),ym=(el&&el.value)||today().slice(0,7);let n=0;
+ finDocs('cont').filter(c=>c.status!=='Encerrado'&&c.inicio&&c.inicio.slice(0,7)<=ym&&(!c.fim||c.fim.slice(0,7)>=ym)).forEach(c=>{
+  if(finDocs('rec').some(r=>r.contratoId===c.id&&r.comp===ym))return;
+  const venc=addMes(ym+'-01',0).slice(0,8)+String(Math.min(+c.diaVenc||10,new Date(+ym.slice(0,4),+ym.slice(5,7),0).getDate())).padStart(2,'0');
+  save('fin',{tipo:'rec',empresaId:c.empresaId,desc:(c.desc||'Honorários')+' — '+finMesNome(ym),cat:'Honorários mensais',valor:c.valor,venc,comp:ym,contratoId:c.id,status:'Aberto',forma:'PIX'},true);n++});
+ render();toast(n?n+' cobrança(s) gerada(s) para '+finMesNome(ym)+'. Veja em Contas a receber.':'Nada a gerar: os contratos ativos de '+finMesNome(ym)+' já têm cobrança.',5000);
+}
+
+/* ---------- Contas a receber / a pagar ---------- */
+function finLista(tipo){
+ if(!finPode())return finSemAcesso();
+ const rc=tipo==='rec';
+ let l=finDocs(tipo).filter(r=>r.status!=='Cancelado');
+ if(S.fFinSt)l=l.filter(r=>finStatus(r)===S.fFinSt);
+ if(rc&&S.fFinCli)l=l.filter(r=>r.empresaId===S.fFinCli);
+ if(S.fFinMes)l=l.filter(r=>(r.venc||'').slice(0,7)===S.fFinMes);
+ l=l.sort((a,b)=>(a.venc||'').localeCompare(b.venc||''));
+ const tot=sum(l,r=>+r.valor||0),pend=sum(l.filter(r=>finStatus(r)==='Aberto'||finStatus(r)==='Atrasado'),r=>finAtual(r).total),pg=sum(l.filter(r=>r.status==='Pago'),finPago);
+ return `<div class="bar"><select id="fst" data-c="fFinSt" aria-label="Situação" style="max-width:170px">${opts([['','Todas as situações'],['Aberto','Em aberto'],['Atrasado','Atrasadas'],['Pago',rc?'Recebidas':'Pagas']],S.fFinSt||'')}</select>${rc?`<select id="fcl" data-c="fFinCli" aria-label="Cliente" style="max-width:230px">${opts(L('empresas').sort(byN).map(e=>[e.id,e.razao]),S.fFinCli,'Todos os clientes')}</select>`:''}<input type="month" id="fmes" data-c="fFinMes" value="${S.fFinMes||''}" aria-label="Mês de vencimento" style="max-width:160px"><div class="grow"></div>${rc?`<button class="btn" data-a="finCfg">${ic('gear')}Cobrança (PIX, multa)</button>`:''}<button class="btn" data-a="finCsv" data-t="${tipo}">${ic('down')}CSV</button><button class="btn p" data-a="finNovo" data-t="${tipo}">${ic('plus')}${rc?'Novo recebimento':'Nova despesa'}</button></div>
+ <div class="kpis" style="margin-bottom:14px">${finKpi(rc?'up':'down','az',brl(tot),'Total filtrado')}${finKpi('clock','am',brl(pend),'Em aberto / atrasado (com encargos)')}${finKpi('check','vd',brl(pg),rc?'Recebido':'Pago')}</div>`+
+ (l.length?tbl([
+  {h:'Vencimento',f:r=>fd(r.venc)},
+  {h:rc?'Cliente':'Fornecedor',f:r=>esc(finNomeCli(r))},
+  {h:'Descrição',f:r=>esc(r.desc||'—')+'<br><span class="muted sm">'+esc(r.cat||'')+'</span>'},
+  {h:'Valor',f:r=>{const a=finAtual(r);return '<b>'+brl(r.valor)+'</b>'+(a.total!==r.valor?'<br><span class="muted sm">atualizado '+brl(a.total)+'</span>':'')}},
+  {h:'Situação',f:r=>{const s=finStatus(r);return rhChip(s==='Pago'?(rc?'Recebido ':'Pago ')+fd(r.pagoEm):s==='Atrasado'?'Atrasado '+(-dias(r.venc))+' d':s,finCor[s])}},
+  {h:'',a:1,f:r=>{const s=finStatus(r);return (s!=='Pago'?`<button class="btn s g" data-a="finBaixa" data-id="${r.id}" title="${rc?'Registrar recebimento':'Registrar pagamento'}">${ic('check')}${rc?'Receber':'Pagar'}</button>`:'')+(rc&&s!=='Pago'?`<button class="btn s g" data-a="finCobrar" data-id="${r.id}" title="Cobrar pelo WhatsApp">${ic('send')}Cobrar</button>`:'')+(rc&&s==='Pago'?`<button class="btn s g" data-a="finRecibo" data-id="${r.id}" title="Gerar recibo">${ic('file')}Recibo</button>`:'')+`<button class="btn s g" data-a="finEdit" data-id="${r.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="finDel" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button>`}}],l)
+ :emptyBox(rc?'Nenhuma conta a receber':'Nenhuma conta a pagar',rc?'Lance um recebimento avulso ou gere as cobranças dos contratos.':'Lance suas despesas para ver o fluxo de caixa e o resultado.',`<button class="btn p" data-a="finNovo" data-t="${tipo}">${ic('plus')}${rc?'Novo recebimento':'Nova despesa'}</button>`,'file'));
+}
+VIEWS.finrec=()=>finLista('rec');
+VIEWS.finpag=()=>finLista('pag');
+function abrirFinLanc(tipo,id){
+ const rc=tipo==='rec';
+ const rec=id?clone(G('fin',id)):{tipo,empresaId:'',cliente:'',fornecedor:'',desc:'',cat:rc?REC_CATS[0]:PAG_CATS[0],valor:0,venc:today(),status:'Aberto',forma:'PIX',repetir:'1'};
+ const v0=Object.assign({},rec,{valorTxt:brlIn(rec.valor),repetir:rec.repetir||'1'});
+ openForm({title:(id?'Editar ':'Novo ')+(rc?'recebimento':'despesa'),btn:'Salvar',val:v0,
+ fields:[
+  ...(rc?[{k:'empresaId',l:'Cliente (empresa cadastrada)',t:'select',o:()=>L('empresas').sort(byN).map(e=>[e.id,e.razao]),w:6,ph:'Cliente avulso (digite ao lado)'},{k:'cliente',l:'Cliente avulso',w:6,h:'Use se o cliente não está cadastrado como empresa'}]:[{k:'fornecedor',l:'Fornecedor / favorecido',r:1,w:12}]),
+  {k:'desc',l:'Descrição',r:1,w:6},{k:'cat',l:'Categoria',t:'select',o:rc?REC_CATS:PAG_CATS,w:6},
+  {k:'valorTxt',l:'Valor (R$)',r:1,w:3,h:'Ex.: 850,00'},{k:'venc',l:'Vencimento',t:'date',r:1,w:3},{k:'forma',l:'Forma',t:'select',o:FORMAS,w:3},
+  ...(id?[]:[{k:'repetir',l:'Repetir (meses)',t:'number',w:3,inp:'numeric',h:'1 = lançamento único; 12 = cria 12 meses seguidos'}]),
+  {k:'obs',l:'Observações',t:'textarea',rows:2}],
+ save:v=>{const valor=parseBRL(v.valorTxt);if(valor<=0){toast('Informe um valor maior que zero.',3500);return false}
+  if(rc&&!v.empresaId&&!(v.cliente||'').trim()){toast('Escolha o cliente ou digite o nome.',3500);return false}
+  const n=id?1:Math.min(60,Math.max(1,+v.repetir||1));delete v.valorTxt;delete v.repetir;
+  const serie=n>1?uid():'';
+  for(let i=0;i<n;i++){const r=id?rec:Object.assign({},rec);Object.assign(r,v,{valor});if(!id){r.id='';r.venc=addMes(v.venc,i);r.comp=r.venc.slice(0,7);if(n>1){r.serie=serie;r.desc=v.desc+' ('+(i+1)+'/'+n+')'}}save('fin',r,i<n-1)}
+  toast(n>1?n+' lançamentos criados.':'Lançamento salvo.');return true}})
+}
+function abrirFinBaixa(id){
+ const r=G('fin',id);if(!r)return;const rc=r.tipo==='rec',a=finAtual(r);
+ openForm({title:rc?'Registrar recebimento':'Registrar pagamento',btn:'Confirmar',val:{pagoEm:today(),valorTxt:brlIn(a.total),forma:r.forma||'PIX'},
+ pre:`<p class="muted sm" style="margin-top:0"><b>${esc(finNomeCli(r))}</b> · ${esc(r.desc||'')} · vencimento ${fd(r.venc)} · valor ${brl(r.valor)}${a.total!==r.valor?'<br>Com multa e juros do atraso: <b>'+brl(a.total)+'</b> (ajuste o valor se negociou desconto)':''}</p>`,
+ fields:[{k:'pagoEm',l:rc?'Data do recebimento':'Data do pagamento',t:'date',r:1,w:4},{k:'valorTxt',l:'Valor '+(rc?'recebido':'pago')+' (R$)',r:1,w:4},{k:'forma',l:'Forma',t:'select',o:FORMAS,w:4}],
+ save:v=>{const x=clone(r);x.status='Pago';x.pagoEm=v.pagoEm;x.valorPago=parseBRL(v.valorTxt)||r.valor;x.forma=v.forma;save('fin',x);toast(rc?'Recebimento registrado.':'Pagamento registrado.');return true}})
+}
+function abrirFinCfg(){
+ const c=clone(finCfg());
+ openForm({title:'Dados de cobrança',btn:'Salvar',val:c,
+ pre:'<p class="muted sm" style="margin-top:0">Usados na mensagem de cobrança pelo WhatsApp e no cálculo de contas atrasadas. A multa de 2% e os juros de 1% ao mês são valores usuais; use o que estiver no seu contrato.</p>',
+ fields:[{k:'pix',l:'Chave PIX',w:6},{k:'pixNome',l:'Nome do favorecido',w:6},{k:'multa',l:'Multa por atraso (%)',t:'number',w:3,inp:'decimal'},{k:'juros',l:'Juros (% ao mês)',t:'number',w:3,inp:'decimal'}],
+ save:v=>{Object.assign(c,v,{tipo:'cfg'});save('fin',c);toast('Dados de cobrança salvos.');return true}})
+}
+function finCobrar(id){
+ const r=G('fin',id);if(!r)return;const e=G('empresas',r.empresaId)||{},cfg=finCfg(),a=finAtual(r),cs=CFG();
+ const nome=(e.resp_nome||'').split(/\s+/)[0]||'tudo bem';
+ let m='Olá, '+nome+'! Segue a cobrança referente a *'+(r.desc||'serviços')+'*, vencimento em '+fd(r.venc)+': *'+brl(r.valor)+'*.';
+ if(a.total!==r.valor)m+='\nPor estar em atraso há '+(-dias(r.venc))+' dias, o valor atualizado (multa e juros) é *'+brl(a.total)+'*.';
+ if(cfg.pix)m+='\n\nChave PIX: '+cfg.pix+(cfg.pixNome?' ('+cfg.pixNome+')':'');
+ m+='\n\nQualquer dúvida, estou à disposição.'+(cs.nome?'\n'+cs.nome:'');
+ const n=psiFone(e.telefone||e.celular||e.resp_tel||'');
+ window.open('https://wa.me/'+(n||'')+'?text='+encodeURIComponent(m),'_blank');
+ if(!n)toast('A empresa não tem telefone cadastrado: escolha o contato no WhatsApp.',5000);
+}
+function finRecibo(id){
+ const r=G('fin',id);if(!r)return;const e=G('empresas',r.empresaId)||{},cs=CFG();
+ const cli=r.empresaId?esc(e.razao||'')+(e.cnpj?' (CNPJ '+esc(e.cnpj)+')':''):esc(r.cliente||'');
+ let h=dHead('Recibo de pagamento','Nº '+esc(String(r.id).slice(-6).toUpperCase()));
+ h+=`<h1 style="font-size:18pt">Recibo</h1><p style="font-size:12pt;line-height:1.7">Recebi de <b>${cli}</b> a importância de <b>${brl(finPago(r))}</b>, referente a <b>${esc(r.desc||'')}</b>, com vencimento em ${fd(r.venc)}, paga em ${fd(r.pagoEm)} por ${esc(r.forma||'—')}.</p><p style="font-size:12pt">Para maior clareza, firmo o presente recibo.</p>`+kv([['Recebedor',esc(cs.nome||'—')],['CNPJ/CPF',esc(cs.cnpj||'—')],['Data do pagamento',fd(r.pagoEm)],['Valor',brl(finPago(r))]])+`<div class="sig"><div>${esc(cs.nome||'Recebedor')}<span>Assinatura</span></div></div><div class="note">Este recibo comprova o pagamento. Não substitui a nota fiscal de serviços.</div>`;
+ openDoc({title:'Recibo — '+(r.empresaId?e.razao:r.cliente||''),html:h,filename:'recibo-'+slug(e.razao||r.cliente||'cliente')+'-'+fd(r.pagoEm).replace(/\//g,'-')+'.html',para:e.email||'',assunto:'Recibo — '+(r.desc||''),corpo:'Olá,\n\nSegue em anexo o recibo do pagamento de '+brl(finPago(r))+'.\n\nAtenciosamente,\n'+(cs.nome||'')});
+}
+function finCsv(tipo){
+ const l=finDocs(tipo).filter(r=>r.status!=='Cancelado').sort((a,b)=>(a.venc||'').localeCompare(b.venc||''));
+ const q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"';
+ const linhas=[['Vencimento',tipo==='rec'?'Cliente':'Fornecedor','Descrição','Categoria','Valor','Situação','Data pagamento','Valor pago','Forma'].map(q).join(';')];
+ l.forEach(r=>linhas.push([fd(r.venc),finNomeCli(r),r.desc,r.cat,(r.valor/100).toFixed(2).replace('.',','),finStatus(r),r.pagoEm?fd(r.pagoEm):'',r.valorPago?(r.valorPago/100).toFixed(2).replace('.',','):'',r.forma].map(q).join(';')));
+ saveAs((tipo==='rec'?'contas-a-receber':'contas-a-pagar')+'-'+today()+'.csv',new Blob(['﻿'+linhas.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+}
+
+/* ---------- Fluxo de caixa ---------- */
+VIEWS.fincaixa=()=>{
+ if(!finPode())return finSemAcesso();
+ const ym=today().slice(0,7),ms=finMeses(addMes(ym+'-01',-5).slice(0,7),12);let ac=0;
+ return rhNota('Seis meses para trás e seis para frente. "Recebido" e "Pago" são o que já entrou e saiu (por data de pagamento); "A receber" e "A pagar" são o que está em aberto (por vencimento, inclusive atrasados nos meses passados). O saldo acumulado parte de zero no primeiro mês mostrado.')+
+ `<div class="card" style="margin-bottom:16px">${finChart(ms)}</div>`+
+ tbl([{h:'Mês',f:m=>'<b>'+finMesNome(m.ym)+'</b>'+(m.ym===ym?' <span class="chip">atual</span>':'')},
+  {h:'Recebido',f:m=>brl(m.rec)},{h:'A receber',f:m=>m.aRec?`<span class="${m.ym<ym?'sm" style="color:var(--crit)':''}">${brl(m.aRec)}</span>`:'—'},
+  {h:'Pago',f:m=>brl(m.pag)},{h:'A pagar',f:m=>m.aPag?brl(m.aPag):'—'},
+  {h:'Resultado do mês',f:m=>{const r=m.rec+m.aRec-m.pag-m.aPag;return `<b style="color:var(--${r<0?'crit':'low'})">${brl(r)}</b>`}},
+  {h:'Saldo acumulado',f:m=>{ac+=m.rec+m.aRec-m.pag-m.aPag;return `<b>${brl(ac)}</b>`}}],ms);
+};
+
+/* ---------- Relatórios e DRE ---------- */
+VIEWS.finrel=()=>{
+ if(!finPode())return finSemAcesso();
+ const ano=+(S.finAno||today().slice(0,4));
+ const rec=finDocs('rec').filter(r=>r.status==='Pago'&&+finDataPg(r).slice(0,4)===ano),pag=finDocs('pag').filter(r=>r.status==='Pago'&&+finDataPg(r).slice(0,4)===ano);
+ const porCat=(l,cats)=>cats.map(c=>[c,sum(l.filter(r=>r.cat===c),finPago)]).concat([['Outras / sem categoria',sum(l.filter(r=>!cats.includes(r.cat)),finPago)]]).filter(x=>x[1]);
+ const tr=sum(rec,finPago),tp=sum(pag,finPago),res=tr-tp;
+ const porCli={};rec.forEach(r=>{const k=finNomeCli(r);porCli[k]=(porCli[k]||0)+finPago(r)});
+ const cliL=Object.entries(porCli).sort((a,b)=>b[1]-a[1]);
+ const aging=[['A vencer',0],['1 a 30 dias',0],['31 a 60 dias',0],['61 a 90 dias',0],['Mais de 90 dias',0]];
+ const devedores={};
+ finDocs('rec').filter(r=>r.status!=='Pago'&&r.status!=='Cancelado').forEach(r=>{const d=-dias(r.venc);const k=d<=0?0:d<=30?1:d<=60?2:d<=90?3:4;const v=finAtual(r).total;aging[k][1]+=v;if(d>0)devedores[finNomeCli(r)]=(devedores[finNomeCli(r)]||0)+v});
+ const anos=[];for(let a=+today().slice(0,4);a>=+today().slice(0,4)-4;a--)anos.push(String(a));
+ const linha=(t,v,neg)=>`<div class="row sb" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(t)}</span><b${neg?' style="color:var(--crit)"':''}>${brl(v)}</b></div>`;
+ return `<div class="bar"><select id="fano" data-c="fFinAno" style="max-width:140px" aria-label="Ano">${opts(anos,String(ano))}</select><div class="grow"></div></div>
+ <div class="two"><div class="card"><h3 class="hic">${icc('dash','az','','sm')}DRE gerencial ${ano} (regime de caixa)</h3>
+  <p class="sm muted" style="margin:0 0 6px"><b>Receitas</b></p>${porCat(rec,REC_CATS).map(x=>linha(x[0],x[1])).join('')||'<p class="muted sm">Sem receitas recebidas no ano.</p>'}${linha('Total de receitas',tr)}
+  <p class="sm muted" style="margin:12px 0 6px"><b>Despesas</b></p>${porCat(pag,PAG_CATS).map(x=>linha(x[0],x[1])).join('')||'<p class="muted sm">Sem despesas pagas no ano.</p>'}${linha('Total de despesas',tp)}
+  <div class="row sb" style="padding:10px 0"><b>Resultado do ano</b><b style="color:var(--${res<0?'crit':'low'})">${brl(res)}${tr?' · margem '+Math.round(res/tr*100)+'%':''}</b></div>
+  <p class="sm muted" style="margin:6px 0 0">Gerencial, sem regime de competência nem impostos sobre o lucro. Para balanço e apuração fiscal, use seu contador.</p></div>
+ <div class="card"><h3 class="hic">${icc('empresa','vd','','sm')}Receita por cliente ${ano}</h3>${cliL.length?cliL.slice(0,15).map(x=>linha(x[0],x[1])).join('')+`<p class="sm muted" style="margin:6px 0 0">Maior cliente: ${tr?Math.round(cliL[0][1]/tr*100):0}% da receita${tr&&cliL[0][1]/tr>.4?' — concentração alta, vale diversificar.':'.'}</p>`:'<p class="muted">Sem recebimentos no ano.</p>'}</div>
+ <div class="card"><h3 class="hic">${icc('alert','vm','','sm')}Inadimplência por idade da dívida</h3>${aging.map((a,i)=>linha(a[0],a[1],i>0&&a[1]>0)).join('')}${Object.keys(devedores).length?`<p class="sm muted" style="margin:10px 0 4px"><b>Quem deve (com encargos)</b></p>`+Object.entries(devedores).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>linha(x[0],x[1],1)).join(''):''}</div></div>`;
+};
+
+/* ---------- ações do Financeiro ---------- */
+const FINA={
+ finNovoCont(){abrirFinCont()},finEditCont(d){abrirFinCont(d.id)},finGerar(){finGerar()},
+ finNovo(d){abrirFinLanc(d.t)},finEdit(d){const r=G('fin',d.id);if(r)abrirFinLanc(r.tipo,d.id)},
+ finBaixa(d){abrirFinBaixa(d.id)},finCfg(){abrirFinCfg()},finCobrar(d){finCobrar(d.id)},finRecibo(d){finRecibo(d.id)},finCsv(d){finCsv(d.t)},
+ finDel(d){ask('Excluir este lançamento? Isso não pode ser desfeito.','Excluir',()=>del('fin',d.id))}
 };
 
 VIEWS.config=()=>{
@@ -5288,9 +5531,9 @@ function shell(){
  const nav=rhNavAtual().filter(n=>n[0]!=='consultorias'||isSuper());if(!nav.some(n=>n[0]===S.view))S.view=nav[0][0];
  const tt=(nav.find(n=>n[0]===S.view)||[])[1]||'';
  const al=alertas();
- const grp=S.mod==='rh'&&rhPode()?{rhadm:'Ciclo do colaborador',rhferias:'Acompanhamento',rhdesl:'Saída'}:{empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
+ const grp=S.mod==='fin'&&S.role==='consultoria'?{fincont:'Receitas',finpag:'Despesas',fincaixa:'Análise'}:S.mod==='rh'&&rhPode()?{rhadm:'Ciclo do colaborador',rhferias:'Acompanhamento',rhdesl:'Saída'}:{empresas:'Cadastros',riscos:'Segurança do trabalho',solicitacoes:'Saúde ocupacional',config:'Sistema'};
  const navHTML=nav.map(n=>(grp[n[0]]?`<div class="navgroup">${grp[n[0]]}</div>`:'')+`<button class="nav ${S.view===n[0]?'on':''}" data-a="go" data-v="${n[0]}">${NR26[n[0]]?icc(NAVIC[n[0]]||n[2],NR26[n[0]],NAVAN[n[0]]||'','xs'):ic(NAVIC[n[0]]||n[2])}<span style="flex:1">${n[1]}</span>${n[0]===al.alvo&&al.n?`<span class="navbadge">${al.n}</span>`:''}</button>`).join('');
- return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>${S.mod==='rh'&&rhPode()?'Recursos humanos':'Segurança e saúde no trabalho'}</span></div></div>${rhPode()?`<div class="modsw" role="group" aria-label="Módulo"><button type="button" class="${S.mod==='rh'?'':'on'}" data-a="mod" data-m="sst">SST</button><button type="button" class="${S.mod==='rh'?'on':''}" data-a="mod" data-m="rh">RH</button></div>`:''}${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1>${buscaPodeUsar()?`<button type="button" class="btn s busca-btn" data-a="busca" aria-label="Buscar documentos, colaboradores e telas" title="Buscar (Ctrl+K)">${ic('search')}<span>Buscar</span></button><button type="button" class="btn s busca-btn" data-a="leitor" aria-label="Ler QR da carteirinha com a câmera" title="Ler carteirinha (QR)">${ic('idcard')}<span>Ler carteirinha</span></button>`:''}<div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
+ return `<div class="layout ${S.nav?'nav-open':''}"><aside class="side"><div class="brand"><div class="mk">${ic('shield')}</div><div><b>SST Gestão</b><span>${S.mod==='fin'&&S.role==='consultoria'?'Gestão financeira':S.mod==='rh'&&rhPode()?'Recursos humanos':'Segurança e saúde no trabalho'}</span></div></div>${rhPode()?`<div class="modsw" role="group" aria-label="Módulo">${[['sst','SST'],['rh','RH'],...(S.role==='consultoria'?[['fin','Financeiro']]:[])].map(x=>`<button type="button" class="${(S.mod||'sst')===x[0]?'on':''}" data-a="mod" data-m="${x[0]}">${x[1]}</button>`).join('')}</div>`:''}${navHTML}<div class="sp"></div><button class="nav" id="install-btn" data-a="instalar" type="button">${ic('down')}Instalar este app</button>${suporteSide()}<small>Dados de saúde são sensíveis (LGPD). Compartilhe apenas com quem precisa.</small></aside><div class="scrim" data-a="nav"></div><div class="main"><header class="top"><button class="btn s menu" data-a="nav" aria-label="Abrir menu">${ic('menu')}</button><h1>${esc(tt)}</h1>${buscaPodeUsar()?`<button type="button" class="btn s busca-btn" data-a="busca" aria-label="Buscar documentos, colaboradores e telas" title="Buscar (Ctrl+K)">${ic('search')}<span>Buscar</span></button><button type="button" class="btn s busca-btn" data-a="leitor" aria-label="Ler QR da carteirinha com a câmera" title="Ler carteirinha (QR)">${ic('idcard')}<span>Ler carteirinha</span></button>`:''}<div class="roles">${roleSel()}</div></header><main class="content">${faixaPagamento()}${VIEWS[S.view]()}</main></div></div>`;
 }
 /* Faixa de aviso para o administrador de UMA consultoria quando o pagamento está pendente ou suspenso. */
 /* Empresa/clínica/colaborador não têm tela de Configurações: o contato de suporte delas é a própria consultoria. */
@@ -5363,8 +5606,8 @@ colEndCopia(){
 nav(){S.nav=!S.nav;render()},
 ftGo(d){const el=document.getElementById(d.id);if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})},
 busca(){abrirBusca()},
-go(d){S.view=d.v;S.nav=false;S.q='';window.scrollTo(0,0);render()},
-...RHA,
+go(d){S.view=d.v;S.nav=false;S.q='';if(d.st!==undefined)S.fFinSt=d.st;window.scrollTo(0,0);render()},
+...RHA,...FINA,
 goEmp(d){S.emp=d.id;S.view=d.v;render()},
 closeForm(){closeForm()},
 closeDet(){S.det=null;$('#modal-root').innerHTML='';if(S.ficha)renderFicha()},
@@ -5594,7 +5837,7 @@ async pastaModo(t){if(t.value==='pasta'){const h=await pastaHandle();if(!h||!(aw
 role(t){setRole(t.value);render()},
 rid(t){S.rid=t.value;S.det=null;render()},
 q(t){S.q=t.value;render()},
-fEmp(t){S.fEmp=t.value;render()},
+fEmp(t){S.fEmp=t.value;render()},fFinSt(t){S.fFinSt=t.value;render()},fFinCli(t){S.fFinCli=t.value;render()},fFinMes(t){S.fFinMes=t.value;render()},fFinAno(t){S.finAno=t.value;render()},
 ef(t){S.emp=t.value;render()},
 acaoSt(t){const a=clone(G('acoes',t.dataset.id));a.status=t.value;save('acoes',a)},
 solSt(t){const s=clone(G('solicitacoes',t.dataset.id));s.status=t.value;save('solicitacoes',s)},

@@ -245,6 +245,15 @@ service cloud.firestore {
       allow delete: if podeAdmin(resource.data) || ehEmpresa(resource.data.empresaId);
     }
 
+    // ---------- Financeiro da consultoria (contratos, contas a receber e a pagar, PIX) ----------
+    // Dados da própria consultoria: só o administrador acessa. Empresa, clínica e colaborador não leem nem gravam.
+    match /fin/{id} {
+      allow get, list: if podeAdmin(resource.data);
+      allow create: if podeAdmin(request.resource.data);
+      allow update: if podeAdmin(resource.data) && request.resource.data.consultoriaId == resource.data.consultoriaId;
+      allow delete: if podeAdmin(resource.data);
+    }
+
     // ---------- Avaliação psicossocial online (NR-1): link público e respostas anônimas ----------
     // psipub/{token}: dados mínimos da pesquisa para a página do trabalhador (empresa, setores, aberta/encerrada).
     // O id é um token aleatório de 32 caracteres; só se lê por id (sem listagem). Só o admin escreve.
