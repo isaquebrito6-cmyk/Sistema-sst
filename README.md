@@ -242,3 +242,6 @@ Seletor **SST | RH** no topo do menu (consultoria e empresa). Usa o mesmo cadast
 
 ## Módulo Financeiro (só consultoria)
 Chave **Financeiro** no menu lateral (ao lado de SST e RH). Contratos e honorários (geração mensal idempotente de cobranças), contas a receber e a pagar (baixa, repetição por N meses), fluxo de caixa, DRE gerencial, inadimplência por idade e por cliente, cobrança pelo WhatsApp com PIX, recibo e exportação CSV. Regime de caixa, valores em centavos, multa 2% + juros 1% a.m. editáveis. Gerencial: não emite nota fiscal nem concilia com banco. Coleção `fin` com regra só para administradores em `firestore.rules`.
+
+### Nota fiscal de serviço (ponte para o Emissor Nacional)
+Em Contas a receber, o botão **Nota** copia os dados do cliente e do serviço e abre o Emissor Nacional (nfse.gov.br, login gov.br). Depois da emissão, o número, a data e o link ficam registrados no lançamento (e saem no CSV). O app não emite a nota por conta própria.

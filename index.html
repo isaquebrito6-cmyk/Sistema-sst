@@ -3997,7 +3997,7 @@ function finLista(tipo){
   {h:'Descrição',f:r=>esc(r.desc||'—')+'<br><span class="muted sm">'+esc(r.cat||'')+'</span>'},
   {h:'Valor',f:r=>{const a=finAtual(r);return '<b>'+brl(r.valor)+'</b>'+(a.total!==r.valor?'<br><span class="muted sm">atualizado '+brl(a.total)+'</span>':'')}},
   {h:'Situação',f:r=>{const s=finStatus(r);return rhChip(s==='Pago'?(rc?'Recebido ':'Pago ')+fd(r.pagoEm):s==='Atrasado'?'Atrasado '+(-dias(r.venc))+' d':s,finCor[s])}},
-  {h:'',a:1,f:r=>{const s=finStatus(r);return (s!=='Pago'?`<button class="btn s g" data-a="finBaixa" data-id="${r.id}" title="${rc?'Registrar recebimento':'Registrar pagamento'}">${ic('check')}${rc?'Receber':'Pagar'}</button>`:'')+(rc&&s!=='Pago'?`<button class="btn s g" data-a="finCobrar" data-id="${r.id}" title="Cobrar pelo WhatsApp">${ic('send')}Cobrar</button>`:'')+(rc&&s==='Pago'?`<button class="btn s g" data-a="finRecibo" data-id="${r.id}" title="Gerar recibo">${ic('file')}Recibo</button>`:'')+`<button class="btn s g" data-a="finEdit" data-id="${r.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="finDel" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button>`}}],l)
+  {h:'',a:1,f:r=>{const s=finStatus(r);return (s!=='Pago'?`<button class="btn s g" data-a="finBaixa" data-id="${r.id}" title="${rc?'Registrar recebimento':'Registrar pagamento'}">${ic('check')}${rc?'Receber':'Pagar'}</button>`:'')+(rc&&s!=='Pago'?`<button class="btn s g" data-a="finCobrar" data-id="${r.id}" title="Cobrar pelo WhatsApp">${ic('send')}Cobrar</button>`:'')+(rc?`<button class="btn s g" data-a="finNota" data-id="${r.id}" title="Nota fiscal de serviço">${ic('file')}${r.nfNum?'NF '+esc(r.nfNum):'Nota'}</button>`:'')+(rc&&s==='Pago'?`<button class="btn s g" data-a="finRecibo" data-id="${r.id}" title="Gerar recibo">${ic('file')}Recibo</button>`:'')+`<button class="btn s g" data-a="finEdit" data-id="${r.id}" aria-label="Editar">${ic('edit')}</button><button class="btn s g d" data-a="finDel" data-id="${r.id}" aria-label="Excluir">${ic('trash')}</button>`}}],l)
  :emptyBox(rc?'Nenhuma conta a receber':'Nenhuma conta a pagar',rc?'Lance um recebimento avulso ou gere as cobranças dos contratos.':'Lance suas despesas para ver o fluxo de caixa e o resultado.',`<button class="btn p" data-a="finNovo" data-t="${tipo}">${ic('plus')}${rc?'Novo recebimento':'Nova despesa'}</button>`,'file'));
 }
 VIEWS.finrec=()=>finLista('rec');
@@ -4052,11 +4052,33 @@ function finRecibo(id){
  h+=`<h1 style="font-size:18pt">Recibo</h1><p style="font-size:12pt;line-height:1.7">Recebi de <b>${cli}</b> a importância de <b>${brl(finPago(r))}</b>, referente a <b>${esc(r.desc||'')}</b>, com vencimento em ${fd(r.venc)}, paga em ${fd(r.pagoEm)} por ${esc(r.forma||'—')}.</p><p style="font-size:12pt">Para maior clareza, firmo o presente recibo.</p>`+kv([['Recebedor',esc(cs.nome||'—')],['CNPJ/CPF',esc(cs.cnpj||'—')],['Data do pagamento',fd(r.pagoEm)],['Valor',brl(finPago(r))]])+`<div class="sig"><div>${esc(cs.nome||'Recebedor')}<span>Assinatura</span></div></div><div class="note">Este recibo comprova o pagamento. Não substitui a nota fiscal de serviços.</div>`;
  openDoc({title:'Recibo — '+(r.empresaId?e.razao:r.cliente||''),html:h,filename:'recibo-'+slug(e.razao||r.cliente||'cliente')+'-'+fd(r.pagoEm).replace(/\//g,'-')+'.html',para:e.email||'',assunto:'Recibo — '+(r.desc||''),corpo:'Olá,\n\nSegue em anexo o recibo do pagamento de '+brl(finPago(r))+'.\n\nAtenciosamente,\n'+(cs.nome||'')});
 }
+const NFSE_URL='https://www.nfse.gov.br/EmissorNacional';
+function finNotaDados(r){
+ const e=G('empresas',r.empresaId)||{},cs=CFG();
+ const doc=String(e.cnpj||'').replace(/\D/g,'');
+ return [['Tomador (cliente)',r.empresaId?e.razao:r.cliente],['CNPJ do tomador',e.cnpj||''],['E-mail',e.email||''],['Endereço',[e.endereco,e.cidade,e.uf,e.cep].filter(Boolean).join(', ')],['Descrição do serviço',(r.desc||'Prestação de serviços de consultoria em segurança do trabalho')],['Valor do serviço (R$)',(r.valor/100).toFixed(2).replace('.',',')],['Data de competência',fd(r.venc)]].filter(x=>x[1]);
+}
+function finNota(id){
+ const r=G('fin',id);if(!r)return;
+ const dd=finNotaDados(r);
+ const faltaCnpj=r.empresaId&&!(G('empresas',r.empresaId)||{}).cnpj;
+ openForm({title:'Nota fiscal de serviço (NFS-e)',btn:'Salvar dados da nota',val:{nfNum:r.nfNum||'',nfData:r.nfData||'',nfLink:r.nfLink||''},
+ pre:`<p class="muted sm" style="margin-top:0">Passo a passo: <b>1)</b> copie os dados abaixo; <b>2)</b> abra o Emissor Nacional (login gov.br) e emita a nota; <b>3)</b> volte e registre o número aqui.</p>
+ ${faltaCnpj?'<div class="note warn">A empresa não tem CNPJ cadastrado. Preencha no cadastro da empresa antes de emitir.</div>':''}
+ ${tbl([{h:'Campo',f:x=>'<b>'+esc(x[0])+'</b>'},{h:'Valor',f:x=>esc(x[1])}],dd)}
+ <div class="row" style="gap:8px;margin:10px 0 14px"><button type="button" class="btn p" data-a="finNotaCopia" data-id="${r.id}">${ic('file')}Copiar dados</button><a class="btn" href="${NFSE_URL}" target="_blank" rel="noopener">${ic('send')}Abrir Emissor Nacional</a></div>`,
+ fields:[{k:'nfNum',l:'Número da nota',w:4},{k:'nfData',l:'Data de emissão',t:'date',w:4},{k:'nfLink',l:'Link ou código de verificação',w:4,h:'Opcional'}],
+ save:v=>{const x=clone(r);x.nfNum=(v.nfNum||'').trim();x.nfData=v.nfData||'';x.nfLink=(v.nfLink||'').trim();save('fin',x);toast(x.nfNum?'Nota '+x.nfNum+' registrada.':'Dados salvos.');return true}});
+}
+async function finNotaCopia(id){
+ const r=G('fin',id);if(!r)return;const txt=finNotaDados(r).map(x=>x[0]+': '+x[1]).join('\n');
+ try{await navigator.clipboard.writeText(txt);toast('Dados copiados. Cole no Emissor Nacional.',3500)}catch(er){prompt('Copie os dados:',txt)}
+}
 function finCsv(tipo){
  const l=finDocs(tipo).filter(r=>r.status!=='Cancelado').sort((a,b)=>(a.venc||'').localeCompare(b.venc||''));
  const q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"';
- const linhas=[['Vencimento',tipo==='rec'?'Cliente':'Fornecedor','Descrição','Categoria','Valor','Situação','Data pagamento','Valor pago','Forma'].map(q).join(';')];
- l.forEach(r=>linhas.push([fd(r.venc),finNomeCli(r),r.desc,r.cat,(r.valor/100).toFixed(2).replace('.',','),finStatus(r),r.pagoEm?fd(r.pagoEm):'',r.valorPago?(r.valorPago/100).toFixed(2).replace('.',','):'',r.forma].map(q).join(';')));
+ const linhas=[['Vencimento',tipo==='rec'?'Cliente':'Fornecedor','Descrição','Categoria','Valor','Situação','Data pagamento','Valor pago','Forma'].concat(tipo==='rec'?['Nota fiscal']:[]).map(q).join(';')];
+ l.forEach(r=>linhas.push([fd(r.venc),finNomeCli(r),r.desc,r.cat,(r.valor/100).toFixed(2).replace('.',','),finStatus(r),r.pagoEm?fd(r.pagoEm):'',r.valorPago?(r.valorPago/100).toFixed(2).replace('.',','):'',r.forma].concat(tipo==='rec'?[r.nfNum||'']:[]).map(q).join(';')));
  saveAs((tipo==='rec'?'contas-a-receber':'contas-a-pagar')+'-'+today()+'.csv',new Blob(['﻿'+linhas.join('\r\n')],{type:'text/csv;charset=utf-8'}));
 }
 
@@ -4101,7 +4123,7 @@ VIEWS.finrel=()=>{
 const FINA={
  finNovoCont(){abrirFinCont()},finEditCont(d){abrirFinCont(d.id)},finGerar(){finGerar()},
  finNovo(d){abrirFinLanc(d.t)},finEdit(d){const r=G('fin',d.id);if(r)abrirFinLanc(r.tipo,d.id)},
- finBaixa(d){abrirFinBaixa(d.id)},finCfg(){abrirFinCfg()},finCobrar(d){finCobrar(d.id)},finRecibo(d){finRecibo(d.id)},finCsv(d){finCsv(d.t)},
+ finBaixa(d){abrirFinBaixa(d.id)},finCfg(){abrirFinCfg()},finCobrar(d){finCobrar(d.id)},finRecibo(d){finRecibo(d.id)},finNota(d){finNota(d.id)},finNotaCopia(d){finNotaCopia(d.id)},finCsv(d){finCsv(d.t)},
  finDel(d){ask('Excluir este lançamento? Isso não pode ser desfeito.','Excluir',()=>del('fin',d.id))}
 };
 
