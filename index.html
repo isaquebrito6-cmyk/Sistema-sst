@@ -1094,8 +1094,8 @@ function riscosDoColab(c){
 }
 function examesDe(rs){
  const m={};
- rs.forEach(r=>(r.exames||[]).forEach(k=>{const p=+r.per||(EXAMES[k]||{}).p||12;m[k]=Math.min(m[k]||99,p)}));
- if(!m.clinico)m.clinico=rs.length?12:24;
+ rs.forEach(r=>(r.exames||[]).forEach(k=>{if(k==='clinico')return;const p=+r.per||(EXAMES[k]||{}).p||12;m[k]=Math.min(m[k]||99,p)}));
+ m.clinico=12; // ASO (exame clínico): vencimento fixo em 12 meses; os demais exames seguem a periodicidade do risco
  return m;
 }
 const chavesOrd=m=>Object.keys(EXAMES).filter(k=>m[k]);
