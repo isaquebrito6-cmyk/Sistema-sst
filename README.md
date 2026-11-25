@@ -245,3 +245,6 @@ Chave **Financeiro** no menu lateral (ao lado de SST e RH). Contratos e honorár
 
 ### Nota fiscal de serviço (ponte para o Emissor Nacional)
 Em Contas a receber, o botão **Nota** copia os dados do cliente e do serviço e abre o Emissor Nacional (nfse.gov.br, login gov.br). Depois da emissão, o número, a data e o link ficam registrados no lançamento (e saem no CSV). O app não emite a nota por conta própria.
+
+### ASO: vencimento em 12 meses
+O exame clínico vence sempre 12 meses após a data do exame. Em **Configurações → Vencimento dos ASOs**, o botão "Ajustar todos para 12 meses" corrige ASOs antigos com outra data de "próximo exame".

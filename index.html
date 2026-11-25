@@ -4127,6 +4127,13 @@ const FINA={
  finDel(d){ask('Excluir este lançamento? Isso não pode ser desfeito.','Excluir',()=>del('fin',d.id))}
 };
 
+const asoFora=()=>L('solicitacoes').filter(x=>x.aso&&x.aso.data&&x.aso.proximo&&x.aso.proximo!==addM(x.aso.data,12));
+function ajustarAso12(){
+ const l=asoFora();if(!l.length){toast('Todos os ASOs já estão com vencimento de 12 meses.',4000);return}
+ ask('Ajustar o próximo exame de '+l.length+' ASO(s) para 12 meses após a data do exame? Isso substitui as datas de "próximo exame" digitadas antes.','Ajustar',()=>{
+  l.forEach((x,i)=>{const r=clone(x);r.aso.proximo=addM(r.aso.data,12);save('solicitacoes',r,i<l.length-1)});
+  toast(l.length+' ASO(s) ajustado(s) para 12 meses.',4000);render()})
+}
 VIEWS.config=()=>{
  const c=CFG();
  return `<div class="grid"><div class="card"><h3>Dados da consultoria</h3><p class="sm muted" style="margin:0 0 10px">Aparecem no cabeçalho e nas assinaturas dos documentos.</p><p class="sm">${c.nome?`<b>${esc(c.nome)}</b><br>${esc(c.cnpj||'')}<br>${esc(c.resp||'')} ${esc(c.reg||'')}`:'Não preenchido'}</p><div class="row"><button class="btn s p" data-a="cfgForm">${ic('edit')}Editar dados</button><button class="btn s" data-a="logo">Enviar logotipo</button>${c.logo?'<button class="btn s g d" data-a="logoDel">Remover logo</button>':''}</div><input type="file" id="logo-f" accept="image/*" hidden data-c="logoF"></div>
@@ -4135,6 +4142,7 @@ VIEWS.config=()=>{
  <div class="card"><h3>Dados de exemplo</h3><p class="sm muted">Carrega uma empresa <b>fictícia</b> completa (não é um cliente real) para você testar a geração dos documentos. Fica junto com os seus dados até você excluir.</p><div class="row"><button class="btn s" data-a="demo">Carregar exemplo</button><button class="btn s d" data-a="wipe">Apagar todos os dados</button></div></div>
  ${planoCard()}
  <div class="card"><h3>Suporte</h3><p class="sm muted" style="margin:0 0 10px">${isSuper()?'Você é quem administra a plataforma.':'Dúvidas, problemas ou mudança de plano: fale com quem administra o seu acesso à plataforma.'}</p>${isSuper()?'':`<a class="btn s" href="mailto:${esc(SUPORTE_EMAIL)}?subject=${encodeURIComponent('Suporte — SST Gestão')}">${ic('send')}Falar com o suporte</a>`}</div>
+ <div class="card"><h3>Vencimento dos ASOs</h3><p class="sm muted" style="margin:0 0 10px">O vencimento do ASO padrão é de 12 meses. ASOs registrados antes dessa regra podem ter a data de "próximo exame" diferente (por exemplo 6 meses). Este botão acerta todos para 12 meses a partir da data do exame.</p><div class="row"><button class="btn" data-a="aso12">${ic('check')}Ajustar todos para 12 meses${asoFora().length?' ('+asoFora().length+')':''}</button></div></div>
  <div class="card"><h3>Perfis de acesso</h3><p class="sm muted" style="margin:0">O seletor no topo (Consultoria, Clínica, Empresa) é só uma pré-visualização para o administrador. Para as demais pessoas, o que cada perfil enxerga é limitado no servidor: a clínica só lê as solicitações dela e a empresa só lê os dados dela. Dados de saúde são sensíveis pela LGPD, então crie acessos apenas para quem precisa.</p>${S.usingAuth&&DB.db&&isC()?`<div class="row" style="margin-top:10px"><button class="btn s" data-a="migrarAcessos">Atualizar permissões de acesso</button>${isSuper()?'<button class="btn s" data-a="migrarConsultorias">Preparar multi-tenant</button>':''}</div><p class="sm muted" style="margin:6px 0 0">Execute uma vez após publicar as regras do Firestore e sempre que restaurar um backup: libera para cada clínica os dados das solicitações já existentes e move as respostas do checklist psicossocial para uma área que a empresa não lê.${isSuper()?' "Preparar multi-tenant" cria a sua consultoria ("main") e carimba os dados já existentes, para poder vender acesso a outras consultorias.':''}</p>`:''}</div>
  <div class="card"><h3>Documentos legais</h3><p class="sm muted" style="margin:0 0 10px">Termos e políticas que regem o uso da plataforma${isSuper()?' pelas consultorias clientes':''}.</p><div class="row"><a class="btn s" href="termos-de-uso.html" target="_blank" rel="noopener">${ic('file')}Termos de Uso</a><a class="btn s" href="politica-de-privacidade.html" target="_blank" rel="noopener">${ic('file')}Política de Privacidade</a><a class="btn s" href="acordo-tratamento-dados.html" target="_blank" rel="noopener">${ic('file')}Tratamento de Dados</a></div></div></div>`;
 };
@@ -5629,7 +5637,7 @@ nav(){S.nav=!S.nav;render()},
 ftGo(d){const el=document.getElementById(d.id);if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})},
 busca(){abrirBusca()},
 go(d){S.view=d.v;S.nav=false;S.q='';if(d.st!==undefined)S.fFinSt=d.st;window.scrollTo(0,0);render()},
-...RHA,...FINA,
+...RHA,...FINA,aso12(){ajustarAso12()},
 goEmp(d){S.emp=d.id;S.view=d.v;render()},
 closeForm(){closeForm()},
 closeDet(){S.det=null;$('#modal-root').innerHTML='';if(S.ficha)renderFicha()},
